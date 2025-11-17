@@ -1,0 +1,65 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+// models/User.js
+const userSchema = new mongoose.Schema({
+    username: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    password: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        required: function () { return this.role === 'admin'; }, // Required for admin
+        unique: true,
+        sparse: true // Allows null values but enforces uniqueness for non-null
+    },
+    phoneNumber: {
+        type: String,
+        required: function () { return this.role === 'admin'; } // Required for admin
+    },
+    firmName: {
+        type: String,
+        required: false // Optional
+    },
+    role: {
+        type: String,
+        enum: ['admin', 'supervisor', 'warehouse_manager'],
+        required: true
+    },
+    siteId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Site',
+        required: function () { return this.role === 'supervisor'; }
+    },
+    warehouseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Warehouse',
+        required: function () { return this.role === 'warehouse_manager'; }
+    }
+});
+
+// Hash password before saving
+userSchema.pre('save', async function (next) {
+    // Only hash the password if it's modified (or new)
+    if (!this.isModified('password')) return next();
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
+module.exports = mongoose.model('User', userSchema);
