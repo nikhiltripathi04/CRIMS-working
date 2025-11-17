@@ -33,11 +33,14 @@ import SupplyRequestStatusScreen from '@/screens/SupplyRequestStatusScreen';
 const Stack = createStackNavigator();
 
 let AdminDashboardScreen;
+let CreateSiteScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
+  CreateSiteScreenScreen = require('../screens/CreateSiteScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
+  CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
 }
 
 export default function AppNavigator() {
