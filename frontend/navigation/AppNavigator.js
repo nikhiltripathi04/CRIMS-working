@@ -38,6 +38,7 @@ let CreateWarehouseScreenScreen;
 let SiteDetailsScreenScreen;
 let ManageWorkersScreenScreen;
 let ManageSuppliesScreenScreen;
+let ManageSupervisorsScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -46,6 +47,7 @@ if (Platform.OS === 'web') {
   SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen.web').default;
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen.web').default;
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen.web').default;
+  ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -53,6 +55,7 @@ if (Platform.OS === 'web') {
   SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen').default;
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen').default;
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen').default;
+  ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen').default;
 }
 
 export default function AppNavigator() {
