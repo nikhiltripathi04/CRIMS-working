@@ -518,7 +518,7 @@ export default function WarehouseDetailsWeb({ route }) {
                 )}
             </CardBody>
             <CardFooter>
-                <LinkButton onClick={() => navigation.navigate('WarehouseSupplies', { warehouse, currencyUnit })}>View Full Inventory →</LinkButton>
+                <LinkButton onClick={() => navigation.navigate('WarehouseSupplies', { warehouse, currencyUnit, canEdit: user?.role === 'admin' })}>View Full Inventory →</LinkButton>
             </CardFooter>
         </Card>
     );
@@ -600,7 +600,7 @@ export default function WarehouseDetailsWeb({ route }) {
                             <WarehouseLocation>📍 {warehouse.location || 'Location not set'}</WarehouseLocation>
                         </div>
                         <WarehouseActions>
-                            <ActionButton className="primary" onClick={() => navigation.navigate('WarehouseSupplies', { warehouse, currencyUnit })}>Supplies</ActionButton>
+                            <ActionButton className="primary" onClick={() => navigation.navigate('WarehouseSupplies', { warehouse, currencyUnit, canEdit: user?.role === 'admin' })}>Supplies</ActionButton>
                             {user?.role === 'admin' && (
                                 <ActionButton className="ghost" onClick={() => navigation.navigate('ManageWarehouseManagers', { warehouse, adminId: user.id })}>Managers</ActionButton>
                             )}

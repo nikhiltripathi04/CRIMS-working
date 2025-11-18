@@ -40,6 +40,7 @@ let ManageWorkersScreenScreen;
 let ManageSuppliesScreenScreen;
 let ManageSupervisorsScreenScreen;
 let WarehouseDetailsScreenScreen;
+let WarehouseSuppliesScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -50,6 +51,7 @@ if (Platform.OS === 'web') {
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen.web').default;
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen.web').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen.web').default;
+  WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -59,6 +61,7 @@ if (Platform.OS === 'web') {
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen').default;
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen').default;
+  WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen').default;
 }
 
 export default function AppNavigator() {
@@ -180,8 +183,8 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreenScreen} options={{ headerShown: false }} />
             
-            <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreen} options={{ headerShown: false }} />
-            
+            {/* <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreenScreen} options={{ headerShown: false }} />
             
             <Stack.Screen name="WarehouseReports" component={WarehouseReportsScreen} options={{ headerShown: false }} />
             
