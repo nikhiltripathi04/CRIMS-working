@@ -37,6 +37,7 @@ let CreateSiteScreenScreen;
 let CreateWarehouseScreenScreen;
 let SiteDetailsScreenScreen;
 let ManageWorkersScreenScreen;
+let ManageSuppliesScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -44,12 +45,14 @@ if (Platform.OS === 'web') {
   CreateWarehouseScreenScreen = require('../screens/CreateWarehouseScreen.web').default;
   SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen.web').default;
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen.web').default;
+  ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
   CreateWarehouseScreenScreen = require('../screens/CreateWarehouseScreen').default;
   SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen').default;
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen').default;
+  ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen').default;
 }
 
 export default function AppNavigator() {
@@ -177,8 +180,8 @@ export default function AppNavigator() {
             <Stack.Screen name="WarehouseReports" component={WarehouseReportsScreen} options={{ headerShown: false }} />
             
             
-            <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} />
-            
+            {/* <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreenScreen} options={{ headerShown: false }} />
             
             {/* <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreenScreen} options={{ headerShown: false }} />
