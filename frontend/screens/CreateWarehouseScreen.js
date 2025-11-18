@@ -73,7 +73,7 @@ const CreateWarehouseScreen = ({ navigation }) => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#E69138" />
+            <StatusBar barStyle="light-content" backgroundColor="#e69138ff" />
 
             {/* Header */}
             <View style={styles.header}>
