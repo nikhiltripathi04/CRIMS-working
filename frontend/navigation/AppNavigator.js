@@ -35,15 +35,18 @@ const Stack = createStackNavigator();
 let AdminDashboardScreen;
 let CreateSiteScreenScreen;
 let CreateWarehouseScreenScreen;
+let SiteDetailsScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen.web').default;
   CreateWarehouseScreenScreen = require('../screens/CreateWarehouseScreen.web').default;
+  SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
   CreateWarehouseScreenScreen = require('../screens/CreateWarehouseScreen').default;
+  SiteDetailsScreenScreen = require('../screens/SiteDetailsScreen').default;
 }
 
 export default function AppNavigator() {
@@ -159,8 +162,8 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreenScreen} options={{ headerShown: false }} />
             
-            <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} />
-            
+            {/* <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="SiteDetails" component={SiteDetailsScreenScreen} options={{ headerShown: false }} />
             
             <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} />
             
