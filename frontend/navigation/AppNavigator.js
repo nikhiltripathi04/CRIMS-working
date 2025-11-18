@@ -62,6 +62,7 @@ if (Platform.OS === 'web') {
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen').default;
+  
 }
 
 export default function AppNavigator() {
