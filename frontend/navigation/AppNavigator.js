@@ -39,6 +39,7 @@ let SiteDetailsScreenScreen;
 let ManageWorkersScreenScreen;
 let ManageSuppliesScreenScreen;
 let ManageSupervisorsScreenScreen;
+let WarehouseDetailsScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -48,6 +49,7 @@ if (Platform.OS === 'web') {
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen.web').default;
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen.web').default;
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen.web').default;
+  WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -56,6 +58,7 @@ if (Platform.OS === 'web') {
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen').default;
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen').default;
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen').default;
+  WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen').default;
 }
 
 export default function AppNavigator() {
@@ -174,8 +177,8 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="SiteDetails" component={SiteDetailsScreenScreen} options={{ headerShown: false }} />
             
-            <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} />
-            
+            {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreenScreen} options={{ headerShown: false }} />
             
             <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreen} options={{ headerShown: false }} />
             
