@@ -41,6 +41,7 @@ let ManageSuppliesScreenScreen;
 let ManageSupervisorsScreenScreen;
 let WarehouseDetailsScreenScreen;
 let WarehouseSuppliesScreenScreen;
+let ManageWarehouseManagersScreenScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -52,6 +53,7 @@ if (Platform.OS === 'web') {
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen.web').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen.web').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen.web').default;
+  ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -62,6 +64,7 @@ if (Platform.OS === 'web') {
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen').default;
+  ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen').default;
   
 }
 
@@ -201,9 +204,14 @@ export default function AppNavigator() {
             
             <Stack.Screen name="Announcements" component={Announcements} options={{ headerShown: false }} />
             
-            <Stack.Screen
+            {/* <Stack.Screen
               name="ManageWarehouseManagers"
               component={ManageWarehouseManagersScreen}
+              options={{ headerShown: false }}
+            /> */}
+            <Stack.Screen
+              name="ManageWarehouseManagers"
+              component={ManageWarehouseManagersScreenScreen}
               options={{ headerShown: false }}
             />
           </>

@@ -936,29 +936,29 @@ router.post('/:warehouseId/supplies/bulk-import', validateUser, async (req, res)
     }
 });
 
-// router.delete('/:warehouseId/managers/:managerId', validateUser, adminOnly, async (req, res) => {
-//     try {
-//         const { warehouseId, managerId } = req.params;
+router.delete('/:warehouseId/managers/:managerId', validateUser, adminOnly, async (req, res) => {
+    try {
+        const { warehouseId, managerId } = req.params;
 
-//         // Remove manager from warehouse managers array
-//         const warehouse = await Warehouse.findByIdAndUpdate(
-//             warehouseId,
-//             { $pull: { managers: managerId } },
-//             { new: true }
-//         );
+        // Remove manager from warehouse managers array
+        const warehouse = await Warehouse.findByIdAndUpdate(
+            warehouseId,
+            { $pull: { managers: managerId } },
+            { new: true }
+        );
 
-//         if (!warehouse) {
-//             return res.status(404).json({ success: false, message: 'Warehouse not found' });
-//         }
+        if (!warehouse) {
+            return res.status(404).json({ success: false, message: 'Warehouse not found' });
+        }
 
-//         // Delete the user document
-//         await User.deleteOne({ _id: managerId, role: 'warehouse_manager', warehouseId });
+        // Delete the user document
+        await User.deleteOne({ _id: managerId, role: 'warehouse_manager', warehouseId });
 
-//         res.json({ success: true, message: 'Manager removed successfully' });
-//     } catch (e) {
-//         res.status(500).json({ success: false, message: e.message });
-//     }
-// });
+        res.json({ success: true, message: 'Manager removed successfully' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
 // Add this route BEFORE the /:warehouseId route in your warehouse routes file
 
 // Replace your existing DELETE /:warehouseId route with this safe version
