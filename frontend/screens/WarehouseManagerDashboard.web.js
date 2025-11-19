@@ -43,6 +43,128 @@ const WebAlert = (title, message, buttons) => {
     }
 };
 
+// --- Styled Components for Supply Request Modal ---
+
+const FullModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const FullModalContainer = styled.div`
+  background-color: #f4f6f9;
+  width: 90%;
+  max-width: 800px;
+  height: 85vh;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const FullModalHeader = styled.div`
+  background: #fff;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+  }
+`;
+
+const RequestsList = styled.div`
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+`;
+
+const RequestCard = styled.div`
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #e5e7eb;
+`;
+
+const RequestHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+`;
+
+const RequestSite = styled.span`
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+`;
+
+const RequestDate = styled.span`
+  font-size: 13px;
+  color: #666;
+`;
+
+const RequestItem = styled.p`
+  font-size: 16px;
+  font-weight: 600;
+  color: #E69138;
+  margin: 0 0 5px;
+`;
+
+const RequestQuantity = styled.p`
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 16px;
+`;
+
+const RequestActions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+`;
+
+const ActionButton = styled.button`
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &.approve { background-color: #28a745; }
+  &.reject { background-color: #dc3545; }
+
+  &:hover { opacity: 0.85; }
+`;
+
+const StatusBadge = styled.div`
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  background-color: ${props => {
+    if (props.status === 'approved') return '#28a745';
+    if (props.status === 'rejected') return '#dc3545';
+    return '#6c757d';
+  }};
+`;
+
 // --- Component Implementation ---
 
 const WarehouseManagerDashboard = ({ navigation }) => {
@@ -341,97 +463,88 @@ const WarehouseManagerDashboard = ({ navigation }) => {
     );
 
     const renderSupplyRequest = (item) => (
-        <div className="request-card" key={item._id}>
-            <div className="request-header">
-                <span className="request-site">{item.siteName}</span>
-                <span className="request-date">{new Date(item.createdAt).toLocaleDateString()}</span>
-            </div>
+        <RequestCard key={item._id}>
+            <RequestHeader>
+                <RequestSite>{item.siteName}</RequestSite>
+                <RequestDate>{new Date(item.createdAt).toLocaleDateString()}</RequestDate>
+            </RequestHeader>
 
-            <p className="request-item">{item.itemName}</p>
-            <p className="request-quantity">Requested: <strong>{item.requestedQuantity} {item.unit}</strong></p>
+            <RequestItem>{item.itemName}</RequestItem>
+            <RequestQuantity>Requested: <strong>{item.requestedQuantity} {item.unit}</strong></RequestQuantity>
 
             {item.status === 'pending' && (
-                <div className="request-actions">
-                    <button
-                        className="action-button approve"
+                <RequestActions>
+                    <ActionButton
+                        className="approve"
                         onClick={() => {
                             const requestedQty = item.requestedQuantity;
                             const unit = item.unit;
 
                             WebAlert(
                                 'Approve Transfer',
-                                `Transfer ${item.itemName} to ${item.siteName}?\n\nRequested: ${requestedQty} ${unit}`,
+                                `Transfer ${item.itemName} to ${item.siteName}?\nRequested: ${requestedQty} ${unit}`,
                                 [
-                                    {
-                                        text: 'Cancel',
-                                        style: 'cancel',
-                                        onPress: () => console.log('Transfer cancelled')
-                                    },
+                                    { text: 'Cancel', style: 'cancel' },
                                     {
                                         text: `Transfer Full Amount (${requestedQty} ${unit})`,
-                                        onPress: () => {
-                                            handleSupplyRequest(item._id, 'approve', requestedQty);
-                                        }
+                                        onPress: () => handleSupplyRequest(item._id, 'approve', requestedQty)
                                     },
                                     ...(requestedQty > 1 ? [{
                                         text: `Transfer Half (${Math.floor(requestedQty / 2)} ${unit})`,
-                                        onPress: () => {
-                                            const halfQty = Math.floor(requestedQty / 2);
-                                            handleSupplyRequest(item._id, 'approve', halfQty);
-                                        }
+                                        onPress: () => handleSupplyRequest(item._id, 'approve', Math.floor(requestedQty / 2))
                                     }] : [])
                                 ]
                             );
                         }}
                     >
-                        Approve & Transfer
-                    </button>
+                        Approve &amp; Transfer
+                    </ActionButton>
 
-                    <button
-                        className="action-button reject"
+                    <ActionButton
+                        className="reject"
                         onClick={() => handleSupplyRequest(item._id, 'reject', 0)}
                     >
                         Reject
-                    </button>
-                </div>
+                    </ActionButton>
+                </RequestActions>
             )}
 
             {item.status !== 'pending' && (
-                <div className={`status-badge ${item.status}`}>
-                    <span className="status-text">{item.status.toUpperCase()}{item.transferQuantity ? ` (${item.transferQuantity} ${item.unit} transferred)` : ''}</span>
-                </div>
+                <StatusBadge status={item.status}>
+                    {item.status.toUpperCase()}{item.transferQuantity ? ` (${item.transferQuantity} ${item.unit} transferred)` : ''}
+                </StatusBadge>
             )}
-        </div>
+        </RequestCard>
     );
 
     const renderSupplyRequestsModal = () => (
         showSupplyRequestsModal && (
-            <div className="full-modal-container">
-                <div className="full-modal-header">
-                    <h2 className="full-modal-title">Supply Requests</h2>
-                    <button className="close-button" onClick={() => setShowSupplyRequestsModal(false)}>
-                        <IoClose size={24} color="#FFFFFF" />
-                    </button>
-                </div>
+            <FullModalOverlay onClick={() => setShowSupplyRequestsModal(false)}>
+                <FullModalContainer onClick={(e) => e.stopPropagation()}>
+                    <FullModalHeader>
+                        <h2>Supply Requests</h2>
+                        <LogoutButton onClick={() => setShowSupplyRequestsModal(false)}>
+                            <IoClose size={24} color="#333" />
+                        </LogoutButton>
+                    </FullModalHeader>
 
-                <div className="requests-list">
-                    {isRefreshing ? (
-                        <div className="loading-container" style={{ minHeight: '300px', paddingTop: '0' }}>
-                            <p className="loading-text">Loading requests...</p>
-                        </div>
-                    ) : supplyRequests.length > 0 ? (
-                        supplyRequests.map(renderSupplyRequest)
-                    ) : (
-                        <div className="empty-requests-container">
-                            <IoPaperPlaneOutline size={64} color="#ccc" />
-                            <p className="empty-requests-text">No supply requests</p>
-                            <p className="empty-requests-subtext">
-                                Site supervisors can request supplies from your warehouse
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
+                    <RequestsList>
+                        {isRefreshing ? (
+                            <div style={{ textAlign: 'center', padding: '40px' }}>Loading requests...</div>
+                        ) : supplyRequests.length > 0 ? (
+                            supplyRequests.map(renderSupplyRequest)
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
+                                <IoPaperPlaneOutline size={50} style={{ marginBottom: '15px', color: '#ccc' }} />
+                                <p style={{ margin: '5px 0', fontSize: '16px', fontWeight: '500' }}>No supply requests</p>
+                                <p style={{ margin: '5px 0', fontSize: '14px' }}>
+                                    Site supervisors can request supplies from your warehouse.
+                                </p>
+                            </div>
+                        )}
+                    </RequestsList>
+                </FullModalContainer>
+            </FullModalOverlay>
         )
     );
 
@@ -451,7 +564,7 @@ const WarehouseManagerDashboard = ({ navigation }) => {
                         <LogoutButton onClick={handleLogout}>
                             <IoLogOutOutline size={24} color="#FFFFFF" />
                         </LogoutButton>
-                    </Header>
+                    </Header> 
                     <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1}}><p>Loading warehouse details...</p></div>
                 </PageContainer>
             </>
@@ -475,7 +588,7 @@ const WarehouseManagerDashboard = ({ navigation }) => {
                             <IoRefresh size={20} />
                         </RefreshButton>
                         <LogoutButton onClick={handleLogout}>
-                        <IoLogOutOutline size={24} color="#FFFFFF" />
+                            <IoLogOutOutline size={24} color="#FFFFFF" />
                         </LogoutButton>
                     </HeaderActions>
                 </Header>
@@ -572,6 +685,8 @@ const PageContainer = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  height: 100vh; /* Set a fixed height */
+  overflow: hidden; /* Prevent the container itself from scrolling */
   background-color: #f4f6f9;
 `;
 
@@ -579,6 +694,8 @@ const Header = styled.header`
   background: linear-gradient(90deg, #E69138, #C97713);
   color: #fff;
   padding: 20px 30px;
+  position: sticky; /* Make header sticky */
+  top: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -615,6 +732,7 @@ const HeaderButton = styled.button`
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s;
+  
   &:hover {
     background-color: rgba(255,255,255,0.25);
   }
@@ -629,6 +747,8 @@ const RefreshButton = styled(HeaderButton)``;
 
 const MainContent = styled.main`
   flex: 1;
+  overflow-y: auto; /* Allow vertical scrolling within this component */
+  height: 0; /* Necessary for flexbox to calculate overflow correctly */
   padding: 20px 30px;
   max-width: 1200px;
   margin: 0 auto;
