@@ -43,6 +43,8 @@ let WarehouseDetailsScreenScreen;
 let WarehouseSuppliesScreenScreen;
 let ManageWarehouseManagersScreenScreen;
 let WarehouseManagerDashboardScreen;
+let WarehouseReportsScreenScreen;
+
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -56,6 +58,8 @@ if (Platform.OS === 'web') {
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen.web').default;
   ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen.web').default;
   WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard.web').default;
+  WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen.web').default;
+
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -68,6 +72,7 @@ if (Platform.OS === 'web') {
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen').default;
   ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen').default;
   WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard').default;
+  WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen').default;
   
 }
 
@@ -232,9 +237,14 @@ export default function AppNavigator() {
               component={WarehouseSuppliesScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen
+            {/* <Stack.Screen
               name="WarehouseReports"
               component={WarehouseReportsScreen}
+              options={{ headerShown: false }}
+            /> */}
+            <Stack.Screen
+              name="WarehouseReports"
+              component={WarehouseReportsScreenScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen
