@@ -45,6 +45,7 @@ let ManageWarehouseManagersScreenScreen;
 let WarehouseManagerDashboardScreen;
 let WarehouseReportsScreenScreen;
 let SupervisorDashboardScreen;
+let CreateSupplyRequestScreenScreen;
 
 
 if (Platform.OS === 'web') {
@@ -61,6 +62,7 @@ if (Platform.OS === 'web') {
   WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard.web').default;
   WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen.web').default;
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard.web').default;
+  CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen.web').default;
 
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
@@ -76,6 +78,7 @@ if (Platform.OS === 'web') {
   WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard').default;
   WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen').default;
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard').default;
+  CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen').default;
 
 }
 
@@ -210,8 +213,8 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreenScreen} options={{ headerShown: false }} />
             
-            <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreen} options={{ headerShown: false }} />
-            
+            {/* <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreenScreen} options={{ headerShown: false }} />
             
             <Stack.Screen name="Announcements" component={Announcements} options={{ headerShown: false }} />
             
@@ -267,7 +270,9 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} options={{ headerShown: false }} /> */}
             <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboardScreen} options={{ headerShown: false }} />
 
-            <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} />
+            {/* <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreenScreen} options={{ headerShown: false }} />
+
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} />
             <Stack.Screen
               name="CreateSupplyRequest"
