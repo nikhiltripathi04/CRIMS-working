@@ -47,6 +47,7 @@ let WarehouseReportsScreenScreen;
 let SupervisorDashboardScreen;
 let CreateSupplyRequestScreenScreen;
 let AttendanceReportScreen;
+let AnnouncementsScreen;
 
 
 if (Platform.OS === 'web') {
@@ -65,6 +66,7 @@ if (Platform.OS === 'web') {
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard.web').default;
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen.web').default;
   AttendanceReportScreen = require('../screens/AttendanceReport.web').default;
+  AnnouncementsScreen = require('../screens/Announcements.web').default;
 
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
@@ -82,6 +84,7 @@ if (Platform.OS === 'web') {
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard').default;
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen').default;
   AttendanceReportScreen = require('../screens/AttendanceReport').default;
+  AnnouncementsScreen = require('../screens/Announcements').default;
 
 }
 

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
 import { IoArrowBack } from 'react-icons/io5';
-// Using standard React-Router-Dom for navigation on web, 
-// but since the original used navigation.goBack(), we'll mock it.
 
 // Mock useAuth for demonstration; replace with your actual web-compatible context
 const useAuth = () => ({
@@ -10,12 +9,15 @@ const useAuth = () => ({
     user: { id: 'web-user-id' }
 });
 
+// Mock component for the web: replace with a proper link/button component
+
 // Helper for currency formatting
 const formatCurrency = (value, unit) => `${unit}${parseFloat(value).toFixed(2)}`;
 
-const WarehouseReportsScreen = ({ route, navigation }) => {
+const WarehouseReportsScreen = ({ route }) => {
     // Note: For a true web app with React Router, route params might come from 
     // `useParams()` or `useLocation()`. We'll assume the same structure as RN for now.
+    const navigation = useNavigation();
     const warehouse = route?.params?.warehouse || { 
         _id: 'mock-wh-id', 
         warehouseName: 'Mock Web Warehouse',
@@ -93,10 +95,6 @@ const WarehouseReportsScreen = ({ route, navigation }) => {
         }
     };
 
-    const handleGoBack = () => {
-        navigation.goBack();
-    };
-
     const renderRecentTransfer = (item) => (
         <div key={item.id} style={styles.transferCard}>
             <div style={styles.transferHeader}>
@@ -131,7 +129,7 @@ const WarehouseReportsScreen = ({ route, navigation }) => {
             {/* Standard web styling for the gradient background */}
             <div style={styles.gradient}>
                 <div style={styles.header}>
-                    <button onClick={handleGoBack} style={styles.backButton}>
+                    <button onClick={() => navigation.goBack()} style={styles.backButton}>
                         <IoArrowBack size={24} color="#FFFFFF" />
                     </button>
 
@@ -239,7 +237,9 @@ const styles = {
         cursor: 'pointer',
         width: '40px',
         height: '40px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         flexShrink: 0, // Prevent shrinking on small screens
     },
     headerContent: {
