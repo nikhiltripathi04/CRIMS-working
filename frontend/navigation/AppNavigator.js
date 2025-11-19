@@ -42,6 +42,7 @@ let ManageSupervisorsScreenScreen;
 let WarehouseDetailsScreenScreen;
 let WarehouseSuppliesScreenScreen;
 let ManageWarehouseManagersScreenScreen;
+let WarehouseManagerDashboardScreen;
 
 if (Platform.OS === 'web') {
   AdminDashboardScreen = require('../screens/AdminDashboard.web').default;
@@ -54,6 +55,7 @@ if (Platform.OS === 'web') {
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen.web').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen.web').default;
   ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen.web').default;
+  WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -65,6 +67,7 @@ if (Platform.OS === 'web') {
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen').default;
   ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen').default;
+  WarehouseManagerDashboardScreen = require('../screens/WarehouseManagerDashboard').default;
   
 }
 
@@ -218,7 +221,10 @@ export default function AppNavigator() {
         ) : user.role === 'warehouse_manager' ? (
           // ------- WAREHOUSE MANAGER --------
           <>
-            <Stack.Screen name="WarehouseManagerDashboard" component={WarehouseManagerDashboard} options={{ headerShown: false }} />
+            {/* <Stack.Screen name="WarehouseManagerDashboard" component={WarehouseManagerDashboard} options={{ headerShown: false }} /> */}
+            <Stack.Screen name="WarehouseManagerDashboard" component={WarehouseManagerDashboardScreen} options={{ headerShown: false }} />
+            
+            
             {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
             {/* Add any other manager-specific screens here */}
             <Stack.Screen
