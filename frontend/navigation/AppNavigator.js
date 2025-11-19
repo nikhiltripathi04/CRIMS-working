@@ -46,6 +46,7 @@ let WarehouseManagerDashboardScreen;
 let WarehouseReportsScreenScreen;
 let SupervisorDashboardScreen;
 let CreateSupplyRequestScreenScreen;
+let AttendanceReportScreen;
 
 
 if (Platform.OS === 'web') {
@@ -63,6 +64,7 @@ if (Platform.OS === 'web') {
   WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen.web').default;
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard.web').default;
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen.web').default;
+  AttendanceReportScreen = require('../screens/AttendanceReport.web').default;
 
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
@@ -79,6 +81,7 @@ if (Platform.OS === 'web') {
   WarehouseReportsScreenScreen = require('../screens/WarehouseReportsScreen').default;
   SupervisorDashboardScreen = require('../screens/SupervisorDashboard').default;
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen').default;
+  AttendanceReportScreen = require('../screens/AttendanceReport').default;
 
 }
 
@@ -274,9 +277,14 @@ export default function AppNavigator() {
             <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreenScreen} options={{ headerShown: false }} />
 
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} />
-            <Stack.Screen
+            {/* <Stack.Screen
               name="CreateSupplyRequest"
               component={CreateSupplyRequestScreen}
+              options={{ headerShown: false }}
+            /> */}
+            <Stack.Screen
+              name="CreateSupplyRequest"
+              component={CreateSupplyRequestScreenScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen name="AttendanceReport" component={AttendanceReport} options={{ headerShown: false }} />
