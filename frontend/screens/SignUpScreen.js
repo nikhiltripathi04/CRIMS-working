@@ -95,15 +95,28 @@ const SignUpScreen = () => {
             setLoading(false);
 
             if (response.data.success) {
-                Alert.alert('Success', 'Account created successfully! You can now log in.', [
-                    { text: 'OK', onPress: () => navigation.navigate('Login') }
-                ]);
+                console.log('✅ Signup Successful');
+                if (Platform.OS === 'web') {
+                    window.alert('Account created successfully! You can now log in.');
+                    navigation.navigate('Login');
+                } else {
+                    Alert.alert('Success', 'Account created successfully! You can now log in.', [
+                        { text: 'OK', onPress: () => navigation.navigate('Login') }
+                    ]);
+                }
             }
         } catch (error) {
+            console.log('❌ Signup Error Details:', JSON.stringify({
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                url: fullUrl
+            }, null, 2));
             setLoading(false);
             const errorData = error.response?.data;
 
             if (errorData) {
+                console.log('⚠️ Handling error type:', errorData.errorType);
                 switch (errorData.errorType) {
                     case 'USERNAME_EXISTS':
                         Alert.alert(
@@ -124,7 +137,13 @@ const SignUpScreen = () => {
                         Alert.alert('Email Already Registered', errorData.message || 'This email is already in use.');
                         break;
                     default:
-                        Alert.alert('Registration Failed', errorData.message || 'An unknown error occurred.');
+                        console.log('⚠️ Hit default error handler');
+                        const msg = errorData.message || 'An unknown error occurred.';
+                        if (Platform.OS === 'web') {
+                            window.alert('Registration Failed: ' + msg);
+                        } else {
+                            Alert.alert('Registration Failed', msg);
+                        }
                         break;
                 }
             } else {
@@ -255,7 +274,7 @@ const SignUpScreen = () => {
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={styles.poweredBy}>Powered by FeathrTech</Text> 
+                            <Text style={styles.poweredBy}>Powered by FeathrTech</Text>
                         </View>
                     </ScrollView>
                 </View>

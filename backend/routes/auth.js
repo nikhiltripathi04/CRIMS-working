@@ -66,6 +66,7 @@ router.post('/login', async (req, res) => {
 
 // ✅ REGISTER Admin
 router.post('/register', async (req, res) => {
+  console.log('📝 Register request received:', req.body);
   try {
     const { username, password, email, phoneNumber, firmName } = req.body;
 
@@ -79,17 +80,21 @@ router.post('/register', async (req, res) => {
     // Manually check if username or email already exists
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
+      console.log('❌ Username already exists:', username);
       return res.status(400).json({
         success: false,
-        message: 'Username already exists'
+        message: 'Username already exists',
+        errorType: 'USERNAME_EXISTS'
       });
     }
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
+      console.log('❌ Email already exists:', email);
       return res.status(400).json({
         success: false,
-        message: 'Email already exists'
+        message: 'Email already exists',
+        errorType: 'EMAIL_EXISTS'
       });
     }
 
