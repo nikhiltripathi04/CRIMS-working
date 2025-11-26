@@ -28,6 +28,9 @@ import WarehouseReportsScreen from '../screens/WarehouseReportsScreen';
 import ManageWarehouseManagersScreen from '../screens/ManageWarehouseManagersScreen';
 import CreateSupplyRequestScreen from '@/screens/CreateSupplyRequestScreen';
 import SupplyRequestStatusScreen from '@/screens/SupplyRequestStatusScreen';
+import CreateStaffScreen from '@/screens/CreateStaffScreen';
+import StaffDetailsScreen from '@/screens/StaffDetailsScreen';
+import StaffDashboardWeb from '@/screens/StaffDashboard';
 // ...other imports // Import the ResetPasswordScreen
 
 const Stack = createStackNavigator();
@@ -48,6 +51,9 @@ let SupervisorDashboardScreen;
 let CreateSupplyRequestScreenScreen;
 let AttendanceReportScreen;
 let AnnouncementsScreen;
+let CreateStaffScreenScreen;
+let StaffDetailsScreenScreen;
+let StaffDashboardScreen;
 
 
 if (Platform.OS === 'web') {
@@ -67,6 +73,9 @@ if (Platform.OS === 'web') {
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen.web').default;
   AttendanceReportScreen = require('../screens/AttendanceReport.web').default;
   AnnouncementsScreen = require('../screens/Announcements.web').default;
+  CreateStaffScreenScreen = require('../screens/CreateStaffScreen.web').default;
+  StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen.web').default;
+  StaffDashboardScreen = require('../screens/StaffDashboard.web').default;
 
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
@@ -201,12 +210,16 @@ export default function AppNavigator() {
             {/* <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreenScreen} options={{ headerShown: false }} />
             
+            <Stack.Screen name="CreateStaff" component={CreateStaffScreenScreen} options={{ headerShown: false }} />
+
             {/* <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="SiteDetails" component={SiteDetailsScreenScreen} options={{ headerShown: false }} />
             
             {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreenScreen} options={{ headerShown: false }} />
             
+            <Stack.Screen name="StaffDetails" component={StaffDetailsScreenScreen} options={{ headerShown: false }} />
+
             {/* <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreenScreen} options={{ headerShown: false }} />
             
@@ -269,6 +282,12 @@ export default function AppNavigator() {
               component={SupplyRequestStatusScreen}
               options={{ headerShown: false }}
             />
+          </>
+        ) : user.role === 'staff' ? (
+          // ------- STAFF --------
+          <>
+            <Stack.Screen name="StaffDashboard" component={StaffDashboardScreen} options={{ headerShown: false }} />
+            
           </>
         ) : (
           // ------- SUPERVISOR --------

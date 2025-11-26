@@ -21,10 +21,12 @@ const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 const isIpad = isIOS && Platform.isPad;
 
+// Updated ROLES array to include Staff
 const ROLES = [
   { key: 'admin', label: 'Admin', color: '#0088E0' },
   { key: 'supervisor', label: 'Supervisor', color: '#4CAF50' },
   { key: 'warehouse_manager', label: 'Warehouse Manager', color: '#E69138' },
+  { key: 'staff', label: 'Staff', color: '#9C27B0' }, // Added Staff role (Purple)
 ];
 
 function getRoleInfo(index) {
@@ -54,6 +56,7 @@ const LoginScreen = () => {
       return;
     }
     setLoading(true);
+    // The login function handles the specific endpoint based on roleInfo.key
     const result = await login(username, password, roleInfo.key);
     setLoading(false);
 

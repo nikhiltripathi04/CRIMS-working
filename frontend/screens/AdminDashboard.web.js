@@ -1,4 +1,3 @@
-// AdminDashboard.web.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -6,13 +5,40 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function AdminDashboardWeb() {
-  const { user, API_BASE_URL, logout } = useAuth();
+  // Added 'token' to destructuring to use in Authorization headers
+  const { user, API_BASE_URL, logout, token } = useAuth();
   const navigation = useNavigation();
+  
   const [loading, setLoading] = useState(true);
   const [sites, setSites] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [staff, setStaff] = useState([]); // NEW: Staff state
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+
+  // --- 1. Fetch Staff ---
+  const fetchStaff = useCallback(async () => {
+    if (!user || !user.id) {
+      setStaff([]);
+      return;
+    }
+    try {
+      // API Guide requires Authorization header
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      
+      const res = await axios.get(`${API_BASE_URL}/api/staff`, config);
+      if (res.data && res.data.success) {
+        setStaff(res.data.data || []);
+      } else {
+        setStaff([]);
+      }
+    } catch (err) {
+      console.error('fetchStaff web error', err);
+      // Optional: Don't alert on every load, but good for debugging
+    }
+  }, [user, API_BASE_URL, token]);
 
   const fetchSites = useCallback(async () => {
     if (!user || !user.id) {
@@ -50,68 +76,93 @@ export default function AdminDashboardWeb() {
     }
   }, [user, API_BASE_URL]);
 
+  // Updated fetchAll to include fetchStaff
   const fetchAll = useCallback(async () => {
     if (!user) return;
     setRefreshing(true);
-    await Promise.all([fetchSites(), fetchWarehouses()]);
+    await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff()]);
     setRefreshing(false);
-  }, [fetchSites, fetchWarehouses, user]);
+  }, [fetchSites, fetchWarehouses, fetchStaff, user]);
 
   useEffect(() => {
     fetchAll();
   }, [user]);
 
+  // Add focus listener to refresh data when returning from details screens
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchAll();
+    });
+    return unsubscribe;
+  }, [navigation, fetchAll]);
+
   const handleLogout = useCallback(() => {
     logout();
   }, [logout]);
 
-  const confirmDeleteSite = useCallback(
-    (siteId) => {
-      if (!siteId || !user) return;
-      const proceed = window.confirm('Are you sure you want to delete this site?');
-      if (!proceed) return;
-      axios
-        .delete(`${API_BASE_URL}/api/sites/${siteId}?adminId=${user.id}`)
-        .then(() => {
-          fetchSites();
-          alert('Success: Site deleted.');
-        })
-        .catch((err) => {
-          console.error(err);
-          alert('Failed to delete site');
-        });
-    },
-    [API_BASE_URL, fetchSites, user]
+  // --- 2. Delete Staff Logic ---
+  const confirmDeleteStaff = useCallback(async (staffId) => {
+    if (!staffId) return;
+    const proceed = window.confirm('Are you sure you want to delete this staff member?');
+    if (!proceed) return;
+
+    try {
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      await axios.delete(`${API_BASE_URL}/api/staff/${staffId}`, config);
+      fetchStaff(); // Refresh list
+      alert('Success: Staff member deleted.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete staff member');
+    }
+  }, [API_BASE_URL, fetchStaff, token]);
+
+  const confirmDeleteSite = useCallback((siteId) => {
+    if (!siteId || !user) return;
+    const proceed = window.confirm('Are you sure you want to delete this site?');
+    if (!proceed) return;
+    axios.delete(`${API_BASE_URL}/api/sites/${siteId}?adminId=${user.id}`)
+      .then(() => {
+        fetchSites();
+        alert('Success: Site deleted.');
+      })
+      .catch((err) => {
+        console.error(err);
+        alert('Failed to delete site');
+      });
+  }, [API_BASE_URL, fetchSites, user]);
+
+  const confirmDeleteWarehouse = useCallback((whId) => {
+    if (!whId || !user) return;
+    const proceed = window.confirm('Delete warehouse and all associated managers?');
+    if (!proceed) return;
+    axios.delete(`${API_BASE_URL}/api/warehouses/${whId}?adminId=${user.id}`)
+      .then(() => {
+        fetchWarehouses();
+        alert('Success: Warehouse deleted.');
+      })
+      .catch((err) => {
+        console.error(err);
+        alert('Failed to delete warehouse');
+      });
+  }, [API_BASE_URL, fetchWarehouses, user]);
+
+  // --- 3. Filtering Logic ---
+  const filteredSites = sites.filter(s => 
+    s.siteName?.toLowerCase().includes(query.toLowerCase()) || 
+    s.location?.toLowerCase().includes(query.toLowerCase())
+  );
+  
+  const filteredWarehouses = warehouses.filter(w => 
+    w.warehouseName?.toLowerCase().includes(query.toLowerCase()) || 
+    w.location?.toLowerCase().includes(query.toLowerCase())
   );
 
-  const confirmDeleteWarehouse = useCallback(
-    (whId) => {
-      if (!whId || !user) return;
-      const proceed = window.confirm('Delete warehouse and all associated managers?');
-      if (!proceed) return;
-      axios
-        .delete(`${API_BASE_URL}/api/warehouses/${whId}?adminId=${user.id}`)
-        .then(() => {
-          fetchWarehouses();
-          alert('Success: Warehouse deleted.');
-        })
-        .catch((err) => {
-          console.error(err);
-          alert('Failed to delete warehouse');
-        });
-    },
-    [API_BASE_URL, fetchWarehouses, user]
-  );
-
-  const filteredSites = sites.filter(
-    (s) =>
-      s.siteName?.toLowerCase().includes(query.toLowerCase()) ||
-      s.location?.toLowerCase().includes(query.toLowerCase())
-  );
-  const filteredWarehouses = warehouses.filter(
-    (w) =>
-      w.warehouseName?.toLowerCase().includes(query.toLowerCase()) ||
-      w.location?.toLowerCase().includes(query.toLowerCase())
+  const filteredStaff = staff.filter(s => 
+    s.fullName?.toLowerCase().includes(query.toLowerCase()) || 
+    s.username?.toLowerCase().includes(query.toLowerCase())
   );
 
   if (!user) {
@@ -135,18 +186,16 @@ export default function AdminDashboardWeb() {
         {/* Header */}
         <header style={styles.adminHeader}>
           <div style={styles.adminTitleBlock}>
-            {/* START: Role Badge Implementation */}
             <div style={styles.adminTitleRow}>
               <h1 style={styles.adminTitle}>{user.username}</h1>
               <span style={styles.adminRoleBadge}>
-                {/* Fallback to 'Admin' if user.role is not set */}
                 {user.role ? user.role.toUpperCase() : 'ADMIN'}
               </span>
             </div>
-            {/* END: Role Badge Implementation */}
 
+            {/* UPDATED: Added Staff count */}
             <p style={styles.adminSubtitle}>
-              {warehouses.length} warehouses • {sites.length} sites • Admin Dashboard
+              {warehouses.length} warehouses • {sites.length} sites • {staff.length} staff
             </p>
           </div>
 
@@ -155,11 +204,11 @@ export default function AdminDashboardWeb() {
               <Ionicons name="search" size={16} color="#6B7280" />
               <input
                 type="text"
-                placeholder="Search sites or warehouses"
+                placeholder="Search resources or staff"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 style={styles.adminSearchInput}
-                aria-label="Search sites or warehouses"
+                aria-label="Search"
               />
             </div>
 
@@ -169,7 +218,6 @@ export default function AdminDashboardWeb() {
                 onClick={fetchAll}
                 disabled={refreshing}
                 title="Refresh"
-                aria-label="Refresh data"
               >
                 <Ionicons
                   name={refreshing ? 'sync-circle-outline' : 'refresh'}
@@ -177,25 +225,35 @@ export default function AdminDashboardWeb() {
                   color="#007BFF"
                 />
               </button>
+              
               <button
                 style={styles.btnPrimary}
                 onClick={() => navigation.navigate('CreateSite')}
-                title="Create Site"
               >
                 Create Site
               </button>
+              
               <button
                 style={styles.btnGhost}
                 onClick={() => navigation.navigate('CreateWarehouse')}
-                title="Create Warehouse"
               >
                 Create Warehouse
               </button>
+
+              {/* NEW: Create Staff Button */}
+              <button
+                style={{...styles.btnGhost, borderColor: '#d1d5db', backgroundColor: '#fff', color: '#374151'}}
+                onClick={() => navigation.navigate('CreateStaff')}
+                title="Create Staff Member"
+              >
+                <Ionicons name="people-outline" size={16} color="#374151" />
+                Add Staff
+              </button>
+
               <button
                 style={styles.btnIcon}
                 onClick={handleLogout}
                 title="Logout"
-                aria-label="Logout"
               >
                 <Ionicons name="log-out-outline" size={20} color="#007BFF" />
               </button>
@@ -211,13 +269,13 @@ export default function AdminDashboardWeb() {
             </div>
           ) : (
             <div style={styles.adminGrid}>
+              
               {/* Warehouses Panel */}
               <section style={styles.adminPanel}>
                 <div style={styles.adminPanelHeader}>
                   <h2 style={styles.adminPanelTitle}>Warehouses</h2>
                   <span style={styles.adminPanelCount}>{filteredWarehouses.length}</span>
                 </div>
-
                 {filteredWarehouses.length === 0 ? (
                   <div style={styles.adminEmptyPanel}>
                     <p style={styles.adminEmptyText}>No warehouses found</p>
@@ -230,16 +288,13 @@ export default function AdminDashboardWeb() {
                           <h3 style={styles.adminCardTitle}>{wh.warehouseName}</h3>
                           <p style={styles.adminCardMeta}>{wh.location}</p>
                           <p style={styles.adminCardSmall}>
-                            Supplies: {wh.supplies?.length || 0} • Managers:{' '}
-                            {wh.managers?.length || 0}
+                            Supplies: {wh.supplies?.length || 0} • Managers: {wh.managers?.length || 0}
                           </p>
                         </div>
                         <div style={styles.adminCardActions}>
                           <button
                             style={styles.btnGhostSmall}
-                            onClick={() =>
-                              navigation.navigate('WarehouseDetails', { warehouse: wh })
-                            }
+                            onClick={() => navigation.navigate('WarehouseDetails', { warehouse: wh })}
                           >
                             Open
                           </button>
@@ -262,7 +317,6 @@ export default function AdminDashboardWeb() {
                   <h2 style={styles.adminPanelTitle}>Sites</h2>
                   <span style={styles.adminPanelCount}>{filteredSites.length}</span>
                 </div>
-
                 {filteredSites.length === 0 ? (
                   <div style={styles.adminEmptyPanel}>
                     <p style={styles.adminEmptyText}>No sites found</p>
@@ -275,19 +329,13 @@ export default function AdminDashboardWeb() {
                           <h3 style={styles.adminCardTitle}>{site.siteName}</h3>
                           <p style={styles.adminCardMeta}>📍 {site.location}</p>
                           <p style={styles.adminCardSmall}>
-                            Supplies: {site.supplies?.length || 0} • Workers:{' '}
-                            {site.workers?.length || 0}
+                            Supplies: {site.supplies?.length || 0} • Workers: {site.workers?.length || 0}
                           </p>
                         </div>
                         <div style={styles.adminCardActions}>
                           <button
                             style={styles.btnGhostSmall}
-                            onClick={() =>
-                              navigation.navigate('SiteDetails', {
-                                site,
-                                siteName: site.siteName,
-                              })
-                            }
+                            onClick={() => navigation.navigate('SiteDetails', { site, siteName: site.siteName })}
                           >
                             Open
                           </button>
@@ -303,6 +351,57 @@ export default function AdminDashboardWeb() {
                   </div>
                 )}
               </section>
+
+              {/* NEW: Staff Panel - Full Width */}
+              <section style={{...styles.adminPanel, gridColumn: '1 / -1'}}>
+                <div style={styles.adminPanelHeader}>
+                  <h2 style={styles.adminPanelTitle}>Staff Members</h2>
+                  <span style={{...styles.adminPanelCount, backgroundColor: '#10B981'}}>{filteredStaff.length}</span>
+                </div>
+
+                {filteredStaff.length === 0 ? (
+                  <div style={styles.adminEmptyPanel}>
+                    <p style={styles.adminEmptyText}>No staff members found</p>
+                  </div>
+                ) : (
+                  <div style={{...styles.adminCardList, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px'}}>
+                    {filteredStaff.map((person) => (
+                      <div key={person._id} style={styles.adminCard}>
+                        <div style={styles.adminCardContent}>
+                          <div style={{display:'flex', alignItems:'center', gap: '8px'}}>
+                            <div style={{width: 32, height: 32, borderRadius: '50%', backgroundColor: '#E0F2FE', display: 'flex', alignItems:'center', justifyContent:'center', color: '#0369A1', fontWeight:'bold', fontSize:'14px'}}>
+                              {person.fullName ? person.fullName.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <h3 style={styles.adminCardTitle}>{person.fullName}</h3>
+                              <p style={{...styles.adminCardMeta, color: '#007bff'}}>@{person.username}</p>
+                            </div>
+                          </div>
+                          <p style={styles.adminCardSmall}>
+                            Role: {person.role} • ID: ...{person._id.slice(-4)}
+                          </p>
+                        </div>
+                        <div style={styles.adminCardActions}>
+                          {/* Navigate to StaffDetailsScreen */}
+                          <button
+                            style={styles.btnGhostSmall}
+                            onClick={() => navigation.navigate('StaffDetails', { staff: person })}
+                          >
+                            Open
+                          </button>
+                          <button
+                            style={styles.btnDangerSmall}
+                            onClick={() => confirmDeleteStaff(person._id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
             </div>
           )}
         </main>
@@ -329,7 +428,7 @@ const globalStyles = `
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #1f2937; /* Default text color */
+    color: #1f2937; 
   }
 
   /* Loading Container */
@@ -339,7 +438,7 @@ const globalStyles = `
     justify-content: center;
     width: 100%;
     height: 100vh;
-    background: linear-gradient(135deg, #0b7dda 0%, #0056b3 100%); /* Darker gradient */
+    background: linear-gradient(135deg, #0b7dda 0%, #0056b3 100%); 
   }
 
   .admin-loading-content {
@@ -358,7 +457,7 @@ const globalStyles = `
     flex-direction: column;
     width: 100%;
     height: 100vh;
-    background-color: #f4f6f9; /* Lighter background */
+    background-color: #f4f6f9; 
   }
 
   /* Header */
@@ -368,10 +467,10 @@ const globalStyles = `
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 20px 30px; /* Increased horizontal padding */
+    padding: 20px 30px; 
     background-color: #fff;
     border-bottom: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* Softer, more pronounced shadow */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
     position: sticky;
     top: 0;
     z-index: 10;
@@ -385,7 +484,6 @@ const globalStyles = `
     flex-direction: column;
   }
   
-  /* New style to align title and badge */
   .admin-title-row {
     display: flex;
     flex-direction: row;
@@ -395,13 +493,12 @@ const globalStyles = `
   }
 
   .admin-title {
-    font-size: 28px; /* Slightly larger title */
+    font-size: 28px; 
     font-weight: 700;
     margin: 0;
     color: #1f2937;
   }
 
-  /* Role Badge */
   .admin-role-badge {
     background-color: #007bff;
     color: #fff;
@@ -419,7 +516,7 @@ const globalStyles = `
   .admin-subtitle {
     color: #6b7280;
     margin-top: 4px;
-    font-size: 14px; /* Slightly larger subtitle */
+    font-size: 14px; 
     margin: 4px 0 0 0;
   }
 
@@ -437,13 +534,13 @@ const globalStyles = `
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px; /* Increased gap */
-    background: #fff; /* White background */
+    gap: 8px; 
+    background: #fff; 
     padding: 8px 12px;
-    border-radius: 8px; /* Softer corners */
+    border-radius: 8px; 
     border: 1px solid #d1d5db;
-    min-width: 250px; /* Wider search bar */
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); /* Inset shadow */
+    min-width: 250px; 
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); 
   }
 
   .admin-search-input {
@@ -477,15 +574,15 @@ const globalStyles = `
   .btn-icon,
   .btn-ghost-small,
   .btn-danger-small {
-    padding: 10px 16px; /* Slightly larger buttons */
-    border-radius: 8px; /* Softer corners */
+    padding: 10px 16px; 
+    border-radius: 8px; 
     border: none;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother transition */
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
     font-size: 14px;
     font-weight: 600;
     font-family: inherit;
@@ -497,11 +594,11 @@ const globalStyles = `
     background-color: #007bff;
     color: #fff;
     border: 1px solid #007bff;
-    box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2); /* Shadow for primary button */
+    box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2); 
   }
 
   .btn-primary:hover:not(:disabled) {
-    background-color: #005bb5; /* Darker on hover */
+    background-color: #005bb5; 
     border-color: #005bb5;
     box-shadow: 0 6px 8px rgba(0, 123, 255, 0.3);
   }
@@ -513,13 +610,13 @@ const globalStyles = `
   }
 
   .btn-ghost {
-    background-color: #f0f4f8; /* Light background for ghost */
+    background-color: #f0f4f8; 
     color: #007bff;
     border: 1px solid #f0f4f8;
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: #e2e8f0; /* Darker on hover */
+    background-color: #e2e8f0; 
     border-color: #e2e8f0;
   }
 
@@ -532,7 +629,7 @@ const globalStyles = `
     background-color: #fff;
     color: #007bff;
     border: 1px solid #d1d5db;
-    padding: 10px; /* Square for icon-only button */
+    padding: 10px; 
   }
 
   .btn-outline:hover:not(:disabled) {
@@ -549,7 +646,7 @@ const globalStyles = `
     background-color: transparent;
     color: #007bff;
     border: none;
-    padding: 8px; /* Slightly smaller icon button */
+    padding: 8px; 
     border-radius: 50%;
   }
 
@@ -563,7 +660,7 @@ const globalStyles = `
   }
 
   .btn-ghost-small {
-    background-color: #e5e7eb; /* Subtle background */
+    background-color: #e5e7eb; 
     color: #1f2937;
     border: 1px solid #e5e7eb;
     padding: 6px 10px;
@@ -577,7 +674,7 @@ const globalStyles = `
   }
 
   .btn-danger-small {
-    background-color: #dc2626; /* Slightly darker red */
+    background-color: #dc2626; 
     color: #fff;
     border: 1px solid #dc2626;
     padding: 6px 10px;
@@ -593,9 +690,9 @@ const globalStyles = `
   /* Main Content */
   .admin-content {
     flex: 1;
-    padding: 30px; /* Increased padding */
+    padding: 30px; 
     width: 100%;
-    max-width: 1280px; /* Wider max-width */
+    max-width: 1280px; 
     margin: 0 auto;
     overflow-y: auto;
     overflow-x: hidden;
@@ -629,7 +726,7 @@ const globalStyles = `
   .admin-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 30px; /* Increased gap */
+    gap: 30px; 
     width: 100%;
   }
 
@@ -642,9 +739,9 @@ const globalStyles = `
   /* Panel */
   .admin-panel {
     background-color: #fff;
-    border-radius: 12px; /* More rounded corners */
-    padding: 20px; /* Increased padding */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); /* Softer shadow */
+    border-radius: 12px; 
+    padding: 20px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); 
     border: 1px solid #e5e7eb;
   }
 
@@ -668,17 +765,17 @@ const globalStyles = `
   .admin-panel-count {
     background-color: #007bff;
     color: #fff;
-    padding: 4px 12px; /* Larger pill */
+    padding: 4px 12px; 
     border-radius: 999px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 13px; 
   }
 
   /* Card List */
   .admin-card-list {
     display: flex;
     flex-direction: column;
-    gap: 12px; /* Added gap between cards */
+    gap: 12px; 
   }
 
   /* Card */
@@ -687,18 +784,18 @@ const globalStyles = `
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    padding: 16px; /* Increased padding */
+    padding: 16px; 
     border-radius: 8px;
     border: 1px solid #e5e7eb;
-    background-color: #fff; /* White background for cards */
+    background-color: #fff; 
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   }
 
   .admin-card:hover {
-    background-color: #f8fafc; /* Subtle hover color */
+    background-color: #f8fafc; 
     border-color: #c5d0db;
-    transform: translateY(-1px); /* Lift effect on hover */
+    transform: translateY(-1px); 
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
   }
 
@@ -709,7 +806,7 @@ const globalStyles = `
   }
 
   .admin-card-title {
-    font-size: 17px;
+    font-size: 17px; 
     font-weight: 600;
     color: #1f2937;
     margin: 0;
@@ -761,11 +858,11 @@ const globalStyles = `
   }
 
   .admin-content::-webkit-scrollbar-track {
-    background: #e5e7eb; /* Lighter track */
+    background: #e5e7eb; 
   }
 
   .admin-content::-webkit-scrollbar-thumb {
-    background: #9ca3af; /* Darker thumb */
+    background: #9ca3af; 
     border-radius: 4px;
   }
 
@@ -870,7 +967,7 @@ const styles = {
     justifyContent: 'center',
     width: '100%',
     height: '100vh',
-    background: 'linear-gradient(135deg, #0b7dda 0%, #0056b3 100%)', // Updated gradient
+    background: 'linear-gradient(135deg, #0b7dda 0%, #0056b3 100%)', 
   },
   adminLoadingContent: {
     textAlign: 'center',
@@ -893,7 +990,7 @@ const styles = {
     flexDirection: 'column',
     width: '100%',
     height: '100vh',
-    backgroundColor: '#f4f6f9', // Updated background
+    backgroundColor: '#f4f6f9', 
   },
   adminHeader: {
     display: 'flex',
@@ -901,10 +998,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    padding: '20px 30px', // Updated padding
+    padding: '20px 30px', 
     backgroundColor: '#fff',
     borderBottom: 'none',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', // Updated shadow
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', 
     position: 'sticky',
     top: 0,
     zIndex: 10,
@@ -916,7 +1013,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
   },
-  // New style to align title and badge
   adminTitleRow: {
     display: 'flex',
     flexDirection: 'row',
@@ -925,12 +1021,11 @@ const styles = {
     marginBottom: '4px',
   },
   adminTitle: {
-    fontSize: '28px', // Updated font size
+    fontSize: '28px', 
     fontWeight: '700',
     margin: 0,
     color: '#1f2937',
   },
-  // New style for the role badge
   adminRoleBadge: {
     backgroundColor: '#007bff',
     color: '#fff',
@@ -947,7 +1042,7 @@ const styles = {
   adminSubtitle: {
     color: '#6b7280',
     marginTop: '4px',
-    fontSize: '14px', // Updated font size
+    fontSize: '14px', 
     margin: '4px 0 0 0',
   },
   adminControls: {
@@ -967,15 +1062,15 @@ const styles = {
     padding: '8px 12px',
     borderRadius: '8px',
     border: '1px solid #d1d5db',
-    minWidth: '250px', // Updated min width
-    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)', // New shadow
+    minWidth: '250px', 
+    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)', 
   },
   adminSearchInput: {
     border: 'none',
     outline: 'none',
     padding: 0,
-    marginLeft: 0, // Removed left margin, use gap
-    fontSize: '15px', // Updated font size
+    marginLeft: 0, 
+    fontSize: '15px', 
     background: 'transparent',
     flex: 1,
     fontFamily: 'inherit',
@@ -995,7 +1090,7 @@ const styles = {
     padding: '10px 16px',
     borderRadius: '8px',
     cursor: 'pointer',
-    display: 'inline-flex',
+    display: 'inlineDrag',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
@@ -1042,7 +1137,7 @@ const styles = {
     color: '#007bff',
     border: 'none',
     padding: '8px',
-    borderRadius: '50%', // Circle shape
+    borderRadius: '50%', 
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
@@ -1087,9 +1182,9 @@ const styles = {
   },
   adminContent: {
     flex: 1,
-    padding: '30px', // Updated padding
+    padding: '30px', 
     width: '100%',
-    maxWidth: '1280px', // Updated max width
+    maxWidth: '1280px', 
     margin: '0 auto',
     overflowY: 'auto',
     overflowX: 'hidden',
@@ -1104,14 +1199,14 @@ const styles = {
   adminGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: '30px', // Updated gap
+    gap: '30px', 
     width: '100%',
   },
   adminPanel: {
     backgroundColor: '#fff',
-    borderRadius: '12px', // Updated border radius
-    padding: '20px', // Updated padding
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)', // Updated shadow
+    borderRadius: '12px', 
+    padding: '20px', 
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)', 
     border: '1px solid #e5e7eb',
   },
   adminPanelHeader: {
@@ -1124,7 +1219,7 @@ const styles = {
     paddingBottom: '10px',
   },
   adminPanelTitle: {
-    fontSize: '20px', // Updated font size
+    fontSize: '20px', 
     fontWeight: '700',
     margin: 0,
     color: '#374151',
@@ -1132,25 +1227,24 @@ const styles = {
   adminPanelCount: {
     backgroundColor: '#007bff',
     color: '#fff',
-    padding: '4px 12px', // Updated padding
+    padding: '4px 12px', 
     borderRadius: '999px',
     fontWeight: '600',
-    fontSize: '13px', // Updated font size
+    fontSize: '13px', 
   },
   adminCardList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px', // Added gap
+    gap: '12px', 
   },
   adminCard: {
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px', // Updated padding
+    padding: '16px', 
     borderRadius: '8px',
     border: '1px solid #e5e7eb',
-    // Removed marginBottom to use gap in list
     backgroundColor: '#fff',
     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
@@ -1161,7 +1255,7 @@ const styles = {
     flexDirection: 'column',
   },
   adminCardTitle: {
-    fontSize: '17px', // Updated font size
+    fontSize: '17px', 
     fontWeight: '600',
     color: '#1f2937',
     margin: 0,
