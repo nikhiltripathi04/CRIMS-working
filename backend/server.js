@@ -7,6 +7,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const siteRoutes = require('./routes/sites');
 const warehouseRoutes = require('./routes/warehouses');
+const staffRoutes = require('./routes/staff');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/staff', staffRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
@@ -40,10 +42,10 @@ app.get('/', (req, res) => {
 const createDefaultUsers = async () => {
     try {
         const User = require('./models/User');
-        
+
         // Check if admin exists
         const adminExists = await User.findOne({ username: 'admin' });
-        
+
         if (!adminExists) {
             // Let the pre-save hook handle password hashing
             const admin = new User({
@@ -58,7 +60,7 @@ const createDefaultUsers = async () => {
         } else {
             console.log('ℹ️  Admin user already exists');
         }
-        
+
     } catch (error) {
         console.error('❌ Error creating default users:', error);
     }
@@ -68,10 +70,10 @@ const createDefaultUsers = async () => {
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/construction-management')
     .then(() => {
         console.log('✅ Connected to MongoDB');
-        
+
         // Create default admin user
         createDefaultUsers();
-        
+
         // Start server only after DB connection
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {

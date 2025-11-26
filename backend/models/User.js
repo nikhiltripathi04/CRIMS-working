@@ -26,9 +26,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: false // Optional
     },
+    fullName: {
+        type: String,
+        required: function () { return this.role === 'staff'; }
+    },
     role: {
         type: String,
-        enum: ['admin', 'supervisor', 'warehouse_manager'],
+        enum: ['admin', 'supervisor', 'warehouse_manager', 'staff'],
         required: true
     },
     siteId: {
@@ -40,6 +44,14 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Warehouse',
         required: function () { return this.role === 'warehouse_manager'; }
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
     }
 });
 
