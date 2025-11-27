@@ -159,4 +159,60 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
     }
 });
 
+// Get attendance records for a staff member (Admin only)
+// This route handles: GET /api/staff/:id/attendance
+router.get('/:id/attendance', auth, adminOnly, async (req, res) => {
+    try {
+        const staffId = req.params.id;
+        const { startDate, endDate } = req.query;
+
+        const Attendance = require('../models/Attendance');
+
+        // Verify the staff member exists and was created by this admin
+        const staff = await User.findOne({
+            _id: staffId,
+            role: 'staff',
+            createdBy: req.user._id
+        });
+
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: 'Staff member not found or you do not have permission to view their records'
+            });
+        }
+
+        // Build query
+        const query = { staffId };
+
+        if (startDate || endDate) {
+            query.timestamp = {};
+            if (startDate) query.timestamp.$gte = new Date(startDate);
+            if (endDate) query.timestamp.$lte = new Date(endDate);
+        }
+
+        const records = await Attendance.find(query)
+            .sort({ timestamp: -1 })
+            .populate('staffId', 'fullName username');
+
+        res.json({
+            success: true,
+            count: records.length,
+            staff: {
+                id: staff._id,
+                fullName: staff.fullName,
+                username: staff.username
+            },
+            data: records
+        });
+
+    } catch (error) {
+        console.error('Get staff attendance error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching staff attendance records'
+        });
+    }
+});
+
 module.exports = router;

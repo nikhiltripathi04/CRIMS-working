@@ -1,0 +1,12 @@
+// IMPORTANT: Frontend Endpoint Fix Required
+// 
+// File: frontend/screens/StaffDetailsScreen.web.js
+// Line: 73
+//
+// CURRENT (INCORRECT):
+// const response = await axios.get(`${API_BASE_URL}/api/staff/${staff._id}/attendance`, config);
+//
+// SHOULD BE:
+// const response = await axios.get(`${API_BASE_URL}/api/attendance/staff/${staff._id}`, config);
+//
+// This change is needed to match the backend attendance route structure.

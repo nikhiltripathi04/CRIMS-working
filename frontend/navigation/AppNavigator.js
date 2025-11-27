@@ -94,6 +94,9 @@ if (Platform.OS === 'web') {
   CreateSupplyRequestScreenScreen = require('../screens/CreateSupplyRequestScreen').default;
   AttendanceReportScreen = require('../screens/AttendanceReport').default;
   AnnouncementsScreen = require('../screens/Announcements').default;
+  CreateStaffScreenScreen = require('../screens/CreateStaffScreen').default;
+  StaffDashboardScreen = require('../screens/StaffDashboard').default;
+  StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen').default;
 
 }
 

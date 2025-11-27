@@ -1,588 +1,868 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function StaffDashboardWeb() {
-  const { user, API_BASE_URL, logout, token } = useAuth();
+  const { user, token, logout, API_BASE_URL } = useAuth();
   const navigation = useNavigation();
-  
-  const [loading, setLoading] = useState(true);
-  const [sites, setSites] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState('');
 
-  // Determine the Admin ID to fetch resources for.
-  // Staff members should see resources belonging to the Admin who created them.
-  // We expect 'user.createdBy' to hold the Admin's ID.
-  // Fallback to 'user.id' if createdBy is missing (though typical staff flow requires createdBy).
-  const adminId = user?.createdBy || user?.id;
+  // State
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [cameraActive, setCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [locationData, setLocationData] = useState(null);
+  const [attendanceType, setAttendanceType] = useState(null); // 'login' (In) or 'logout' (Out)
+  const [loading, setLoading] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [attendanceHistory, setAttendanceHistory] = useState([]);
 
-  const fetchSites = useCallback(async () => {
-    if (!adminId) {
-      setSites([]);
-      setLoading(false);
+  // Refs for Camera
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  // Live Clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch Attendance History
+  const fetchMyRecords = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/attendance/my-records`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAttendanceHistory(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch records", error);
+    }
+  }, [user, token, API_BASE_URL]);
+
+  useEffect(() => {
+    fetchMyRecords();
+  }, [fetchMyRecords]);
+
+  // --- 1. Camera & Location Logic ---
+
+  // Function to fetch location specifically
+  const fetchLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setErrorMsg("Geolocation is not supported by this browser.");
       return;
     }
+
+    setFetchingLocation(true);
+    // Reset previous location data while fetching new one
+    setLocationData(prev => prev ? { ...prev, address: "Updating location..." } : null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        
+        // Temporary object with coords
+        const currentLoc = {
+          latitude,
+          longitude,
+          accuracy,
+          address: "Fetching address details...",
+          timestamp: new Date().toISOString()
+        };
+        
+        setLocationData(currentLoc);
+
+        // Reverse Geocoding via Nominatim (OpenStreetMap)
+        try {
+          // Adding a timestamp to prevent caching
+          const timestamp = new Date().getTime();
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&t=${timestamp}`, {
+            headers: {
+              'User-Agent': 'ConstructionApp/1.0' // It's good practice to identify the app
+            }
+          });
+          const data = await response.json();
+          
+          if (data && data.display_name) {
+            setLocationData(prev => ({
+              ...prev,
+              // Construct a cleaner address if possible, or use full display_name
+              address: data.display_name
+            }));
+          } else {
+            setLocationData(prev => ({
+              ...prev,
+              address: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)}`
+            }));
+          }
+        } catch (geoError) {
+          console.warn("Geocoding failed", geoError);
+          setLocationData(prev => ({
+            ...prev,
+            address: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)} (Network Error)`
+          }));
+        } finally {
+          setFetchingLocation(false);
+        }
+      },
+      (err) => {
+        console.warn(err);
+        let msg = "Could not fetch location.";
+        if (err.code === 1) msg = "Location permission denied.";
+        if (err.code === 2) msg = "Position unavailable. Check GPS.";
+        if (err.code === 3) msg = "Location request timed out.";
+        
+        setErrorMsg(msg);
+        setFetchingLocation(false);
+      },
+      { 
+        enableHighAccuracy: true, // Force GPS 
+        timeout: 20000,           // Wait up to 20s for a good lock
+        maximumAge: 0             // Do not use cached position
+      }
+    );
+  }, []);
+
+  const startAttendanceProcess = async (type) => {
+    setAttendanceType(type);
+    setCameraActive(true);
+    setErrorMsg(null);
+    setCapturedImage(null);
+    setLocationData(null);
+
     try {
-      setLoading(true);
-      // Pass the token in headers for authorization
-      const config = {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { adminId: adminId } // Filter by the Admin's ID
-      };
+      // 1. Start Camera
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera on phones
+      });
+      streamRef.current = stream;
       
-      const res = await axios.get(`${API_BASE_URL}/api/sites`, config);
-      if (res.data && res.data.success) setSites(res.data.data || []);
-      else setSites([]);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 100);
+
+      // 2. Start fetching location immediately
+      fetchLocation();
+
     } catch (err) {
-      console.error('fetchSites web error', err);
-      // Silent fail or specific error handling
-      setSites([]);
+      console.error("Camera Error:", err);
+      setErrorMsg("Camera access denied. Please allow camera permissions.");
+      setCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      setCapturedImage(imageDataUrl);
+      
+      stopCamera();
+    }
+  };
+
+  const cancelAttendance = () => {
+    stopCamera();
+    setCapturedImage(null);
+    setAttendanceType(null);
+    setErrorMsg(null);
+  };
+
+  // --- 2. Submission Logic ---
+
+  const handleSubmitAttendance = async () => {
+    if ((!locationData || fetchingLocation) && !errorMsg) {
+        alert("Still fetching precise location... please wait a moment.");
+        return;
+    }
+    
+    if (!capturedImage) {
+      alert("Photo required.");
+      return;
+    }
+
+    if (!token) {
+      alert("Authentication token missing. Please logout and login again.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const userIdVal = user.id || user._id;
+      
+      const payload = {
+        type: attendanceType,
+        photo: capturedImage,
+        location: locationData, // Includes address now
+        date: new Date().toISOString(),
+        user: userIdVal,   
+        userId: userIdVal, 
+        tenant_id: user.tenant_id || user.tenantId || null
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/attendance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
+            const errorJson = JSON.parse(errorText);
+            throw new Error(errorJson.message || errorJson.error || `Server error: ${response.status}`);
+        } catch (e) {
+            throw new Error(errorText || `Server error: ${response.status}`);
+        }
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        window.alert(`Successfully Marked: ${attendanceType === 'login' ? 'Check In' : 'Check Out'}`);
+        setCapturedImage(null);
+        setAttendanceType(null);
+        fetchMyRecords(); 
+      } else {
+        throw new Error(data.message || "Failed to submit attendance");
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [adminId, API_BASE_URL, token]);
-
-  const fetchWarehouses = useCallback(async () => {
-    if (!adminId) {
-      setWarehouses([]);
-      return;
-    }
-    try {
-      const config = {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { adminId: adminId }
-      };
-
-      const res = await axios.get(`${API_BASE_URL}/api/warehouses`, config);
-      if (res.data && res.data.success) setWarehouses(res.data.data || []);
-      else setWarehouses([]);
-    } catch (err) {
-      console.error('fetchWarehouses web error', err);
-      setWarehouses([]);
-    }
-  }, [adminId, API_BASE_URL, token]);
-
-  const fetchAll = useCallback(async () => {
-    if (!user) return;
-    setRefreshing(true);
-    await Promise.all([fetchSites(), fetchWarehouses()]);
-    setRefreshing(false);
-  }, [fetchSites, fetchWarehouses, user]);
-
-  useEffect(() => {
-    fetchAll();
-  }, [user]);
-
-  // Refresh data when screen comes into focus
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchAll();
-    });
-    return unsubscribe;
-  }, [navigation, fetchAll]);
+  };
 
   const handleLogout = useCallback(() => {
     logout();
   }, [logout]);
 
-  // Filtering Logic
-  const filteredSites = sites.filter(s => 
-    s.siteName?.toLowerCase().includes(query.toLowerCase()) || 
-    s.location?.toLowerCase().includes(query.toLowerCase())
-  );
-  
-  const filteredWarehouses = warehouses.filter(w => 
-    w.warehouseName?.toLowerCase().includes(query.toLowerCase()) || 
-    w.location?.toLowerCase().includes(query.toLowerCase())
-  );
-
-  if (!user) {
-    return (
-      <>
-        <style>{globalStyles}</style>
-        <div style={styles.loadingContainer}>
-          <div style={styles.loadingContent}>
-            <div style={styles.spinner}></div>
-            <p style={styles.loadingText}>Loading user data...</p>
-          </div>
-        </div>
-      </>
-    );
-  }
+  if (!user) return null;
 
   return (
-    <>
+    <div style={styles.page}>
       <style>{globalStyles}</style>
-      <div style={styles.page}>
-        {/* Header */}
-        <header style={styles.header}>
-          <div style={styles.titleBlock}>
-            <div style={styles.titleRow}>
-              <h1 style={styles.title}>Hello, {user.fullName || user.username}</h1>
-              <span style={styles.roleBadge}>STAFF</span>
-            </div>
-            <p style={styles.subtitle}>
-              {filteredWarehouses.length} warehouses • {filteredSites.length} sites
-            </p>
-          </div>
 
-          <div style={styles.controls}>
-            <div style={styles.searchWrap}>
-              <Ionicons name="search" size={16} color="#6B7280" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                style={styles.searchInput}
-                aria-label="Search"
-              />
+      {/* Header */}
+      <header style={styles.header}>
+        <div style={styles.titleBlock}>
+          <h1 style={styles.title}>Staff Portal</h1>
+          <p style={styles.subtitle}>Welcome, {user.fullName || user.username}</p>
+        </div>
+        <button style={styles.btnLogout} onClick={handleLogout} title="Logout">
+          <Ionicons name="log-out-outline" size={20} color="#fff" />
+          <span>Logout</span>
+        </button>
+      </header>
+
+      {/* Main Content */}
+      <main style={styles.mainContent}>
+        
+        {/* VIEW 1: Dashboard / Selection Panel */}
+        {!cameraActive && !capturedImage && (
+          <div style={styles.attendanceCard}>
+            <div style={styles.timeContainer}>
+              <div style={styles.timeText}>
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div style={styles.dateText}>
+                {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+              </div>
             </div>
 
-            <div style={styles.buttonGroup}>
-              <button
-                style={styles.btnOutline}
-                onClick={fetchAll}
-                disabled={refreshing}
-                title="Refresh"
+            <div style={styles.actionContainer}>
+              <button 
+                style={{...styles.actionBtn, ...styles.btnIn}} 
+                onClick={() => startAttendanceProcess('login')}
               >
-                <Ionicons
-                  name={refreshing ? 'sync-circle-outline' : 'refresh'}
-                  size={18}
-                  color="#9C27B0" // Purple for staff theme
-                />
+                <div style={styles.iconCircleIn}>
+                  <Ionicons name="enter" size={32} color="#10B981" />
+                </div>
+                <span style={styles.btnLabel}>Check In</span>
+                <span style={styles.btnSubLabel}>Start your shift</span>
               </button>
-              
-              <button
-                style={styles.btnIcon}
-                onClick={handleLogout}
-                title="Logout"
+
+              <button 
+                style={{...styles.actionBtn, ...styles.btnOut}} 
+                onClick={() => startAttendanceProcess('logout')}
               >
-                <Ionicons name="log-out-outline" size={20} color="#9C27B0" />
+                <div style={styles.iconCircleOut}>
+                  <Ionicons name="exit" size={32} color="#EF4444" />
+                </div>
+                <span style={styles.btnLabel}>Check Out</span>
+                <span style={styles.btnSubLabel}>End your shift</span>
+              </button>
+            </div>
+
+            {errorMsg && <div style={styles.errorBanner}>{errorMsg}</div>}
+
+            {/* Recent Activity */}
+            <div style={styles.historyContainer}>
+                <h3 style={styles.historyTitle}>Recent Activity</h3>
+                {attendanceHistory.length === 0 ? (
+                    <p style={styles.emptyText}>No records found.</p>
+                ) : (
+                    <div style={styles.historyList}>
+                        {attendanceHistory.slice(0, 5).map(record => (
+                            <div key={record._id} style={styles.historyItem}>
+                                <div style={{
+                                    ...styles.historyIcon,
+                                    backgroundColor: record.type === 'login' ? '#D1FAE5' : '#FEE2E2',
+                                    color: record.type === 'login' ? '#059669' : '#DC2626'
+                                }}>
+                                    <Ionicons name={record.type === 'login' ? "enter" : "exit"} size={16} />
+                                </div>
+                                <div style={styles.historyContent}>
+                                    <span style={styles.historyType}>{record.type === 'login' ? 'Checked In' : 'Checked Out'}</span>
+                                    <span style={styles.historyLocation}>
+                                      {record.location?.address || "Address unavailable"}
+                                    </span>
+                                </div>
+                                <div style={styles.historyDate}>
+                                    {new Date(record.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 2: Camera Active */}
+        {cameraActive && !capturedImage && (
+          <div style={styles.cameraContainer}>
+            <div style={styles.cameraHeader}>
+              <h3>Take Photo</h3>
+              <p style={{fontSize: 13, color: '#666', margin: '4px 0'}}>Please stand at the site.</p>
+            </div>
+            
+            <div style={styles.videoWrapper}>
+              <video ref={videoRef} style={styles.video} playsInline muted autoPlay></video>
+              <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+            </div>
+
+            <div style={styles.locationStatus}>
+                {fetchingLocation ? (
+                    <span style={{color: '#E69138', display:'flex', alignItems:'center', gap: 6}}>
+                       <Ionicons name="sync" className="spin" /> Getting high accuracy location...
+                    </span>
+                ) : locationData ? (
+                    <span style={{color: '#10B981', display:'flex', alignItems:'center', gap: 6}}>
+                        <Ionicons name="location" /> Location Locked ({locationData.accuracy ? Math.round(locationData.accuracy) + 'm accuracy' : 'GPS'})
+                    </span>
+                ) : (
+                    <span style={{color: '#EF4444'}}>Location not found</span>
+                )}
+            </div>
+
+            <div style={styles.cameraControls}>
+              <button style={styles.btnCancel} onClick={cancelAttendance}>Cancel</button>
+              <button style={styles.btnCapture} onClick={takePhoto}>
+                <div style={styles.captureInnerRing}></div>
+              </button>
+              <div style={{width: 60}}></div> 
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 3: Preview & Submit */}
+        {capturedImage && (
+          <div style={styles.previewContainer}>
+            <div style={styles.previewHeader}>
+              <h3>Confirm Attendance</h3>
+              <span style={{...styles.badgeType, backgroundColor: attendanceType === 'login' ? '#10B981' : '#EF4444'}}>
+                {attendanceType === 'login' ? 'CHECK IN' : 'CHECK OUT'}
+              </span>
+            </div>
+
+            <div style={styles.imageWrapper}>
+                <img src={capturedImage} alt="Attendance" style={styles.previewImage} />
+            </div>
+
+            <div style={styles.detailsCard}>
+              <div style={styles.detailRow}>
+                <Ionicons name="time-outline" size={18} color="#6B7280" />
+                <span>{new Date().toLocaleString()}</span>
+              </div>
+              <div style={styles.detailRow}>
+                <Ionicons name="location-outline" size={18} color="#6B7280" />
+                <div style={{flex: 1}}>
+                  <span style={{fontSize: 13, wordBreak: 'break-word', lineHeight: '1.4', display: 'block'}}>
+                    {locationData && locationData.address ? 
+                      locationData.address
+                      : fetchingLocation ? <span style={{color: 'orange'}}>Refining address...</span> : <span style={{color: 'red'}}>Address unavailable</span>
+                    }
+                  </span>
+                  {locationData && (
+                     <span style={{fontSize: 11, color: '#9ca3af'}}>
+                        Accuracy: {locationData.accuracy ? `~${Math.round(locationData.accuracy)}m` : 'Unknown'}
+                     </span>
+                  )}
+                </div>
+                <button onClick={fetchLocation} style={styles.refreshBtn} title="Refresh Location">
+                    <Ionicons name={fetchingLocation ? "sync" : "refresh"} size={16} color="#7C3AED" />
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.previewControls}>
+              <button style={styles.btnRetake} onClick={() => startAttendanceProcess(attendanceType)} disabled={loading}>
+                Retake
+              </button>
+              <button style={styles.btnSubmit} onClick={handleSubmitAttendance} disabled={loading || fetchingLocation}>
+                {loading ? 'Submitting...' : 'Confirm & Submit'}
               </button>
             </div>
           </div>
-        </header>
+        )}
 
-        {/* Main Content */}
-        <main style={styles.content}>
-          {loading ? (
-            <div style={styles.loaderRow}>
-              <div style={styles.spinner}></div>
-            </div>
-          ) : (
-            <div style={styles.grid}>
-              
-              {/* Warehouses Panel */}
-              <section style={styles.panel}>
-                <div style={styles.panelHeader}>
-                  <h2 style={styles.panelTitle}>Warehouses</h2>
-                  <span style={styles.panelCount}>{filteredWarehouses.length}</span>
-                </div>
-                {filteredWarehouses.length === 0 ? (
-                  <div style={styles.emptyPanel}>
-                    <p style={styles.emptyText}>No warehouses found</p>
-                  </div>
-                ) : (
-                  <div style={styles.cardList}>
-                    {filteredWarehouses.map((wh) => (
-                      <div key={wh._id} style={styles.card}>
-                        <div style={styles.cardContent}>
-                          <h3 style={styles.cardTitle}>{wh.warehouseName}</h3>
-                          <p style={styles.cardMeta}>{wh.location}</p>
-                          <p style={styles.cardSmall}>
-                            Supplies: {wh.supplies?.length || 0}
-                          </p>
-                        </div>
-                        <div style={styles.cardActions}>
-                          <button
-                            style={styles.btnGhostSmall}
-                            onClick={() => navigation.navigate('WarehouseDetails', { warehouse: wh })}
-                          >
-                            Open
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              {/* Sites Panel */}
-              <section style={styles.panel}>
-                <div style={styles.panelHeader}>
-                  <h2 style={styles.panelTitle}>Sites</h2>
-                  <span style={styles.panelCount}>{filteredSites.length}</span>
-                </div>
-                {filteredSites.length === 0 ? (
-                  <div style={styles.emptyPanel}>
-                    <p style={styles.emptyText}>No sites found</p>
-                  </div>
-                ) : (
-                  <div style={styles.cardList}>
-                    {filteredSites.map((site) => (
-                      <div key={site._id} style={styles.card}>
-                        <div style={styles.cardContent}>
-                          <h3 style={styles.cardTitle}>{site.siteName}</h3>
-                          <p style={styles.cardMeta}>📍 {site.location}</p>
-                          <p style={styles.cardSmall}>
-                            Supplies: {site.supplies?.length || 0} • Workers: {site.workers?.length || 0}
-                          </p>
-                        </div>
-                        <div style={styles.cardActions}>
-                          <button
-                            style={styles.btnGhostSmall}
-                            onClick={() => navigation.navigate('SiteDetails', { site, siteName: site.siteName })}
-                          >
-                            Open
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-            </div>
-          )}
-        </main>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
 
-// Styles adapted from AdminDashboard but customized for Staff (Purple Theme)
+// --- Styles ---
+
 const styles = {
-  loadingContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100vh',
-    background: 'linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%)', // Purple gradient
-  },
-  loadingContent: {
-    textAlign: 'center',
-    color: 'white',
-  },
-  loadingText: {
-    marginTop: '12px',
-    fontSize: '16px',
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid #e5e7eb',
-    borderTopColor: '#9C27B0',
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-  },
   page: {
     display: 'flex',
     flexDirection: 'column',
-    width: '100%',
     height: '100vh',
-    backgroundColor: '#f4f6f9', 
+    backgroundColor: '#f3f4f6',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   header: {
+    backgroundColor: '#7C3AED', // Deep Purple
+    color: 'white',
+    padding: '16px 24px',
     display: 'flex',
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    padding: '20px 30px', 
-    backgroundColor: '#fff',
-    borderBottom: 'none',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', 
-    position: 'sticky',
-    top: 0,
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     zIndex: 10,
-    gap: '20px',
-    flexWrap: 'wrap',
-    flexShrink: 0,
   },
   titleBlock: {
     display: 'flex',
     flexDirection: 'column',
   },
-  titleRow: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '4px',
-  },
   title: {
-    fontSize: '28px', 
+    fontSize: '20px',
     fontWeight: '700',
     margin: 0,
-    color: '#1f2937',
-  },
-  roleBadge: {
-    backgroundColor: '#9C27B0', // Purple
-    color: '#fff',
-    padding: '4px 8px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    boxShadow: '0 2px 4px rgba(156, 39, 176, 0.2)',
-    alignSelf: 'center',
-    lineHeight: 1,
   },
   subtitle: {
-    color: '#6b7280',
-    marginTop: '4px',
-    fontSize: '14px', 
+    fontSize: '14px',
+    opacity: 0.9,
     margin: '4px 0 0 0',
   },
-  controls: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-  },
-  searchWrap: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: '8px', 
-    background: '#fff', 
+  btnLogout: {
+    background: 'rgba(255,255,255,0.2)',
+    border: 'none',
+    borderRadius: '8px',
     padding: '8px 12px',
-    borderRadius: '8px', 
-    border: '1px solid #d1d5db',
-    minWidth: '250px', 
-    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)', 
-  },
-  searchInput: {
-    border: 'none',
-    outline: 'none',
-    padding: 0,
-    marginLeft: 0, 
-    fontSize: '15px', 
-    background: 'transparent',
-    flex: 1,
-    fontFamily: 'inherit',
-    color: '#1f2937',
-  },
-  buttonGroup: {
+    color: 'white',
     display: 'flex',
-    flexDirection: 'row',
-    gap: '10px',
     alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  btnOutline: {
-    backgroundColor: '#fff',
-    color: '#9C27B0',
-    border: '1px solid #d1d5db',
-    padding: '10px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'inherit',
-  },
-  btnIcon: {
-    backgroundColor: 'transparent',
-    color: '#9C27B0',
-    border: 'none',
-    padding: '8px',
-    borderRadius: '50%', 
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'inherit',
-  },
-  btnGhostSmall: {
-    backgroundColor: '#e5e7eb', 
-    color: '#1f2937',
-    border: '1px solid #e5e7eb',
-    padding: '6px 10px',
-    fontSize: '11px',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    fontWeight: '600',
-    fontFamily: 'inherit',
-  },
-  content: {
-    flex: 1,
-    padding: '30px', 
-    width: '100%',
-    maxWidth: '1280px', 
-    margin: '0 auto',
-    overflowY: 'auto',
-    overflowX: 'hidden',
-  },
-  loaderRow: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '40px 20px',
-    minHeight: '300px',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '30px', 
-    width: '100%',
-  },
-  panel: {
-    backgroundColor: '#fff',
-    borderRadius: '12px', 
-    padding: '20px', 
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)', 
-    border: '1px solid #e5e7eb',
-  },
-  panelHeader: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '15px',
-    borderBottom: '1px solid #f3f4f6',
-    paddingBottom: '10px',
-  },
-  panelTitle: {
-    fontSize: '20px', 
-    fontWeight: '700',
-    margin: 0,
-    color: '#374151',
-  },
-  panelCount: {
-    backgroundColor: '#9C27B0',
-    color: '#fff',
-    padding: '4px 12px', 
-    borderRadius: '999px',
-    fontWeight: '600',
-    fontSize: '13px', 
-  },
-  cardList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px', 
-  },
-  card: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px', 
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-    backgroundColor: '#fff',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-  },
-  cardContent: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  cardTitle: {
-    fontSize: '17px', 
-    fontWeight: '600',
-    color: '#1f2937',
-    margin: 0,
-  },
-  cardMeta: {
-    color: '#6b7280',
-    marginTop: '4px',
-    fontSize: '13px',
-    margin: '4px 0 0 0',
-  },
-  cardSmall: {
-    color: '#9ca3af',
-    marginTop: '6px',
-    fontSize: '12px',
-    margin: '6px 0 0 0',
-  },
-  cardActions: {
-    display: 'flex',
-    flexDirection: 'row',
     gap: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'background 0.2s',
+  },
+  mainContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    marginLeft: '20px',
+    justifyContent: 'center',
+    padding: '20px',
+    overflowY: 'auto',
+  },
+  
+  // --- Dashboard Card ---
+  attendanceCard: {
+    backgroundColor: 'white',
+    borderRadius: '24px',
+    padding: '40px 30px',
+    width: '100%',
+    maxWidth: '400px',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '30px',
+  },
+  timeContainer: {
+    textAlign: 'center',
+  },
+  timeText: {
+    fontSize: '48px',
+    fontWeight: '800',
+    color: '#1f2937',
+    letterSpacing: '-2px',
+    lineHeight: 1,
+  },
+  dateText: {
+    fontSize: '16px',
+    color: '#6b7280',
+    marginTop: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    fontWeight: '600',
+  },
+  actionContainer: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  actionBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '20px',
+    borderRadius: '16px',
+    border: '1px solid transparent',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    backgroundColor: 'white',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+    textAlign: 'left',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  btnIn: {
+    borderColor: '#D1FAE5',
+    backgroundColor: '#F0FDF4',
+  },
+  btnOut: {
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+  },
+  iconCircleIn: {
+    width: 48, height: 48, borderRadius: '12px',
+    backgroundColor: '#10B981',
+    color: 'white',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginRight: '20px',
     flexShrink: 0,
   },
-  emptyPanel: {
-    padding: '40px 20px',
-    textAlign: 'center',
-    border: '1px dashed #d1d5db',
+  iconCircleOut: {
+    width: 48, height: 48, borderRadius: '12px',
+    backgroundColor: '#EF4444',
+    color: 'white',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginRight: '20px',
+    flexShrink: 0,
+  },
+  btnLabel: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#1F2937',
+    display: 'block',
+  },
+  btnSubLabel: {
+    fontSize: '13px',
+    color: '#6B7280',
+    marginTop: '2px',
+    display: 'block',
+  },
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    color: '#B91C1C',
+    padding: '12px',
     borderRadius: '8px',
-    backgroundColor: '#f9fafb',
+    fontSize: '13px',
+    textAlign: 'center',
+    width: '100%',
+    border: '1px solid #FECACA',
+  },
+
+  // --- History Section ---
+  historyContainer: {
+    width: '100%',
     marginTop: '10px',
+    borderTop: '1px solid #f3f4f6',
+    paddingTop: '20px',
+  },
+  historyTitle: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: '16px',
+    textAlign: 'left',
+  },
+  historyList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  historyItem: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
+  },
+  historyIcon: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: '12px',
+  },
+  historyContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  historyType: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  historyTime: {
+    fontSize: '12px',
+    color: '#6b7280',
+    marginTop: '2px',
+  },
+  historyLocation: {
+    fontSize: '11px',
+    color: '#6b7280',
+    marginTop: '2px',
+    maxWidth: '150px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  historyDate: {
+    fontSize: '12px',
+    color: '#9ca3af',
+    fontWeight: '500',
   },
   emptyText: {
     color: '#9ca3af',
-    textAlign: 'center',
+    fontSize: '14px',
     fontStyle: 'italic',
-    margin: 0,
+    textAlign: 'center',
+  },
+
+  // --- Camera View ---
+  cameraContainer: {
+    width: '100%',
+    maxWidth: '600px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    height: '100%',
+    maxHeight: '90vh',
+    alignItems: 'center',
+  },
+  cameraHeader: {
+    textAlign: 'center',
+    color: '#374151',
+  },
+  videoWrapper: {
+    width: '100%',
+    aspectRatio: '3/4',
+    backgroundColor: 'black',
+    borderRadius: '20px',
+    overflow: 'hidden',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  locationStatus: {
+    fontSize: '13px',
+    fontWeight: '500',
+    marginTop: '-10px',
+    marginBottom: '10px',
+  },
+  cameraControls: {
+    display: 'flex',
+    width: '100%',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: '20px',
+  },
+  btnCapture: {
+    width: 70,
+    height: 70,
+    borderRadius: '50%',
+    backgroundColor: 'white',
+    border: '4px solid #e5e7eb',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    padding: 0,
+  },
+  captureInnerRing: {
+    width: 54,
+    height: 54,
+    borderRadius: '50%',
+    backgroundColor: '#7C3AED',
+  },
+  btnCancel: {
+    padding: '10px 20px',
+    backgroundColor: 'transparent',
+    color: '#6B7280',
+    border: 'none',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+
+  // --- Preview View ---
+  previewContainer: {
+    backgroundColor: 'white',
+    borderRadius: '20px',
+    padding: '24px',
+    width: '100%',
+    maxWidth: '450px',
+    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  previewHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: '10px',
+    borderBottom: '1px solid #f3f4f6',
+  },
+  badgeType: {
+    color: 'white',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: '800',
+    letterSpacing: '0.5px',
+  },
+  imageWrapper: {
+    width: '100%',
+    aspectRatio: '4/3',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    backgroundColor: '#f3f4f6',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  detailsCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: '12px',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    border: '1px solid #E5E7EB',
+  },
+  detailRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    fontSize: '15px',
+    color: '#374151',
+    fontWeight: '500',
+  },
+  refreshBtn: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  detailNote: {
+    fontSize: '12px',
+    color: '#6B7280',
+    marginTop: '4px',
+    fontStyle: 'italic',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  previewControls: {
+    display: 'flex',
+    gap: '12px',
+    marginTop: '10px',
+  },
+  btnSubmit: {
+    flex: 2,
+    padding: '14px',
+    backgroundColor: '#10B981', // Green
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)',
+    transition: 'background 0.2s',
+  },
+  btnRetake: {
+    flex: 1,
+    padding: '14px',
+    backgroundColor: 'white',
+    color: '#374151',
+    border: '1px solid #D1D5DB',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
   },
 };
 
 const globalStyles = `
-  * {
-    box-sizing: border-box;
-  }
-  html, body, #root {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    color: #1f2937; 
-  }
-  /* Scrollbar Styling */
-  .content::-webkit-scrollbar {
-    width: 8px;
-  }
-  .content::-webkit-scrollbar-track {
-    background: #e5e7eb; 
-  }
-  .content::-webkit-scrollbar-thumb {
-    background: #9ca3af; 
-    border-radius: 4px;
-  }
-  .content::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
-  /* Responsive */
-  @media (max-width: 768px) {
-    .header { padding: 15px 20px; flex-direction: column; align-items: flex-start; }
-    .controls { width: 100%; justify-content: flex-start; margin-top: 10px; }
-    .searchWrap { width: 100%; min-width: 0; }
-    .buttonGroup { width: 100%; justify-content: space-between; }
-    .grid { grid-template-columns: 1fr; gap: 15px; }
-    .card { flex-direction: column; align-items: flex-start; padding: 12px; }
-    .cardActions { margin-left: 0; margin-top: 12px; width: 100%; justify-content: space-between; }
-    .cardActions button { flex: 1; }
-  }
+  button:active { transform: scale(0.98); }
+  h1, h3, p { margin: 0; }
+  button:disabled { opacity: 0.7; cursor: not-allowed; }
+  .btnSubmit:hover { background-color: #059669; }
+  @keyframes spin { 100% { -webkit-transform: rotate(360deg); transform:rotate(360deg); } }
+  .spin { animation: spin 1.5s linear infinite; }
 `;

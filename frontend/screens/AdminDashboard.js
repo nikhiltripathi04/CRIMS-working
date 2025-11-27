@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
-    FlatList,
     TouchableOpacity,
     StyleSheet,
     Alert,
@@ -12,7 +11,8 @@ import {
     Dimensions,
     StatusBar,
     SafeAreaView,
-    SectionList
+    SectionList,
+    TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -27,11 +27,15 @@ const isIpad = isIOS && Platform.isPad;
 const AdminDashboard = () => {
     const [sites, setSites] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [staff, setStaff] = useState([]); // NEW: Staff State
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(''); // NEW: Search Query
     const navigation = useNavigation();
     const [showAddOptions, setShowAddOptions] = useState(false);
-    const { user, API_BASE_URL, logout } = useAuth();
+    const { user, API_BASE_URL, logout, token } = useAuth(); // Destructure token
+
+    // --- Data Fetching ---
 
     const fetchWarehouses = useCallback(async () => {
         if (!user || !user.id) {
@@ -45,112 +49,134 @@ const AdminDashboard = () => {
             }
         } catch (error) {
             setWarehouses([]);
-            Alert.alert('Error', 'Failed to fetch warehouses.');
+            console.log('Error fetching warehouses:', error);
         }
     }, [user, API_BASE_URL]);
 
     const fetchSites = useCallback(async () => {
         if (!user || !user.id) {
-            console.log('User not available, skipping fetchSites');
             setLoading(false);
             return;
         }
-
         try {
             setLoading(true);
-            console.log(`Fetching sites for admin: ${user.username} (ID: ${user.id})`);
-            console.log('API URL:', `${API_BASE_URL}/api/sites?adminId=${user.id}`);
-
             const response = await axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`);
-            console.log('API Response:', response.data);
-
             if (response.data.success) {
                 setSites(response.data.data);
-                console.log(`Retrieved ${response.data.data.length} sites for this admin`);
-            } else {
-                Alert.alert('Error', response.data.message || 'Failed to fetch sites');
             }
         } catch (error) {
             console.error('Error fetching sites:', error);
-            console.error('Error details:', error.response?.data || 'No detailed error');
-            Alert.alert('Error', 'Failed to fetch sites. Please try again.');
         } finally {
             setLoading(false);
         }
     }, [user, API_BASE_URL]);
 
+    // NEW: Fetch Staff
+    const fetchStaff = useCallback(async () => {
+        if (!user || !user.id) {
+            setStaff([]);
+            return;
+        }
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const response = await axios.get(`${API_BASE_URL}/api/staff`, config);
+            if (response.data.success) {
+                setStaff(response.data.data || []);
+            }
+        } catch (error) {
+            console.log('Error fetching staff:', error);
+            // Don't alert here to avoid spamming if permissions are weird on load
+        }
+    }, [user, API_BASE_URL, token]);
+
     const fetchAllData = useCallback(async () => {
         if (!user) return;
-
         setRefreshing(true);
-        await Promise.all([fetchSites(), fetchWarehouses()]);
+        await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff()]);
         setRefreshing(false);
-    }, [fetchSites, fetchWarehouses, user]);
+    }, [fetchSites, fetchWarehouses, fetchStaff, user]);
 
+    useEffect(() => {
+        if (user) {
+            fetchAllData();
+            const unsubscribe = navigation.addListener('focus', () => {
+                if (user) fetchAllData();
+            });
+            return unsubscribe;
+        }
+    }, [navigation, user, fetchAllData]);
 
+    // --- Action Handlers ---
 
     const handleLogout = useCallback(() => {
-        // Just call logout, don't navigate
         logout();
     }, [logout]);
 
     const deleteSite = useCallback(async (siteId) => {
-        Alert.alert(
-            'Confirm Delete',
-            'Are you sure you want to delete this site?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            console.log(`Deleting site ${siteId} with adminId=${user.id}`);
-                            await axios.delete(`${API_BASE_URL}/api/sites/${siteId}?adminId=${user.id}`);
-                            fetchSites();
-                            Alert.alert('Success', 'Site deleted successfully');
-                        } catch (error) {
-                            console.error('Delete site error:', error);
-                            console.error('Error response:', error.response?.data);
-                            Alert.alert('Error', 'Failed to delete site');
-                        }
+        Alert.alert('Confirm Delete', 'Are you sure you want to delete this site?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await axios.delete(`${API_BASE_URL}/api/sites/${siteId}?adminId=${user.id}`);
+                        fetchSites();
+                        Alert.alert('Success', 'Site deleted successfully');
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to delete site');
                     }
                 }
-            ]
-        );
+            }
+        ]);
     }, [API_BASE_URL, fetchSites, user]);
 
     const deleteWarehouse = useCallback(async (warehouseId) => {
-        Alert.alert(
-            'Confirm Delete',
-            'Are you sure you want to delete this warehouse? This will also remove all associated managers.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            console.log(`Deleting warehouse ${warehouseId} with adminId=${user.id}`);
-                            await axios.delete(`${API_BASE_URL}/api/warehouses/${warehouseId}?adminId=${user.id}`);
-                            fetchWarehouses();
-                            Alert.alert('Success', 'Warehouse deleted successfully');
-                        } catch (error) {
-                            console.error('Delete warehouse error:', error);
-                            console.error('Error response:', error.response?.data);
-                            Alert.alert('Error', 'Failed to delete warehouse');
-                        }
+        Alert.alert('Confirm Delete', 'Delete warehouse and all associated managers?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await axios.delete(`${API_BASE_URL}/api/warehouses/${warehouseId}?adminId=${user.id}`);
+                        fetchWarehouses();
+                        Alert.alert('Success', 'Warehouse deleted successfully');
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to delete warehouse');
                     }
                 }
-            ]
-        );
+            }
+        ]);
     }, [API_BASE_URL, fetchWarehouses, user]);
+
+    // NEW: Delete Staff
+    const deleteStaff = useCallback(async (staffId) => {
+        Alert.alert('Confirm Delete', 'Delete this staff member?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const config = { headers: { Authorization: `Bearer ${token}` } };
+                        await axios.delete(`${API_BASE_URL}/api/staff/${staffId}`, config);
+                        fetchStaff();
+                        Alert.alert('Success', 'Staff member deleted');
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to delete staff member');
+                    }
+                }
+            }
+        ]);
+    }, [API_BASE_URL, fetchStaff, token]);
+
+    // --- Helpers ---
 
     const getSiteAttendance = useCallback((site) => {
         if (!site.workers || site.workers.length === 0) {
             return { present: 0, total: 0, percentage: 0, absent: 0, notMarked: 0 };
         }
-
         const today = new Date().toDateString();
         let presentCount = 0;
         let absentCount = 0;
@@ -158,71 +184,29 @@ const AdminDashboard = () => {
         const totalWorkers = site.workers.length;
 
         site.workers.forEach(worker => {
-            const sortedAttendance = worker.attendance?.sort((a, b) =>
-                new Date(b.date) - new Date(a.date)
-            ) || [];
-
-            const todayAttendance = sortedAttendance.find(
-                att => new Date(att.date).toDateString() === today
-            );
-
+            const sortedAttendance = worker.attendance?.sort((a, b) => new Date(b.date) - new Date(a.date)) || [];
+            const todayAttendance = sortedAttendance.find(att => new Date(att.date).toDateString() === today);
             if (todayAttendance) {
-                if (todayAttendance.status === 'present') {
-                    presentCount++;
-                } else if (todayAttendance.status === 'absent') {
-                    absentCount++;
-                }
+                if (todayAttendance.status === 'present') presentCount++;
+                else if (todayAttendance.status === 'absent') absentCount++;
             } else {
                 notMarkedCount++;
             }
         });
-
         const percentage = totalWorkers > 0 ? Math.round((presentCount / totalWorkers) * 100) : 0;
-
-        return {
-            present: presentCount,
-            absent: absentCount,
-            notMarked: notMarkedCount,
-            total: totalWorkers,
-            percentage
-        };
+        return { present: presentCount, absent: absentCount, notMarked: notMarkedCount, total: totalWorkers, percentage };
     }, []);
 
     const getSiteActivitySummary = useCallback((site) => {
         const recentLogs = site.recentActivityLogs || [];
-        const todayLogs = recentLogs.filter(log => {
-            const logDate = new Date(log.timestamp).toDateString();
-            const today = new Date().toDateString();
-            return logDate === today;
-        });
-
-        return {
-            totalLogs: recentLogs.length,
-            todayLogs: todayLogs.length,
-            lastActivity: recentLogs.length > 0 ? recentLogs[0] : null
-        };
+        const todayLogs = recentLogs.filter(log => new Date(log.timestamp).toDateString() === new Date().toDateString());
+        return { totalLogs: recentLogs.length, todayLogs: todayLogs.length, lastActivity: recentLogs.length > 0 ? recentLogs[0] : null };
     }, []);
 
-
-    useEffect(() => {
-        if (user) {
-            fetchAllData();
-
-            const unsubscribe = navigation.addListener('focus', () => {
-                if (user) fetchAllData();
-            });
-
-            return unsubscribe;
-        }
-    }, [navigation, user, fetchAllData]);
+    // --- Loading State ---
     if (!user) {
         return (
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
+            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
                 <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                     <ActivityIndicator size="large" color="#FFFFFF" />
                     <Text style={{ marginTop: 20, color: '#FFFFFF', fontSize: 16 }}>Loading user data...</Text>
@@ -231,6 +215,25 @@ const AdminDashboard = () => {
         );
     }
 
+    // --- Filtering Logic ---
+    const lowerQuery = searchQuery.toLowerCase();
+    
+    const filteredWarehouses = warehouses.filter(w => 
+        w.warehouseName?.toLowerCase().includes(lowerQuery) || 
+        w.location?.toLowerCase().includes(lowerQuery)
+    );
+
+    const filteredSites = sites.filter(s => 
+        s.siteName?.toLowerCase().includes(lowerQuery) || 
+        s.location?.toLowerCase().includes(lowerQuery)
+    );
+
+    const filteredStaff = staff.filter(s => 
+        s.fullName?.toLowerCase().includes(lowerQuery) || 
+        s.username?.toLowerCase().includes(lowerQuery)
+    );
+
+    // --- Render Items ---
 
     const renderWarehouseCard = ({ item: wh }) => (
         <View style={styles.warehouseCard}>
@@ -256,16 +259,11 @@ const AdminDashboard = () => {
                     <View style={styles.statItem}>
                         <Ionicons name="people-outline" size={isIpad ? 20 : 16} color="#795548" />
                         <Text style={styles.statText}>{wh.managers?.length || 0}</Text>
-                        <Text style={styles.statLabel}>Manager{wh.managers?.length !== 1 ? 's' : ''}</Text>
+                        <Text style={styles.statLabel}>Managers</Text>
                     </View>
                 </View>
             </TouchableOpacity>
-
-            {/* Add delete button here */}
-            <TouchableOpacity
-                style={styles.warehousedeleteButton}
-                onPress={() => deleteWarehouse(wh._id)}
-            >
+            <TouchableOpacity style={styles.warehousedeleteButton} onPress={() => deleteWarehouse(wh._id)}>
                 <Ionicons name="trash-outline" size={isIpad ? 22 : 20} color="#ff4444" />
             </TouchableOpacity>
         </View>
@@ -279,10 +277,7 @@ const AdminDashboard = () => {
             <View style={styles.siteCard}>
                 <TouchableOpacity
                     style={styles.siteContent}
-                    onPress={() => navigation.navigate('SiteDetails', {
-                        site: item,
-                        siteName: item.siteName
-                    })}
+                    onPress={() => navigation.navigate('SiteDetails', { site: item, siteName: item.siteName })}
                 >
                     <View style={styles.siteHeader}>
                         <View style={styles.siteMainInfo}>
@@ -322,47 +317,51 @@ const AdminDashboard = () => {
                             <View style={[styles.attendanceDot, { backgroundColor: '#dc3545' }]} />
                             <Text style={styles.attendanceText}>{attendance.absent} Absent</Text>
                         </View>
-                        {attendance.notMarked > 0 && (
-                            <View style={styles.attendanceItem}>
-                                <View style={[styles.attendanceDot, { backgroundColor: '#ffc107' }]} />
-                                <Text style={styles.attendanceText}>{attendance.notMarked} Not Marked</Text>
-                            </View>
-                        )}
                     </View>
-
-                    {activity.todayLogs > 0 && (
-                        <View style={styles.activitySummary}>
-                            <Ionicons name="pulse-outline" size={isIpad ? 14 : 12} color="#17a2b8" />
-                            <Text style={styles.activityText}>
-                                {activity.todayLogs} activities today
-                            </Text>
-                        </View>
-                    )}
 
                     {activity.lastActivity && (
                         <View style={styles.lastActivity}>
-                            <Text style={styles.lastActivityText} numberOfLines={1}>
-                                Latest: {activity.lastActivity.description}
-                            </Text>
+                            <Text style={styles.lastActivityText} numberOfLines={1}>Latest: {activity.lastActivity.description}</Text>
                             <Text style={styles.lastActivityTime}>
-                                {new Date(activity.lastActivity.timestamp).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                })}
+                                {new Date(activity.lastActivity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Text>
                         </View>
                     )}
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => deleteSite(item._id)}
-                >
+                <TouchableOpacity style={styles.deleteButton} onPress={() => deleteSite(item._id)}>
                     <Ionicons name="trash-outline" size={isIpad ? 22 : 20} color="#ff4444" />
                 </TouchableOpacity>
             </View>
         );
     };
+
+    // NEW: Staff Card Renderer
+    const renderStaffCard = ({ item }) => (
+        <View style={styles.staffCard}>
+            <TouchableOpacity 
+                style={styles.staffContent}
+                onPress={() => navigation.navigate('StaffDetails', { staff: item })}
+            >
+                <View style={styles.staffHeader}>
+                    <View style={styles.staffAvatar}>
+                        <Text style={styles.staffAvatarText}>
+                            {item.fullName ? item.fullName.charAt(0).toUpperCase() : 'U'}
+                        </Text>
+                    </View>
+                    <View style={styles.staffInfo}>
+                        <Text style={styles.staffName}>{item.fullName}</Text>
+                        <Text style={styles.staffUsername}>@{item.username}</Text>
+                    </View>
+                    <View style={styles.roleBadge}>
+                         <Text style={styles.roleText}>{item.role || 'Staff'}</Text>
+                    </View>
+                </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.staffDeleteButton} onPress={() => deleteStaff(item._id)}>
+                <Ionicons name="trash-outline" size={20} color="#ff4444" />
+            </TouchableOpacity>
+        </View>
+    );
 
     const renderSectionHeader = ({ section: { title, icon, count } }) => (
         <View style={styles.sectionHeader}>
@@ -379,45 +378,48 @@ const AdminDashboard = () => {
     // Prepare sections data
     const sections = [];
 
-    if (warehouses.length > 0) {
+    if (filteredWarehouses.length > 0) {
         sections.push({
             title: 'Warehouses',
             icon: 'storefront-outline',
-            count: warehouses.length,
-            data: warehouses,
+            count: filteredWarehouses.length,
+            data: filteredWarehouses,
             renderItem: renderWarehouseCard,
         });
     }
 
-    if (sites.length > 0) {
+    if (filteredSites.length > 0) {
         sections.push({
             title: 'Sites',
             icon: 'business-outline',
-            count: sites.length,
-            data: sites,
+            count: filteredSites.length,
+            data: filteredSites,
             renderItem: renderSiteCard,
+        });
+    }
+
+    if (filteredStaff.length > 0) {
+        sections.push({
+            title: 'Staff Members',
+            icon: 'people-outline',
+            count: filteredStaff.length,
+            data: filteredStaff,
+            renderItem: renderStaffCard,
         });
     }
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
+            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
                 <SafeAreaView style={styles.safeArea}>
                     <View style={styles.mainContainer}>
                         {/* Header */}
                         <View style={styles.header}>
                             <View>
-                                <Text style={styles.title}>
-                                    {user.username}'s Dashboard
-                                </Text>
+                                <Text style={styles.title}>{user.username}'s Dashboard</Text>
                                 <Text style={styles.subtitle}>
-                                    {warehouses.length} warehouse{warehouses.length !== 1 ? 's' : ''} • {sites.length} site{sites.length !== 1 ? 's' : ''} • Admin Dashboard
+                                    {warehouses.length} warehouse(s) • {sites.length} site(s) • {staff.length} staff
                                 </Text>
                             </View>
                             <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -427,61 +429,68 @@ const AdminDashboard = () => {
 
                         {/* Content Area */}
                         <View style={styles.contentArea}>
+                            {/* NEW: Search Bar */}
+                            <View style={styles.searchContainer}>
+                                <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Search sites, warehouses, or staff..."
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    placeholderTextColor="#9CA3AF"
+                                    clearButtonMode="while-editing"
+                                />
+                            </View>
+
                             {sections.length > 0 ? (
                                 <SectionList
                                     sections={sections}
                                     keyExtractor={(item, index) => item._id || index.toString()}
                                     renderItem={({ item, section }) => section.renderItem({ item })}
                                     renderSectionHeader={renderSectionHeader}
-                                    refreshControl={
-                                        <RefreshControl refreshing={refreshing} onRefresh={fetchAllData} />
-                                    }
+                                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchAllData} />}
                                     showsVerticalScrollIndicator={false}
                                     contentContainerStyle={styles.listContainer}
                                     stickySectionHeadersEnabled={false}
                                 />
                             ) : (
                                 <View style={styles.emptyState}>
-                                    <Ionicons name="business-outline" size={isIpad ? 80 : 64} color="#9CA3AF" />
-                                    <Text style={styles.emptyText}>No warehouses or sites created yet</Text>
-                                    <Text style={styles.emptySubtext}>
-                                        Tap the + button to create your first warehouse or site
+                                    <Ionicons name={searchQuery ? "search-outline" : "business-outline"} size={isIpad ? 80 : 64} color="#9CA3AF" />
+                                    <Text style={styles.emptyText}>
+                                        {searchQuery ? 'No results found matching your search' : 'No warehouses, sites or staff created yet'}
                                     </Text>
+                                    {!searchQuery && (
+                                        <Text style={styles.emptySubtext}>Tap the + button to create resources</Text>
+                                    )}
                                 </View>
                             )}
 
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={() => setShowAddOptions(true)}
-                            >
+                            {/* Add Button */}
+                            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddOptions(true)}>
                                 <Ionicons name="add" size={isIpad ? 40 : 24} color="#fff" />
                             </TouchableOpacity>
 
+                            {/* Add Options Modal */}
                             {showAddOptions && (
                                 <View style={styles.modalOverlay}>
                                     <View style={styles.modalCard}>
-                                        <TouchableOpacity
-                                            style={styles.modalOption}
-                                            onPress={() => {
-                                                setShowAddOptions(false);
-                                                navigation.navigate('CreateSite');
-                                            }}
-                                        >
+                                        <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateSite'); }}>
+                                            <Ionicons name="business-outline" size={22} color="#2094F3" style={{marginRight: 10}} />
                                             <Text style={styles.modalOptionText}>Create Site</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.modalOption}
-                                            onPress={() => {
-                                                setShowAddOptions(false);
-                                                navigation.navigate('CreateWarehouse');
-                                            }}
-                                        >
+                                        
+                                        <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateWarehouse'); }}>
+                                            <Ionicons name="storefront-outline" size={22} color="#E69138" style={{marginRight: 10}} />
                                             <Text style={styles.modalOptionText}>Create Warehouse</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.modalCancel}
-                                            onPress={() => setShowAddOptions(false)}
-                                        >
+
+                                        {/* NEW: Create Staff Option */}
+                                        <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateStaff'); }}>
+                                            <Ionicons name="people-outline" size={22} color="#10B981" style={{marginRight: 10}} />
+                                            <Text style={styles.modalOptionText}>Create Staff</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.modalCancel} onPress={() => setShowAddOptions(false)}>
                                             <Text style={styles.modalCancelText}>Cancel</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -496,333 +505,89 @@ const AdminDashboard = () => {
 };
 
 const styles = StyleSheet.create({
-    warehouseCard: {
-        backgroundColor: '#FEF8F0',
-        borderRadius: screenWidth * 0.04,
-        marginBottom: screenHeight * 0.02,
-        shadowColor: '#E69138',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 4,
-        minHeight: screenHeight * 0.15,
-        overflow: 'hidden',
-        position: 'relative',  // Add this to enable absolute positioning
-    },
-    warehouseCardContent: {
-        flex: 1,
-        padding: screenWidth * 0.04,
-    },
-    container: {
-        flex: 1,
-    },
-    gradient: {
-        flex: 1,
-    },
-    safeArea: {
-        flex: 1,
-    },
-    mainContainer: {
-        flex: 1,
-        width: isIpad ? '85%' : '100%',
-        alignSelf: 'center',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: screenWidth * 0.05,
-        paddingTop: screenHeight * 0.06,
-        paddingBottom: screenHeight * 0.03,
-    },
-    title: {
-        color: '#FFFFFF',
-        fontSize: isIpad ? screenWidth * 0.035 : screenWidth * 0.06,
-        fontWeight: 'bold',
-        marginBottom: screenHeight * 0.006,
-    },
-    subtitle: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: isIpad ? screenWidth * 0.02 : screenWidth * 0.035,
-        fontWeight: '400',
-    },
-    logoutButton: {
-        padding: screenWidth * 0.015,
-    },
-    contentArea: {
-        flex: 1,
-        backgroundColor: '#E5E7EB',
-        borderTopLeftRadius: screenWidth * 0.08,
-        borderTopRightRadius: screenWidth * 0.08,
-        paddingHorizontal: screenWidth * 0.04,
-        paddingTop: screenHeight * 0.03,
-        paddingBottom: screenHeight * 0.04,
-        minHeight: '85%',
-    },
-    listContainer: {
-        paddingBottom: screenHeight * 0.1,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: screenHeight * 0.015,
-        marginTop: screenHeight * 0.02,
-    },
-    sectionHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    sectionHeaderTitle: {
-        fontSize: isIpad ? screenWidth * 0.032 : screenWidth * 0.05,
-        fontWeight: 'bold',
-        color: '#333',
-        marginLeft: screenWidth * 0.02,
-    },
-    countBadge: {
-        backgroundColor: '#2094F3',
-        borderRadius: screenWidth * 0.03,
-        paddingHorizontal: screenWidth * 0.02,
-        paddingVertical: screenHeight * 0.005,
-        marginLeft: screenWidth * 0.02,
-        minWidth: screenWidth * 0.06,
-        alignItems: 'center',
-    },
-    countText: {
-        color: '#FFFFFF',
-        fontSize: isIpad ? screenWidth * 0.018 : screenWidth * 0.028,
-        fontWeight: 'bold',
-    },
-    siteCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: screenWidth * 0.04,
-        marginBottom: screenHeight * 0.02,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        elevation: 4,
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    siteContent: {
-        flex: 1,
-        padding: screenWidth * 0.04,
-    },
-    siteHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: screenHeight * 0.015,
-    },
-    siteMainInfo: {
-        flex: 1,
-    },
-    siteName: {
-        fontSize: isIpad ? screenWidth * 0.028 : screenWidth * 0.045,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: screenHeight * 0.006,
-    },
-    siteLocation: {
-        fontSize: isIpad ? screenWidth * 0.02 : screenWidth * 0.035,
-        color: '#666',
-    },
-    attendanceBadge: {
-        backgroundColor: '#e3f2fd',
-        paddingHorizontal: screenWidth * 0.03,
-        paddingVertical: screenHeight * 0.008,
-        borderRadius: screenWidth * 0.05,
-        alignItems: 'center',
-        minWidth: screenWidth * 0.15,
-    },
-    attendancePercentage: {
-        fontSize: isIpad ? screenWidth * 0.022 : screenWidth * 0.04,
-        fontWeight: 'bold',
-        color: '#1976d2',
-    },
-    attendanceLabel: {
-        fontSize: isIpad ? screenWidth * 0.014 : screenWidth * 0.025,
-        color: '#1976d2',
-        marginTop: screenHeight * 0.003,
-    },
-    siteStats: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginBottom: screenHeight * 0.025,
-        paddingVertical: screenHeight * 0.012,
-        backgroundColor: '#f8f9fa',
-        borderRadius: screenWidth * 0.02,
-    },
-    statItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    statText: {
-        fontSize: isIpad ? screenWidth * 0.022 : screenWidth * 0.04,
-        fontWeight: 'bold',
-        color: '#333',
-        marginTop: screenHeight * 0.005,
-        marginBottom: screenHeight * 0.003,
-    },
-    statLabel: {
-        fontSize: isIpad ? screenWidth * 0.016 : screenWidth * 0.028,
-        color: '#666',
-    },
-    attendanceDetails: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginBottom: screenHeight * 0.01,
-    },
-    attendanceItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: screenWidth * 0.04,
-        marginBottom: screenHeight * 0.006,
-    },
-    attendanceDot: {
-        width: screenWidth * 0.02,
-        height: screenWidth * 0.02,
-        borderRadius: screenWidth * 0.01,
-        marginRight: screenWidth * 0.015,
-    },
-    attendanceText: {
-        fontSize: isIpad ? screenWidth * 0.018 : screenWidth * 0.03,
-        color: '#666',
-    },
-    activitySummary: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: screenHeight * 0.01,
-    },
-    activityText: {
-        fontSize: isIpad ? screenWidth * 0.018 : screenWidth * 0.03,
-        color: '#17a2b8',
-        marginLeft: screenWidth * 0.01,
-        fontWeight: '500',
-    },
-    lastActivity: {
-        backgroundColor: '#f8f9fa',
-        padding: screenWidth * 0.03,
-        borderRadius: screenWidth * 0.015,
-        borderLeftWidth: screenWidth * 0.008,
-        borderLeftColor: '#007bff',
-        marginBottom: screenHeight * 0.015,
-    },
-    lastActivityText: {
-        fontSize: isIpad ? screenWidth * 0.018 : screenWidth * 0.03,
-        color: '#333',
-        marginBottom: screenHeight * 0.003,
-    },
-    lastActivityTime: {
-        fontSize: isIpad ? screenWidth * 0.016 : screenWidth * 0.028,
-        color: '#888',
-    },
-    deleteButton: {
-        position: 'absolute',
-        bottom: screenHeight * 0.02,
-        right: screenWidth * 0.04,
-        backgroundColor: 'rgba(255, 0, 0, 0.08)',
-        padding: screenWidth * 0.02,
-        borderRadius: screenWidth * 0.05,
-        width: screenWidth * 0.09,
-        height: screenWidth * 0.09,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    warehousedeleteButton:{
-        position: 'absolute',
-        bottom: screenHeight * 0.02,
-        right: screenWidth * 0.04,
-        backgroundColor: 'rgba(255, 0, 0, 0.08)',
-        padding: screenWidth * 0.02,
-        borderRadius: screenWidth * 0.05,
-        width: screenWidth * 0.09,
-        height: screenWidth * 0.09,
-        alignItems: 'center',
-        justifyContent: 'center',
-        top: screenHeight * 0.02,
-    },
-    addButton: {
-        position: 'absolute',
-        bottom: screenHeight * 0.03,
-        right: screenWidth * 0.05,
-        backgroundColor: '#2094F3',
-        width: screenWidth * 0.14,
-        height: screenWidth * 0.14,
-        borderRadius: screenWidth * 0.07,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 8,
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: screenWidth * 0.1,
-        marginTop: screenHeight * 0.12,
-    },
-    emptyText: {
-        fontSize: isIpad ? screenWidth * 0.028 : screenWidth * 0.045,
-        color: '#666',
-        marginTop: screenHeight * 0.025,
-        textAlign: 'center',
-    },
-    emptySubtext: {
-        fontSize: isIpad ? screenWidth * 0.02 : screenWidth * 0.035,
-        color: '#888',
-        marginTop: screenHeight * 0.012,
-        textAlign: 'center',
-    },
-    modalOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.25)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    modalCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 20,
-        padding: 24,
-        minWidth: 240,
-        alignItems: 'center',
-        elevation: 12,
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-    },
-    modalOption: {
-        paddingVertical: 15,
-        paddingHorizontal: 32,
-        width: '100%',
-        alignItems: 'center',
-    },
-    modalOptionText: {
-        fontSize: isIpad ? 22 : 16,
-        color: '#2094F3',
-        fontWeight: '700'
-    },
-    modalCancel: {
-        marginTop: 10,
-        borderTopWidth: 1,
-        borderTopColor: '#EEE',
-        width: '100%',
-        alignItems: 'center',
-        paddingVertical: 10,
-    },
-    modalCancelText: {
-        fontSize: isIpad ? 20 : 15,
-        color: '#888'
-    },
+    container: { flex: 1 },
+    gradient: { flex: 1 },
+    safeArea: { flex: 1 },
+    mainContainer: { flex: 1, width: isIpad ? '85%' : '100%', alignSelf: 'center' },
+    
+    // Header
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: screenWidth * 0.05, paddingTop: screenHeight * 0.06, paddingBottom: screenHeight * 0.03 },
+    title: { color: '#FFFFFF', fontSize: isIpad ? screenWidth * 0.035 : screenWidth * 0.06, fontWeight: 'bold', marginBottom: screenHeight * 0.006 },
+    subtitle: { color: 'rgba(255, 255, 255, 0.8)', fontSize: isIpad ? screenWidth * 0.02 : screenWidth * 0.035, fontWeight: '400' },
+    logoutButton: { padding: screenWidth * 0.015 },
+
+    // Content
+    contentArea: { flex: 1, backgroundColor: '#E5E7EB', borderTopLeftRadius: screenWidth * 0.08, borderTopRightRadius: screenWidth * 0.08, paddingHorizontal: screenWidth * 0.04, paddingTop: 20, paddingBottom: screenHeight * 0.04 },
+    listContainer: { paddingBottom: screenHeight * 0.1 },
+
+    // Search Bar
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, marginBottom: 20, height: 48, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+    searchIcon: { marginRight: 8 },
+    searchInput: { flex: 1, fontSize: 16, color: '#1f2937' },
+
+    // Section Headers
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 16 },
+    sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center' },
+    sectionHeaderTitle: { fontSize: isIpad ? 20 : 18, fontWeight: 'bold', color: '#333', marginLeft: 8 },
+    countBadge: { backgroundColor: '#2094F3', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8, minWidth: 24, alignItems: 'center' },
+    countText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
+
+    // Cards General
+    deleteButton: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255, 0, 0, 0.08)', padding: 8, borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    warehousedeleteButton: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255, 0, 0, 0.08)', padding: 8, borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
+    // Warehouse Card
+    warehouseCard: { backgroundColor: '#FEF8F0', borderRadius: 16, marginBottom: 16, shadowColor: '#E69138', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4, minHeight: 120, position: 'relative' },
+    warehouseCardContent: { flex: 1, padding: 16 },
+    
+    // Site Card
+    siteCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4, position: 'relative' },
+    siteContent: { flex: 1, padding: 16 },
+    siteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    siteMainInfo: { flex: 1 },
+    siteName: { fontSize: isIpad ? 20 : 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+    siteLocation: { fontSize: 14, color: '#666' },
+    attendanceBadge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: 'center', minWidth: 60 },
+    attendancePercentage: { fontSize: 16, fontWeight: 'bold', color: '#1976d2' },
+    attendanceLabel: { fontSize: 10, color: '#1976d2', marginTop: 2 },
+    siteStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16, paddingVertical: 10, backgroundColor: '#f8f9fa', borderRadius: 8 },
+    statItem: { alignItems: 'center', flex: 1 },
+    statText: { fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 4, marginBottom: 2 },
+    statLabel: { fontSize: 12, color: '#666' },
+    attendanceDetails: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+    attendanceItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4 },
+    attendanceDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+    attendanceText: { fontSize: 12, color: '#666' },
+    lastActivity: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: '#007bff', marginTop: 8 },
+    lastActivityText: { fontSize: 12, color: '#333', marginBottom: 2 },
+    lastActivityTime: { fontSize: 11, color: '#888' },
+
+    // Staff Card (NEW)
+    staffCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, position: 'relative' },
+    staffContent: { padding: 16, flexDirection: 'row', alignItems: 'center' },
+    staffHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    staffAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    staffAvatarText: { fontSize: 20, fontWeight: 'bold', color: '#0369A1' },
+    staffInfo: { flex: 1 },
+    staffName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    staffUsername: { fontSize: 14, color: '#6B7280' },
+    roleBadge: { backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginRight: 40 },
+    roleText: { fontSize: 10, color: '#374151', fontWeight: '600', textTransform: 'uppercase' },
+    staffDeleteButton: { position: 'absolute', right: 16, top: '50%', marginTop: -18, backgroundColor: 'rgba(255, 0, 0, 0.08)', padding: 8, borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
+    // Empty State
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, marginTop: 60 },
+    emptyText: { fontSize: 18, color: '#666', marginTop: 16, textAlign: 'center' },
+    emptySubtext: { fontSize: 14, color: '#888', marginTop: 8, textAlign: 'center' },
+
+    // Add Button & Modal
+    addButton: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2094F3', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
+    modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+    modalCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 24, minWidth: 260, alignItems: 'center', elevation: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 },
+    modalOption: { paddingVertical: 15, paddingHorizontal: 20, width: '100%', flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    modalOptionText: { fontSize: 16, color: '#333', fontWeight: '600' },
+    modalCancel: { marginTop: 10, width: '100%', alignItems: 'center', paddingVertical: 10 },
+    modalCancelText: { fontSize: 16, color: '#888' },
 });
 
 export default AdminDashboard;

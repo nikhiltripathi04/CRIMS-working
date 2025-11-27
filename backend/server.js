@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cron = require('node-cron');
 require('dotenv').config();
 
 // Import routes
@@ -8,12 +9,14 @@ const authRoutes = require('./routes/auth');
 const siteRoutes = require('./routes/sites');
 const warehouseRoutes = require('./routes/warehouses');
 const staffRoutes = require('./routes/staff');
+const attendanceRoutes = require('./routes/attendance');
 
 const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // IMPORTANT: Increase the body parser limit for OCR images
 
@@ -25,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
@@ -74,6 +78,32 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/construct
         // Create default admin user
         createDefaultUsers();
 
+        // Schedule daily cleanup of old attendance photos (runs at 2 AM every day)
+        const Attendance = require('./models/Attendance');
+
+        // Run cleanup on startup as well (in case server was down at 2 AM)
+        const runCleanup = async () => {
+            console.log('🧹 Running startup attendance photo cleanup...');
+            try {
+                const result = await Attendance.cleanupOldPhotos();
+                console.log(`✅ Cleaned up ${result.modifiedCount} old photos`);
+            } catch (error) {
+                console.error('❌ Error during startup cleanup:', error);
+            }
+        };
+        runCleanup();
+
+        cron.schedule('0 2 * * *', async () => {
+            console.log('🧹 Running scheduled attendance photo cleanup...');
+            try {
+                const result = await Attendance.cleanupOldPhotos();
+                console.log(`✅ Cleaned up ${result.modifiedCount} old photos`);
+            } catch (error) {
+                console.error('❌ Error during scheduled cleanup:', error);
+            }
+        });
+        console.log('⏰ Scheduled daily photo cleanup job (2 AM)');
+
         // Start server only after DB connection
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
@@ -84,7 +114,9 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/construct
             console.log('   POST http://localhost:' + PORT + '/api/auth/login');
             console.log('   GET  http://localhost:' + PORT + '/api/sites');
             console.log('   POST http://localhost:' + PORT + '/api/warehouses');
-            console.log('💾 Body parser limit: 50mb (for OCR images)');
+            console.log('   POST http://localhost:' + PORT + '/api/staff');
+            console.log('   POST http://localhost:' + PORT + '/api/attendance');
+            console.log('💾 Body parser limit: 50mb (for attendance photos)');
         });
     })
     .catch(err => {
