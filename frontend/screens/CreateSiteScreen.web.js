@@ -1,7 +1,7 @@
 // top of CreateSiteScreen.web.jsx
 console.log('Using CreateSiteScreen.web.jsx');
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -17,69 +17,101 @@ export default function CreateSiteScreenWeb() {
   const [siteName, setSiteName] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [createSupervisor, setCreateSupervisor] = useState(false);
+
+  // Supervisor Logic
+  const [supervisorMode, setSupervisorMode] = useState('none'); // 'none', 'new', 'existing'
   const [supervisorUsername, setSupervisorUsername] = useState('');
   const [supervisorPassword, setSupervisorPassword] = useState('');
   const [showSupervisorPassword, setShowSupervisorPassword] = useState(false);
+
+  const [existingSupervisors, setExistingSupervisors] = useState([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
   const clearToast = () => setTimeout(() => setToast(null), 3000);
 
+  useEffect(() => {
+    if (user && user.id) {
+      fetchSupervisors();
+    }
+  }, [user]);
+
+  const fetchSupervisors = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+      if (res.data.success) {
+        setExistingSupervisors(res.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching supervisors:', error);
+    }
+  };
+
   // replace the existing handleCreateSite with this version
-const handleCreateSite = async () => {
-  if (!siteName.trim() || !location.trim()) {
-    setToast({ type: 'error', msg: 'Please enter site name and location' });
-    clearToast();
-    return;
-  }
-
-  if (createSupervisor && (!supervisorUsername.trim() || !supervisorPassword.trim())) {
-    setToast({ type: 'error', msg: 'Please enter supervisor username and password' });
-    clearToast();
-    return;
-  }
-
-  if (!user || !user.id) {
-    setToast({ type: 'error', msg: 'User not available — please login again' });
-    clearToast();
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const siteData = { siteName, location, description, adminId: user.id };
-    if (createSupervisor) {
-      siteData.supervisorUsername = supervisorUsername;
-      siteData.supervisorPassword = supervisorPassword;
+  const handleCreateSite = async () => {
+    if (!siteName.trim() || !location.trim()) {
+      setToast({ type: 'error', msg: 'Please enter site name and location' });
+      clearToast();
+      return;
     }
 
-    const res = await axios.post(`${API_BASE_URL}/api/sites`, siteData);
-    console.log('Site creation response:', res.data);
-
-    // Show success alert first (so user sees it) and then navigate to AdminDashboard
-    window.alert('Site created successfully');
-
-    // If you created a supervisor, also show credentials in the alert (optional)
-    if (createSupervisor) {
-      window.alert(
-        `Supervisor credentials:\n\nUsername: ${supervisorUsername}\nPassword: ${supervisorPassword}\n\nSave these, the password won't be shown again.`
-      );
+    if (supervisorMode === 'new' && (!supervisorUsername.trim() || !supervisorPassword.trim())) {
+      setToast({ type: 'error', msg: 'Please enter supervisor username and password' });
+      clearToast();
+      return;
     }
 
-    // Navigate to Admin Dashboard
-    // Use navigate instead of goBack to ensure the dashboard screen refreshes correctly
-    navigation.navigate('AdminDashboard');
+    if (supervisorMode === 'existing' && !selectedSupervisorId) {
+      setToast({ type: 'error', msg: 'Please select a supervisor' });
+      clearToast();
+      return;
+    }
 
-  } catch (err) {
-    console.error(err);
-    const msg = err?.response?.data?.message || 'Failed to create site';
-    setToast({ type: 'error', msg });
-    clearToast();
-  } finally {
-    setLoading(false);
-  }
-};
+    if (!user || !user.id) {
+      setToast({ type: 'error', msg: 'User not available — please login again' });
+      clearToast();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const siteData = { siteName, location, description, adminId: user.id };
+
+      if (supervisorMode === 'new') {
+        siteData.supervisorUsername = supervisorUsername;
+        siteData.supervisorPassword = supervisorPassword;
+      } else if (supervisorMode === 'existing') {
+        siteData.existingSupervisorId = selectedSupervisorId;
+      }
+
+      const res = await axios.post(`${API_BASE_URL}/api/sites`, siteData);
+      console.log('Site creation response:', res.data);
+
+      // Show success alert first (so user sees it) and then navigate to AdminDashboard
+      window.alert('Site created successfully');
+
+      // If you created a supervisor, also show credentials in the alert (optional)
+      if (supervisorMode === 'new') {
+        window.alert(
+          `Supervisor credentials:\n\nUsername: ${supervisorUsername}\nPassword: ${supervisorPassword}\n\nSave these, the password won't be shown again.`
+        );
+      }
+
+      // Navigate to Admin Dashboard
+      // Use navigate instead of goBack to ensure the dashboard screen refreshes correctly
+      navigation.navigate('AdminDashboard');
+
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.message || 'Failed to create site';
+      setToast({ type: 'error', msg });
+      clearToast();
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const onCancel = () => navigation.goBack();
@@ -102,7 +134,7 @@ const handleCreateSite = async () => {
             e.preventDefault();
             handleCreateSite();
           }}
-        > 
+        >
           <label style={styles.label}>
             <div>Site Name <span style={styles.required}>*</span></div>
             <input autoFocus
@@ -134,21 +166,43 @@ const handleCreateSite = async () => {
           </label>
 
 
-          <div style={styles.toggleRow}>
-            <div style={styles.toggleLeft}>
-              <Ionicons name="person-add-outline" size={20} color="#2094f3" />
-              <div style={{ marginLeft: 10 }}>
-                <div style={styles.toggleTitle}>Add Supervisor Account</div>
-                <div style={styles.toggleSubtitle}>Create login credentials for site supervisor</div>
-              </div>
-            </div>
-            <label style={styles.switchLabel}>
-              <input type="checkbox" checked={createSupervisor} onChange={(e) => setCreateSupervisor(e.target.checked)} />
+          <div style={styles.sectionTitle}>Supervisor Assignment</div>
+
+          <div style={styles.radioGroup}>
+            <label style={styles.radioLabel}>
+              <input
+                type="radio"
+                name="supervisorMode"
+                value="none"
+                checked={supervisorMode === 'none'}
+                onChange={() => setSupervisorMode('none')}
+              />
+              None
+            </label>
+            <label style={styles.radioLabel}>
+              <input
+                type="radio"
+                name="supervisorMode"
+                value="new"
+                checked={supervisorMode === 'new'}
+                onChange={() => setSupervisorMode('new')}
+              />
+              Create New
+            </label>
+            <label style={styles.radioLabel}>
+              <input
+                type="radio"
+                name="supervisorMode"
+                value="existing"
+                checked={supervisorMode === 'existing'}
+                onChange={() => setSupervisorMode('existing')}
+              />
+              Assign Existing
             </label>
           </div>
 
-          {createSupervisor && (
-            <div>
+          {supervisorMode === 'new' && (
+            <div style={styles.subSection}>
               <label style={styles.label}>
                 <div>Supervisor Username <span style={styles.required}>*</span></div>
                 <input
@@ -185,9 +239,29 @@ const handleCreateSite = async () => {
             </div>
           )}
 
+          {supervisorMode === 'existing' && (
+            <div style={styles.subSection}>
+              <label style={styles.label}>
+                <div>Select Supervisor <span style={styles.required}>*</span></div>
+                <select
+                  style={styles.select}
+                  value={selectedSupervisorId}
+                  onChange={(e) => setSelectedSupervisorId(e.target.value)}
+                >
+                  <option value="">-- Select a Supervisor --</option>
+                  {existingSupervisors.map(sup => (
+                    <option key={sup._id} value={sup._id}>
+                      {sup.username} {sup.assignedSites?.length > 0 ? `(${sup.assignedSites.length} sites)` : '(No sites)'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
           <div style={styles.actions}>
             <button type="submit" style={loading ? styles.primaryDisabled : styles.primary} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="add-circle-outline" size={18} color="#fff" style={{ marginRight: 8 }} />{createSupervisor ? 'Create Site & Supervisor' : 'Create Site'}</>}
+              {loading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="add-circle-outline" size={18} color="#fff" style={{ marginRight: 8 }} />Create Site</>}
             </button>
 
             <button type="button" style={styles.cancel} onClick={onCancel} disabled={loading}>
@@ -205,7 +279,7 @@ const handleCreateSite = async () => {
 
       <style>{`
         /* small global styles for inputs */
-        input, textarea { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        input, textarea, select { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         button { font-family: inherit }
         .toast-enter { opacity: 0; transform: translateY(10px); }
         .toast-enter-active { opacity: 1; transform: translateY(0); transition: all 300ms; }
@@ -228,10 +302,15 @@ const styles = {
   label: { display: 'flex', flexDirection: 'column', gap: 5, fontWeight: 600, color: '#374151', fontSize: 14 },
   required: { color: '#ef4444' },
   input: { padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 15, outline: 'none', background: '#fff', transition: 'border-color 0.2s, box-shadow 0.2s' },
+  select: { padding: '10px 14px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 15, outline: 'none', background: '#fff', transition: 'border-color 0.2s, box-shadow 0.2s', width: '100%' },
   toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '12px 16px', borderRadius: 8, cursor: 'pointer' },
   toggleLeft: { display: 'flex', alignItems: 'center', flex: 1 },
   toggleTitle: { fontWeight: 600, color: '#1f2937' },
   toggleSubtitle: { color: '#6b7280', fontSize: 13 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937', marginTop: 10, marginBottom: 5 },
+  radioGroup: { display: 'flex', gap: 20, marginBottom: 10 },
+  radioLabel: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: '#374151' },
+  subSection: { padding: 16, background: '#f8fafc', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 16, border: '1px solid #e2e8f0' },
   switchWrapper: { position: 'relative', display: 'inline-block', width: 40, height: 24 },
   switchInput: { opacity: 0, width: 0, height: 0 },
   switchSlider: {

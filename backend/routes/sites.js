@@ -108,11 +108,11 @@ const checkSiteOwnership = async (req, res, next) => {
         if (!user && supervisorId) {
             const supervisor = await User.findOne({ _id: supervisorId, role: 'supervisor' });
 
-            if (supervisor && supervisor.siteId) {
-                // Convert both to strings for comparison
-                const supervisorSiteId = supervisor.siteId.toString();
+            if (supervisor && supervisor.assignedSites) {
+                // Check if the siteId is in the supervisor's assignedSites array
+                const isAssigned = supervisor.assignedSites.some(id => id.toString() === siteId);
 
-                if (supervisorSiteId === siteId) {
+                if (isAssigned) {
                     site = await Site.findById(siteId);
                     user = supervisor;
                 }
@@ -266,18 +266,20 @@ router.post('/', async (req, res) => {
         const site = new Site(siteData);
         await site.save();
 
-        // Create supervisor if credentials provided
+        // Handle supervisor assignment
         let supervisor = null;
+
+        // Scenario 1: Create NEW supervisor
         if (supervisorUsername && supervisorPassword) {
             // Check if supervisor username already exists
-            const existingSupervisor = await User.findOne({ 
-                username: supervisorUsername.toLowerCase().trim() 
+            const existingSupervisor = await User.findOne({
+                username: supervisorUsername.toLowerCase().trim()
             });
-            
+
             if (existingSupervisor) {
                 // Rollback site creation
                 await Site.findByIdAndDelete(site._id);
-                
+
                 return res.status(400).json({
                     success: false,
                     message: 'Supervisor username already exists'
@@ -289,14 +291,33 @@ router.post('/', async (req, res) => {
                 username: supervisorUsername.toLowerCase().trim(),
                 password: supervisorPassword,
                 role: 'supervisor',
-                siteId: site._id
+                createdBy: adminId,
+                assignedSites: [site._id] // Assign this site
             });
-            
+
             await supervisor.save();
-            
+
             // Add supervisor to site's supervisors array
             site.supervisors.push(supervisor._id);
             await site.save();
+        }
+        // Scenario 2: Assign EXISTING supervisor (if supervisorId provided in body)
+        else if (req.body.existingSupervisorId) {
+            console.log('Assigning existing supervisor:', req.body.existingSupervisorId);
+            supervisor = await User.findOne({ _id: req.body.existingSupervisorId, role: 'supervisor' });
+
+            if (supervisor) {
+                if (!supervisor.assignedSites) supervisor.assignedSites = [];
+                // Add site to supervisor's assignedSites
+                if (!supervisor.assignedSites.includes(site._id)) {
+                    supervisor.assignedSites.push(site._id);
+                    await supervisor.save();
+                }
+
+                // Add supervisor to site
+                site.supervisors.push(supervisor._id);
+                await site.save();
+            }
         }
 
         // Get admin user for logging
@@ -308,12 +329,12 @@ router.post('/', async (req, res) => {
                 siteName: site.siteName,
                 location: site.location
             };
-            
+
             if (supervisor) {
                 logDetails.supervisorCreated = true;
                 logDetails.supervisorUsername = supervisor.username;
             }
-            
+
             await ActivityLogger.logActivity(
                 site._id,
                 'site_created',
@@ -328,8 +349,8 @@ router.post('/', async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: supervisor ? 
-                'Site created successfully with supervisor account' : 
+            message: supervisor ?
+                'Site created successfully with supervisor account' :
                 'Site created successfully',
             data: site
         });
@@ -380,6 +401,103 @@ router.put('/:id', checkSiteOwnership, async (req, res) => {
     }
 });
 
+// Assign supervisor to site
+router.post('/:id/assign-supervisor', checkSiteOwnership, async (req, res) => {
+    try {
+        const site = req.site;
+        const { supervisorId } = req.body;
+        const adminId = req.user?.id;
+
+        if (!supervisorId) {
+            return res.status(400).json({ success: false, message: 'Supervisor ID is required' });
+        }
+
+        const supervisor = await User.findOne({ _id: supervisorId, role: 'supervisor' });
+        if (!supervisor) {
+            return res.status(404).json({ success: false, message: 'Supervisor not found' });
+        }
+
+        // Check if already assigned
+        if (site.supervisors.includes(supervisorId)) {
+            return res.status(400).json({ success: false, message: 'Supervisor already assigned to this site' });
+        }
+
+        // Update Site
+        site.supervisors.push(supervisorId);
+        await site.save();
+
+        // Update Supervisor
+        if (!supervisor.assignedSites.includes(site._id)) {
+            supervisor.assignedSites.push(site._id);
+            await supervisor.save();
+        }
+
+        // Log activity
+        const adminUser = await getUser(adminId);
+        if (adminUser) {
+            await ActivityLogger.logActivity(
+                site._id,
+                'supervisor_added',
+                adminUser,
+                { supervisorId: supervisor._id, supervisorUsername: supervisor.username },
+                `Supervisor "${supervisor.username}" assigned to site by ${adminUser.username}`
+            );
+        }
+
+        // Return updated site
+        await site.populate('supervisors', 'username');
+        res.json({ success: true, message: 'Supervisor assigned successfully', data: site });
+
+    } catch (error) {
+        console.error('Assign supervisor error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Remove supervisor from site
+router.post('/:id/remove-supervisor', checkSiteOwnership, async (req, res) => {
+    try {
+        const site = req.site;
+        const { supervisorId } = req.body;
+        const adminId = req.user?.id;
+
+        if (!supervisorId) {
+            return res.status(400).json({ success: false, message: 'Supervisor ID is required' });
+        }
+
+        // Update Site
+        site.supervisors = site.supervisors.filter(id => id.toString() !== supervisorId);
+        await site.save();
+
+        // Update Supervisor
+        const supervisor = await User.findById(supervisorId);
+        if (supervisor) {
+            supervisor.assignedSites = supervisor.assignedSites.filter(id => id.toString() !== site._id.toString());
+            await supervisor.save();
+        }
+
+        // Log activity
+        const adminUser = await getUser(adminId);
+        if (adminUser) {
+            await ActivityLogger.logActivity(
+                site._id,
+                'supervisor_removed',
+                adminUser,
+                { supervisorId, supervisorUsername: supervisor ? supervisor.username : 'Unknown' },
+                `Supervisor "${supervisor ? supervisor.username : 'Unknown'}" removed from site by ${adminUser.username}`
+            );
+        }
+
+        // Return updated site
+        await site.populate('supervisors', 'username');
+        res.json({ success: true, message: 'Supervisor removed successfully', data: site });
+
+    } catch (error) {
+        console.error('Remove supervisor error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Reset supervisor password
 router.put('/:siteId/supervisors/:supervisorId/reset-password', checkSiteOwnership, async (req, res) => {
     try {
@@ -416,11 +534,11 @@ router.put('/:siteId/supervisors/:supervisorId/reset-password', checkSiteOwnersh
         console.log('Supervisor siteId:', supervisor.siteId);
 
         // Check if supervisor belongs to this site
-        if (supervisor.role !== 'supervisor' || !supervisor.siteId ||
-            supervisor.siteId.toString() !== siteId) {
+        if (supervisor.role !== 'supervisor' || !supervisor.assignedSites ||
+            !supervisor.assignedSites.some(id => id.toString() === siteId)) {
             console.log('Site ID mismatch or role issue:');
             console.log('- Expected siteId:', siteId);
-            console.log('- Supervisor\'s siteId:', supervisor.siteId?.toString());
+            console.log('- Supervisor\'s assignedSites:', supervisor.assignedSites);
             console.log('- Role:', supervisor.role);
 
             return res.status(403).json({

@@ -42,6 +42,7 @@ let SiteDetailsScreenScreen;
 let ManageWorkersScreenScreen;
 let ManageSuppliesScreenScreen;
 let ManageSupervisorsScreenScreen;
+let GlobalManageSupervisorsScreenScreen;
 let WarehouseDetailsScreenScreen;
 let WarehouseSuppliesScreenScreen;
 let ManageWarehouseManagersScreenScreen;
@@ -64,6 +65,7 @@ if (Platform.OS === 'web') {
   ManageWorkersScreenScreen = require('../screens/ManageWorkersScreen.web').default;
   ManageSuppliesScreenScreen = require('../screens/ManageSuppliesScreen.web').default;
   ManageSupervisorsScreenScreen = require('../screens/ManageSupervisorsScreen.web').default;
+  GlobalManageSupervisorsScreenScreen = require('../screens/GlobalManageSupervisorsScreen.web').default;
   WarehouseDetailsScreenScreen = require('../screens/WarehouseDetailsScreen.web').default;
   WarehouseSuppliesScreenScreen = require('../screens/WarehouseSuppliesScreen.web').default;
   ManageWarehouseManagersScreenScreen = require('../screens/ManageWarehouseManagersScreen.web').default;
@@ -206,40 +208,41 @@ export default function AppNavigator() {
           <>
             {/* <Stack.Screen name="AdminDashboard" component={AdminDashboard} options={{ headerShown: false }} /> */}
             <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen name="CreateSite" component={CreateSiteScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="CreateSite" component={CreateSiteScreenScreen} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreenScreen} options={{ headerShown: false }} />
-            
+
             <Stack.Screen name="CreateStaff" component={CreateStaffScreenScreen} options={{ headerShown: false }} />
 
             {/* <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="SiteDetails" component={SiteDetailsScreenScreen} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreenScreen} options={{ headerShown: false }} />
-            
+
             <Stack.Screen name="StaffDetails" component={StaffDetailsScreenScreen} options={{ headerShown: false }} />
 
             {/* <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseSupplies" component={WarehouseSuppliesScreenScreen} options={{ headerShown: false }} />
-            
+
             <Stack.Screen name="WarehouseReports" component={WarehouseReportsScreen} options={{ headerShown: false }} />
-            
-            
+
+
             {/* <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreenScreen} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreenScreen} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreenScreen} options={{ headerShown: false }} />
-            
+            <Stack.Screen name="GlobalManageSupervisors" component={GlobalManageSupervisorsScreenScreen} options={{ headerShown: false }} />
+
             <Stack.Screen name="Announcements" component={Announcements} options={{ headerShown: false }} />
-            
+
             {/* <Stack.Screen
               name="ManageWarehouseManagers"
               component={ManageWarehouseManagersScreen}
@@ -256,8 +259,8 @@ export default function AppNavigator() {
           <>
             {/* <Stack.Screen name="WarehouseManagerDashboard" component={WarehouseManagerDashboard} options={{ headerShown: false }} /> */}
             <Stack.Screen name="WarehouseManagerDashboard" component={WarehouseManagerDashboardScreen} options={{ headerShown: false }} />
-            
-            
+
+
             {/* <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} /> */}
             {/* Add any other manager-specific screens here */}
             <Stack.Screen
@@ -290,7 +293,7 @@ export default function AppNavigator() {
           // ------- STAFF --------
           <>
             <Stack.Screen name="StaffDashboard" component={StaffDashboardScreen} options={{ headerShown: false }} />
-            
+
           </>
         ) : (
           // ------- SUPERVISOR --------

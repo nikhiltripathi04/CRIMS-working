@@ -35,11 +35,10 @@ const userSchema = new mongoose.Schema({
         enum: ['admin', 'supervisor', 'warehouse_manager', 'staff'],
         required: true
     },
-    siteId: {
+    assignedSites: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Site',
-        required: function () { return this.role === 'supervisor'; }
-    },
+        ref: 'Site'
+    }],
     warehouseId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Warehouse',

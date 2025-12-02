@@ -8,26 +8,25 @@ export default function AdminDashboardWeb() {
   // Added 'token' to destructuring to use in Authorization headers
   const { user, API_BASE_URL, logout, token } = useAuth();
   const navigation = useNavigation();
-  
+
   const [loading, setLoading] = useState(true);
   const [sites, setSites] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
-  const [staff, setStaff] = useState([]); // NEW: Staff state
+  const [staff, setStaff] = useState([]);
+  const [supervisors, setSupervisors] = useState([]); // NEW: Supervisors state
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
 
-  // --- 1. Fetch Staff ---
+  // --- 1. Fetch Functions ---
   const fetchStaff = useCallback(async () => {
     if (!user || !user.id) {
       setStaff([]);
       return;
     }
     try {
-      // API Guide requires Authorization header
       const config = {
         headers: { Authorization: `Bearer ${token}` }
       };
-      
       const res = await axios.get(`${API_BASE_URL}/api/staff`, config);
       if (res.data && res.data.success) {
         setStaff(res.data.data || []);
@@ -36,27 +35,21 @@ export default function AdminDashboardWeb() {
       }
     } catch (err) {
       console.error('fetchStaff web error', err);
-      // Optional: Don't alert on every load, but good for debugging
     }
   }, [user, API_BASE_URL, token]);
 
   const fetchSites = useCallback(async () => {
     if (!user || !user.id) {
       setSites([]);
-      setLoading(false);
       return;
     }
     try {
-      setLoading(true);
       const res = await axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`);
       if (res.data && res.data.success) setSites(res.data.data || []);
       else setSites([]);
     } catch (err) {
       console.error('fetchSites web error', err);
-      alert('Failed to fetch sites');
       setSites([]);
-    } finally {
-      setLoading(false);
     }
   }, [user, API_BASE_URL]);
 
@@ -71,18 +64,49 @@ export default function AdminDashboardWeb() {
       else setWarehouses([]);
     } catch (err) {
       console.error('fetchWarehouses web error', err);
-      alert('Failed to fetch warehouses');
       setWarehouses([]);
     }
   }, [user, API_BASE_URL]);
 
-  // Updated fetchAll to include fetchStaff
+  const fetchSupervisors = useCallback(async () => {
+    if (!user || !user.id) {
+      setSupervisors([]);
+      return;
+    }
+    try {
+      // Note: Ensure this endpoint matches your backend route exactly
+      const res = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+      if (res.data && res.data.success) {
+        setSupervisors(res.data.data || []);
+      } else {
+        setSupervisors([]);
+      }
+    } catch (err) {
+      console.error('fetchSupervisors web error', err);
+      setSupervisors([]);
+    }
+  }, [user, API_BASE_URL]);
+
+  // Updated fetchAll to include fetchStaff and fetchSupervisors
   const fetchAll = useCallback(async () => {
     if (!user) return;
     setRefreshing(true);
-    await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff()]);
-    setRefreshing(false);
-  }, [fetchSites, fetchWarehouses, fetchStaff, user]);
+    setLoading(true);
+    try {
+      await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff(), fetchSupervisors()]);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      if (error.response?.status === 401) {
+        alert('Session Expired. Please login again.');
+        logout();
+      } else {
+        alert('Failed to fetch dashboard data');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [fetchSites, fetchWarehouses, fetchStaff, fetchSupervisors, user, logout]);
 
   useEffect(() => {
     fetchAll();
@@ -100,7 +124,7 @@ export default function AdminDashboardWeb() {
     logout();
   }, [logout]);
 
-  // --- 2. Delete Staff Logic ---
+  // --- 2. Delete Logic ---
   const confirmDeleteStaff = useCallback(async (staffId) => {
     if (!staffId) return;
     const proceed = window.confirm('Are you sure you want to delete this staff member?');
@@ -150,18 +174,22 @@ export default function AdminDashboardWeb() {
   }, [API_BASE_URL, fetchWarehouses, user]);
 
   // --- 3. Filtering Logic ---
-  const filteredSites = sites.filter(s => 
-    s.siteName?.toLowerCase().includes(query.toLowerCase()) || 
+  const filteredSites = sites.filter(s =>
+    s.siteName?.toLowerCase().includes(query.toLowerCase()) ||
     s.location?.toLowerCase().includes(query.toLowerCase())
   );
-  
-  const filteredWarehouses = warehouses.filter(w => 
-    w.warehouseName?.toLowerCase().includes(query.toLowerCase()) || 
+
+  const filteredWarehouses = warehouses.filter(w =>
+    w.warehouseName?.toLowerCase().includes(query.toLowerCase()) ||
     w.location?.toLowerCase().includes(query.toLowerCase())
   );
 
-  const filteredStaff = staff.filter(s => 
-    s.fullName?.toLowerCase().includes(query.toLowerCase()) || 
+  const filteredStaff = staff.filter(s =>
+    s.fullName?.toLowerCase().includes(query.toLowerCase()) ||
+    s.username?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredSupervisors = supervisors.filter(s =>
     s.username?.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -193,9 +221,8 @@ export default function AdminDashboardWeb() {
               </span>
             </div>
 
-            {/* UPDATED: Added Staff count */}
             <p style={styles.adminSubtitle}>
-              {warehouses.length} warehouses • {sites.length} sites • {staff.length} staff
+              {warehouses.length} warehouses • {sites.length} sites • {staff.length} staff • {supervisors.length} supervisors
             </p>
           </div>
 
@@ -225,14 +252,14 @@ export default function AdminDashboardWeb() {
                   color="#007BFF"
                 />
               </button>
-              
+
               <button
                 style={styles.btnPrimary}
                 onClick={() => navigation.navigate('CreateSite')}
               >
                 Create Site
               </button>
-              
+
               <button
                 style={styles.btnGhost}
                 onClick={() => navigation.navigate('CreateWarehouse')}
@@ -240,9 +267,19 @@ export default function AdminDashboardWeb() {
                 Create Warehouse
               </button>
 
-              {/* NEW: Create Staff Button */}
+              {/* Create Supervisor Button */}
               <button
-                style={{...styles.btnGhost, borderColor: '#d1d5db', backgroundColor: '#fff', color: '#374151'}}
+                style={{ ...styles.btnGhost, borderColor: '#8B5CF6', color: '#7C3AED', backgroundColor: '#F3E8FF' }}
+                onClick={() => navigation.navigate('GlobalManageSupervisors')}
+                title="Manage & Create Supervisors"
+              >
+                <Ionicons name="people-circle-outline" size={16} color="#7C3AED" />
+                Supervisors
+              </button>
+
+              {/* Create Staff Button */}
+              <button
+                style={{ ...styles.btnGhost, borderColor: '#d1d5db', backgroundColor: '#fff', color: '#374151' }}
                 onClick={() => navigation.navigate('CreateStaff')}
                 title="Create Staff Member"
               >
@@ -269,7 +306,7 @@ export default function AdminDashboardWeb() {
             </div>
           ) : (
             <div style={styles.adminGrid}>
-              
+
               {/* Warehouses Panel */}
               <section style={styles.adminPanel}>
                 <div style={styles.adminPanelHeader}>
@@ -352,11 +389,11 @@ export default function AdminDashboardWeb() {
                 )}
               </section>
 
-              {/* NEW: Staff Panel - Full Width */}
-              <section style={{...styles.adminPanel, gridColumn: '1 / -1'}}>
+              {/* Staff Panel - Full Width */}
+              <section style={{ ...styles.adminPanel, gridColumn: '1 / -1' }}>
                 <div style={styles.adminPanelHeader}>
                   <h2 style={styles.adminPanelTitle}>Staff Members</h2>
-                  <span style={{...styles.adminPanelCount, backgroundColor: '#10B981'}}>{filteredStaff.length}</span>
+                  <span style={{ ...styles.adminPanelCount, backgroundColor: '#10B981' }}>{filteredStaff.length}</span>
                 </div>
 
                 {filteredStaff.length === 0 ? (
@@ -364,17 +401,17 @@ export default function AdminDashboardWeb() {
                     <p style={styles.adminEmptyText}>No staff members found</p>
                   </div>
                 ) : (
-                  <div style={{...styles.adminCardList, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px'}}>
+                  <div style={{ ...styles.adminCardList, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                     {filteredStaff.map((person) => (
                       <div key={person._id} style={styles.adminCard}>
                         <div style={styles.adminCardContent}>
-                          <div style={{display:'flex', alignItems:'center', gap: '8px'}}>
-                            <div style={{width: 32, height: 32, borderRadius: '50%', backgroundColor: '#E0F2FE', display: 'flex', alignItems:'center', justifyContent:'center', color: '#0369A1', fontWeight:'bold', fontSize:'14px'}}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#E0F2FE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0369A1', fontWeight: 'bold', fontSize: '14px' }}>
                               {person.fullName ? person.fullName.charAt(0).toUpperCase() : 'U'}
                             </div>
                             <div>
                               <h3 style={styles.adminCardTitle}>{person.fullName}</h3>
-                              <p style={{...styles.adminCardMeta, color: '#007bff'}}>@{person.username}</p>
+                              <p style={{ ...styles.adminCardMeta, color: '#007bff' }}>@{person.username}</p>
                             </div>
                           </div>
                           <p style={styles.adminCardSmall}>
@@ -382,7 +419,6 @@ export default function AdminDashboardWeb() {
                           </p>
                         </div>
                         <div style={styles.adminCardActions}>
-                          {/* Navigate to StaffDetailsScreen */}
                           <button
                             style={styles.btnGhostSmall}
                             onClick={() => navigation.navigate('StaffDetails', { staff: person })}
@@ -394,6 +430,55 @@ export default function AdminDashboardWeb() {
                             onClick={() => confirmDeleteStaff(person._id)}
                           >
                             Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Supervisors Panel - Full Width */}
+              <section style={{ ...styles.adminPanel, gridColumn: '1 / -1' }}>
+                <div style={styles.adminPanelHeader}>
+                  <h2 style={styles.adminPanelTitle}>Supervisors</h2>
+                  <span style={{ ...styles.adminPanelCount, backgroundColor: '#8B5CF6' }}>{filteredSupervisors.length}</span>
+                </div>
+
+                {filteredSupervisors.length === 0 ? (
+                  <div style={styles.adminEmptyPanel}>
+                    <p style={styles.adminEmptyText}>No supervisors found</p>
+                  </div>
+                ) : (
+                  <div style={{ ...styles.adminCardList, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                    {filteredSupervisors.map((sup) => (
+                      <div key={sup._id} style={styles.adminCard}>
+                        <div style={styles.adminCardContent}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED', fontWeight: 'bold', fontSize: '14px' }}>
+                              {sup.username ? sup.username.charAt(0).toUpperCase() : 'S'}
+                            </div>
+                            <div>
+                              <h3 style={styles.adminCardTitle}>{sup.username}</h3>
+                              <p style={styles.adminCardMeta}>
+                                {sup.assignedSites && sup.assignedSites.length > 0
+                                  ? `${sup.assignedSites.length} Site(s) Assigned`
+                                  : 'No Sites Assigned'}
+                              </p>
+                            </div>
+                          </div>
+                          {sup.assignedSites && sup.assignedSites.length > 0 && (
+                            <p style={styles.adminCardSmall}>
+                              {sup.assignedSites.map(s => s.siteName).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div style={styles.adminCardActions}>
+                          <button
+                            style={styles.btnGhostSmall}
+                            onClick={() => navigation.navigate('GlobalManageSupervisors')}
+                          >
+                            Manage
                           </button>
                         </div>
                       </div>
@@ -603,33 +688,21 @@ const globalStyles = `
     box-shadow: 0 6px 8px rgba(0, 123, 255, 0.3);
   }
 
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
   .btn-ghost {
-    background-color: #f0f4f8; 
+    background-color: transparent;
     color: #007bff;
-    border: 1px solid #f0f4f8;
+    border: 1px solid transparent;
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: #e2e8f0; 
-    border-color: #e2e8f0;
-  }
-
-  .btn-ghost:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    background-color: rgba(0, 123, 255, 0.1);
+    color: #005bb5;
   }
 
   .btn-outline {
-    background-color: #fff;
-    color: #007bff;
+    background-color: transparent;
     border: 1px solid #d1d5db;
-    padding: 10px; 
+    color: #374151;
   }
 
   .btn-outline:hover:not(:disabled) {
@@ -637,329 +710,209 @@ const globalStyles = `
     border-color: #9ca3af;
   }
 
-  .btn-outline:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
   .btn-icon {
-    background-color: transparent;
-    color: #007bff;
-    border: none;
-    padding: 8px; 
+    padding: 10px;
     border-radius: 50%;
+    background-color: transparent;
+    color: #6b7280;
   }
 
-  .btn-icon:hover {
-    background-color: #f3f4f6;
-  }
-
-  .btn-icon:focus {
-    outline: 2px solid #90cdf4;
-    outline-offset: 2px;
+  .btn-icon:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #1f2937;
   }
 
   .btn-ghost-small {
-    background-color: #e5e7eb; 
-    color: #1f2937;
-    border: 1px solid #e5e7eb;
-    padding: 6px 10px;
-    font-size: 11px;
-    border-radius: 6px;
-    font-weight: 500;
+    padding: 6px 12px;
+    font-size: 12px;
+    background-color: transparent;
+    color: #007bff;
+    border: 1px solid transparent; 
   }
 
   .btn-ghost-small:hover {
-    background-color: #d1d5db;
+    background-color: rgba(0, 123, 255, 0.08);
+    text-decoration: underline;
   }
 
   .btn-danger-small {
-    background-color: #dc2626; 
-    color: #fff;
-    border: 1px solid #dc2626;
-    padding: 6px 10px;
-    font-size: 11px;
-    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    background-color: transparent;
+    color: #ef4444; 
   }
 
   .btn-danger-small:hover {
-    background-color: #b91c1c;
-    border-color: #b91c1c;
+    background-color: rgba(239, 68, 68, 0.08);
+    text-decoration: underline;
   }
 
-  /* Main Content */
+  /* Grid & Panels */
   .admin-content {
     flex: 1;
-    padding: 30px; 
-    width: 100%;
-    max-width: 1280px; 
-    margin: 0 auto;
     overflow-y: auto;
-    overflow-x: hidden;
+    padding: 30px;
   }
 
   .admin-loader-row {
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: 40px 20px;
-    min-height: 300px;
+    padding-top: 50px;
   }
 
-  /* Spinner */
   .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e5e7eb;
-    border-top-color: #007bff;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    border-left-color: #09f;
+    animation: spin 1s linear infinite;
   }
 
   @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
-  /* Grid Layout */
   .admin-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px; 
-    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    padding-bottom: 40px;
   }
 
-  @media (max-width: 1024px) {
-    .admin-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* Panel */
   .admin-panel {
     background-color: #fff;
-    border-radius: 12px; 
-    padding: 20px; 
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); 
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
     border: 1px solid #e5e7eb;
+    overflow: hidden; 
+    transition: box-shadow 0.2s ease;
+  }
+
+  .admin-panel:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   }
 
   .admin-panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
     display: flex;
-    flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #f3f4f6;
-    padding-bottom: 10px;
+    background-color: #f9fafb;
   }
 
   .admin-panel-title {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     margin: 0;
-    color: #374151;
+    color: #111827;
   }
 
   .admin-panel-count {
     background-color: #007bff;
     color: #fff;
-    padding: 4px 12px; 
-    border-radius: 999px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
     font-weight: 600;
-    font-size: 13px; 
   }
 
-  /* Card List */
+  .admin-empty-panel {
+    padding: 40px;
+    text-align: center;
+    color: #9ca3af;
+  }
+
+  .admin-empty-text {
+    font-size: 14px;
+    margin: 0;
+  }
+
   .admin-card-list {
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px; 
+    gap: 12px;
   }
 
-  /* Card */
   .admin-card {
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    padding: 16px; 
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background-color: #fff; 
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
   .admin-card:hover {
-    background-color: #f8fafc; 
-    border-color: #c5d0db;
-    transform: translateY(-1px); 
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border-color: #d1d5db;
   }
 
   .admin-card-content {
-    flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 4px;
   }
 
   .admin-card-title {
-    font-size: 17px; 
+    font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
     margin: 0;
+    color: #1f2937;
   }
 
   .admin-card-meta {
-    color: #6b7280;
-    margin-top: 4px;
     font-size: 13px;
-    margin: 4px 0 0 0;
+    color: #6b7280;
+    margin: 0;
   }
 
   .admin-card-small {
-    color: #9ca3af;
-    margin-top: 6px;
     font-size: 12px;
-    margin: 6px 0 0 0;
+    color: #9ca3af;
+    margin: 4px 0 0 0;
   }
 
   .admin-card-actions {
     display: flex;
     flex-direction: row;
     gap: 8px;
-    align-items: center;
-    margin-left: 20px;
-    flex-shrink: 0;
-  }
-
-  /* Empty Panel */
-  .admin-empty-panel {
-    padding: 40px 20px;
-    text-align: center;
-    border: 1px dashed #d1d5db;
-    border-radius: 8px;
-    background-color: #f9fafb;
-    margin-top: 10px;
-  }
-
-  .admin-empty-text {
-    color: #9ca3af;
-    text-align: center;
-    font-style: italic;
-    margin: 0;
-  }
-
-  /* Scrollbar Styling */
-  .admin-content::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .admin-content::-webkit-scrollbar-track {
-    background: #e5e7eb; 
-  }
-
-  .admin-content::-webkit-scrollbar-thumb {
-    background: #9ca3af; 
-    border-radius: 4px;
-  }
-
-  .admin-content::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
   }
 
   /* Responsive Adjustments */
   @media (max-width: 768px) {
     .admin-header {
-      padding: 15px 20px;
       flex-direction: column;
       align-items: flex-start;
+      gap: 16px;
     }
-
+    
     .admin-controls {
       width: 100%;
-      justify-content: flex-start;
-      margin-top: 10px;
+      justify-content: space-between;
     }
 
     .admin-search-wrap {
-      width: 100%;
+      flex: 1;
       min-width: 0;
     }
 
-    .admin-button-group {
-      width: 100%;
-      justify-content: space-between;
-    }
-    
-    .btn-primary, .btn-ghost {
-      flex: 1;
-    }
-
-    .btn-icon {
-      flex: 0 0 auto;
-    }
-
-    .admin-card {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 12px;
-    }
-
-    .admin-card-actions {
-      margin-left: 0;
-      margin-top: 12px;
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .admin-card-actions button {
-      flex: 1;
-    }
-
-    .admin-content {
-      padding: 15px;
-    }
-
     .admin-grid {
-      grid-template-columns: 1fr;
-      gap: 15px;
-    }
-
-    .admin-panel {
-      padding: 15px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .admin-title {
-      font-size: 24px;
-    }
-
-    .admin-subtitle {
-      font-size: 12px;
-    }
-
-    .btn-primary,
-    .btn-ghost,
-    .btn-outline {
-      font-size: 13px;
-      padding: 8px 10px;
-    }
-
-    .admin-card-title {
-      font-size: 15px;
-    }
-
-    .admin-panel-title {
-      font-size: 18px;
+      grid-template-columns: 1fr; 
     }
   }
 `;
 
-// Inline Styles Object
+// MISSING STYLES OBJECT
 const styles = {
   adminLoadingContainer: {
     display: 'flex',
@@ -967,7 +920,7 @@ const styles = {
     justifyContent: 'center',
     width: '100%',
     height: '100vh',
-    background: 'linear-gradient(135deg, #0b7dda 0%, #0056b3 100%)', 
+    background: 'linear-gradient(135deg, #0b7dda 0%, #0056b3 100%)',
   },
   adminLoadingContent: {
     textAlign: 'center',
@@ -990,7 +943,7 @@ const styles = {
     flexDirection: 'column',
     width: '100%',
     height: '100vh',
-    backgroundColor: '#f4f6f9', 
+    backgroundColor: '#f4f6f9',
   },
   adminHeader: {
     display: 'flex',
@@ -998,10 +951,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    padding: '20px 30px', 
+    padding: '20px 30px',
     backgroundColor: '#fff',
     borderBottom: 'none',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', 
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
     position: 'sticky',
     top: 0,
     zIndex: 10,
@@ -1021,7 +974,7 @@ const styles = {
     marginBottom: '4px',
   },
   adminTitle: {
-    fontSize: '28px', 
+    fontSize: '28px',
     fontWeight: '700',
     margin: 0,
     color: '#1f2937',
@@ -1042,7 +995,7 @@ const styles = {
   adminSubtitle: {
     color: '#6b7280',
     marginTop: '4px',
-    fontSize: '14px', 
+    fontSize: '14px',
     margin: '4px 0 0 0',
   },
   adminControls: {
@@ -1051,7 +1004,7 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: 'flexEnd',
   },
   adminSearchWrap: {
     display: 'flex',
@@ -1062,15 +1015,15 @@ const styles = {
     padding: '8px 12px',
     borderRadius: '8px',
     border: '1px solid #d1d5db',
-    minWidth: '250px', 
-    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)', 
+    minWidth: '250px',
+    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)',
   },
   adminSearchInput: {
     border: 'none',
     outline: 'none',
     padding: 0,
-    marginLeft: 0, 
-    fontSize: '15px', 
+    marginLeft: 0,
+    fontSize: '15px',
     background: 'transparent',
     flex: 1,
     fontFamily: 'inherit',
@@ -1137,7 +1090,7 @@ const styles = {
     color: '#007bff',
     border: 'none',
     padding: '8px',
-    borderRadius: '50%', 
+    borderRadius: '50%',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
@@ -1182,9 +1135,9 @@ const styles = {
   },
   adminContent: {
     flex: 1,
-    padding: '30px', 
+    padding: '30px',
     width: '100%',
-    maxWidth: '1280px', 
+    maxWidth: '1280px',
     margin: '0 auto',
     overflowY: 'auto',
     overflowX: 'hidden',
@@ -1199,14 +1152,14 @@ const styles = {
   adminGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: '30px', 
+    gap: '30px',
     width: '100%',
   },
   adminPanel: {
     backgroundColor: '#fff',
-    borderRadius: '12px', 
-    padding: '20px', 
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)', 
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)',
     border: '1px solid #e5e7eb',
   },
   adminPanelHeader: {
@@ -1219,7 +1172,7 @@ const styles = {
     paddingBottom: '10px',
   },
   adminPanelTitle: {
-    fontSize: '20px', 
+    fontSize: '20px',
     fontWeight: '700',
     margin: 0,
     color: '#374151',
@@ -1227,22 +1180,22 @@ const styles = {
   adminPanelCount: {
     backgroundColor: '#007bff',
     color: '#fff',
-    padding: '4px 12px', 
+    padding: '4px 12px',
     borderRadius: '999px',
     fontWeight: '600',
-    fontSize: '13px', 
+    fontSize: '13px',
   },
   adminCardList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px', 
+    gap: '12px',
   },
   adminCard: {
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px', 
+    padding: '16px',
     borderRadius: '8px',
     border: '1px solid #e5e7eb',
     backgroundColor: '#fff',
@@ -1255,7 +1208,7 @@ const styles = {
     flexDirection: 'column',
   },
   adminCardTitle: {
-    fontSize: '17px', 
+    fontSize: '17px',
     fontWeight: '600',
     color: '#1f2937',
     margin: 0,

@@ -11,7 +11,7 @@ router.post('/login', async (req, res) => {
 
     // Include population for assignedSites and warehouseId
     const user = await User.findOne({ username })
-      .populate('siteId', 'siteName location')
+      .populate('assignedSites', 'siteName location')
       .populate('warehouseId', 'warehouseName location');
 
     if (!user) {
@@ -44,7 +44,7 @@ router.post('/login', async (req, res) => {
       extraData.warehouseId = user.warehouseId;
     }
     if (user.role === 'supervisor') {
-      extraData.siteId = user.siteId;
+      extraData.assignedSites = user.assignedSites;
     }
 
     res.json({
@@ -61,6 +61,90 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('❌ Login error:', error);
     res.status(500).json({ success: false, message: 'An error occurred during login', error: error.message });
+  }
+});
+
+// ✅ CREATE SUPERVISOR Route (Admin only)
+router.post('/create-supervisor', async (req, res) => {
+  try {
+    const { username, password, adminId } = req.body;
+
+    if (!username || !password || !adminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, password, and adminId are required'
+      });
+    }
+
+    // Verify admin
+    const admin = await User.findOne({ _id: adminId, role: 'admin' });
+    if (!admin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: Only admins can create supervisors'
+      });
+    }
+
+    // Check if username exists
+    const existingUser = await User.findOne({ username: username.toLowerCase().trim() });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username already exists'
+      });
+    }
+
+    const supervisor = new User({
+      username: username.toLowerCase().trim(),
+      password,
+      role: 'supervisor',
+      createdBy: adminId,
+      assignedSites: [] // Initially empty
+    });
+
+    await supervisor.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Supervisor account created successfully',
+      data: {
+        id: supervisor._id,
+        username: supervisor.username,
+        role: supervisor.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Create supervisor error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating supervisor',
+      error: error.message
+    });
+  }
+});
+
+// ✅ GET All Supervisors (Admin only)
+router.get('/supervisors', async (req, res) => {
+  try {
+    const { adminId } = req.query;
+
+    if (!adminId) {
+      return res.status(400).json({ success: false, message: 'Admin ID is required' });
+    }
+
+    const supervisors = await User.find({ role: 'supervisor', createdBy: adminId })
+      .select('username _id assignedSites')
+      .populate('assignedSites', 'siteName');
+
+    res.json({
+      success: true,
+      count: supervisors.length,
+      data: supervisors
+    });
+  } catch (error) {
+    console.error('Error fetching supervisors:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch supervisors' });
   }
 });
 
