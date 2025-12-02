@@ -81,10 +81,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    console.log("AuthContext: logout called");
     try {
       await AsyncStorage.multiRemove(['token', 'user']);
+      console.log("AuthContext: AsyncStorage cleared");
       setToken(null);
       setUser(null);
+      console.log("AuthContext: User and Token state set to null");
       delete axios.defaults.headers.common['Authorization'];
     } catch (error) {
       console.error('Error during logout:', error);

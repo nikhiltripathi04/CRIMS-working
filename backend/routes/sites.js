@@ -1,11 +1,16 @@
 const express = require('express');
 const Site = require('../models/Site');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const ActivityLogger = require('../utils/activityLogger');
 const router = express.Router();
 // Add this to your sites routes file
 const SupplyRequest = require('../models/SupplyRequest');
 const Warehouse = require('../models/Warehouse');
+const { auth } = require('../middleware/auth');
+
+// Apply auth middleware to all site routes
+router.use(auth);
 
 // Create supply request (supervisors can request supplies from warehouse)
 
@@ -67,8 +72,19 @@ const checkSiteOwnership = async (req, res, next) => {
         const siteId = req.params.id || req.params.siteId;
 
         // Get adminId and supervisorId from query params, body, or user object
-        const adminId = req.query.adminId || req.body.adminId || req.user?.id;
-        const supervisorId = req.query.supervisorId || req.body.supervisorId;
+        let adminId = req.query.adminId || req.body.adminId;
+        let supervisorId = req.query.supervisorId || req.body.supervisorId;
+
+        if (req.user) {
+            if (req.user.role === 'admin') adminId = req.user.id;
+            if (req.user.role === 'supervisor') supervisorId = req.user.id;
+        } else {
+            // Fallback for when auth middleware is not used (legacy support)
+            if (!adminId && !supervisorId) {
+                // Try to use adminId from req.user.id if it was set but role wasn't checked (shouldn't happen with auth middleware)
+                adminId = req.user?.id;
+            }
+        }
 
         console.log('Site ownership check:', {
             endpoint: req.originalUrl,
@@ -1646,7 +1662,7 @@ router.post('/:id/supervisors', checkSiteOwnership, async (req, res) => {
             username: cleanUsername,
             password,
             role: 'supervisor',
-            siteId
+            assignedSites: [siteId]
         });
 
         await supervisor.save();
@@ -2088,11 +2104,34 @@ router.post('/:id/supply-requests', checkSiteOwnership, async (req, res) => {
 });
 
 // Get supply requests for a site
+// router.get('/:id/supply-requests', checkSiteOwnership, async (req, res) => {
+//     try {
+//         const siteId = req.params.id;
+
+//         const supplyRequests = await SupplyRequest.find({ siteId })
+//             .populate('warehouseId', 'warehouseName')
+//             .populate('handledBy', 'username')
+//             .sort({ createdAt: -1 });
+
+//         res.json({
+//             success: true,
+//             data: supplyRequests
+//         });
+//     } catch (error) {
+//         console.error('Get supply requests error:', error);
+//         res.status(500).json({ message: error.message });
+//     }
+// });
 router.get('/:id/supply-requests', checkSiteOwnership, async (req, res) => {
     try {
         const siteId = req.params.id;
+        const { status, batchId } = req.query; // Add query filters
 
-        const supplyRequests = await SupplyRequest.find({ siteId })
+        const query = { siteId };
+        if (status) query.status = status;
+        if (batchId) query.batchId = batchId;
+
+        const supplyRequests = await SupplyRequest.find(query)
             .populate('warehouseId', 'warehouseName')
             .populate('handledBy', 'username')
             .sort({ createdAt: -1 });
@@ -2107,6 +2146,101 @@ router.get('/:id/supply-requests', checkSiteOwnership, async (req, res) => {
     }
 });
 
+// POST: Bulk Create Supply Requests
+// This fixes the issue of "one supply at a time"
+router.post('/:id/supply-requests/bulk', checkSiteOwnership, async (req, res) => {
+    try {
+        const site = req.site;
+        const user = req.user;
+
+        if (user.role !== 'supervisor') {
+            return res.status(403).json({ message: 'Only supervisors can request supplies' });
+        }
+
+        const { items, warehouseId } = req.body;
+        // Expecting items to be an array: [{ itemName, quantity, unit }, ...]
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ message: 'Please provide a list of items' });
+        }
+
+        if (!warehouseId) {
+            return res.status(400).json({ message: 'Warehouse ID is required' });
+        }
+
+        const Warehouse = require('../models/Warehouse');
+        const warehouse = await Warehouse.findById(warehouseId);
+        if (!warehouse) {
+            return res.status(404).json({ message: 'Warehouse not found' });
+        }
+
+        // Generate a unique Batch ID for this group of requests
+        const batchId = new mongoose.Types.ObjectId().toString();
+        const userDetails = await User.findById(user.id);
+        const createdRequests = [];
+        const errors = [];
+
+        // Process each item in the list
+        for (const item of items) {
+            // Check availability in warehouse (Optional logic: You might want to allow request even if stock is low)
+            const warehouseSupply = warehouse.supplies.find(
+                s => s.itemName.toLowerCase() === item.itemName.toLowerCase()
+            );
+
+            // Create the request regardless of stock (Admin decides approval)
+            // OR strictly check stock:
+            /* if (!warehouseSupply || warehouseSupply.quantity < item.quantity) {
+                errors.push(`Insufficient stock for ${item.itemName}`);
+                continue; 
+            }
+            */
+
+            const supplyRequest = new SupplyRequest({
+                siteId: site._id,
+                siteName: site.siteName,
+                warehouseId: warehouseId,
+                requestedBy: user.id,
+                requestedByName: userDetails.username,
+                itemName: item.itemName,
+                requestedQuantity: item.quantity,
+                unit: item.unit,
+                batchId: batchId, // Links these items together
+                status: 'pending'
+            });
+
+            await supplyRequest.save();
+            createdRequests.push(supplyRequest);
+        }
+
+        // Log the bulk activity
+        site.activityLogs.push({
+            action: 'supply_requested',
+            performedBy: user.id,
+            performedByName: userDetails.username,
+            performedByRole: user.role,
+            timestamp: new Date(),
+            details: {
+                count: createdRequests.length,
+                warehouseName: warehouse.warehouseName,
+                batchId: batchId
+            },
+            description: `${userDetails.username} requested a list of ${createdRequests.length} supplies`
+        });
+        await site.save();
+
+        res.status(201).json({
+            success: true,
+            message: `Successfully requested ${createdRequests.length} items`,
+            data: createdRequests,
+            batchId: batchId,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error) {
+        console.error('Bulk supply request error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
 // Add the Site model update to include adminId if it doesn't exist yet
 // This will need to be run once as a migration
 

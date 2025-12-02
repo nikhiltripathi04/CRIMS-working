@@ -1,91 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    FlatList,
-    TouchableOpacity,
-    StyleSheet,
-    Alert,
-    Modal,
-    TextInput,
-    Platform,
-    ActivityIndicator,
-    Pressable,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from '@react-navigation/native';
+import {
+    IoArrowBack,
+    IoAddCircleOutline,
+    IoPersonOutline,
+    IoBriefcaseOutline,
+    IoKeyOutline,
+    IoCloseOutline,
+    IoCheckmarkCircleOutline,
+    IoEyeOutline,
+    IoEyeOffOutline,
+    IoSearchOutline,
+    IoRefresh,
+    IoChevronForward
+} from 'react-icons/io5';
 
 const GlobalManageSupervisorsScreen = () => {
     const navigation = useNavigation();
+    const { API_BASE_URL, user, token } = useAuth();
+
+    // Data States
     const [supervisors, setSupervisors] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [query, setQuery] = useState('');
+
+    // Modal States
     const [modalVisible, setModalVisible] = useState(false);
+    const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
+    const [selectedSupervisor, setSelectedSupervisor] = useState(null);
+
+    // Form States
     const [formData, setFormData] = useState({
         username: '',
         password: ''
     });
     const [showPassword, setShowPassword] = useState(false);
-    const [selectedSupervisor, setSelectedSupervisor] = useState(null);
-    const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
-    const { API_BASE_URL, user } = useAuth();
-    const [loading, setLoading] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
 
-    // Add states for reset password functionality
-    const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
-
-    const resetForm = () => {
-        setFormData({
-            username: '',
-            password: ''
-        });
-        setShowPassword(false);
-    };
-
-    const fetchSupervisors = async () => {
+    // --- Fetch Logic ---
+    const fetchSupervisors = useCallback(async () => {
         if (!user || !user.id) return;
 
-        setLoading(true);
-        try {
-            console.log(`Fetching all supervisors for adminId=${user.id}`);
-            const response = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+        setRefreshing(true);
+        // Only show full page loader on initial load
+        if (supervisors.length === 0) setLoading(true);
 
+        try {
+            const response = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
             if (response.data.success) {
                 setSupervisors(response.data.data || []);
             }
         } catch (error) {
             console.error('Error fetching supervisors:', error);
-            Alert.alert('Error', 'Failed to fetch supervisors. Please try again.');
+            alert('Failed to fetch supervisors. Please try again.');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    };
+    }, [user, API_BASE_URL, supervisors.length]);
 
     useEffect(() => {
-        if (user && user.id) {
-            fetchSupervisors();
-        }
-    }, [user]);
+        fetchSupervisors();
+    }, [fetchSupervisors]);
+
+    // --- Action Logic ---
+    const resetForm = () => {
+        setFormData({ username: '', password: '' });
+        setShowPassword(false);
+    };
 
     const createSupervisor = async () => {
         if (!formData.username || !formData.password) {
-            Alert.alert('Error', 'Please enter username and password');
+            alert('Please enter username and password');
             return;
         }
 
         if (!user || !user.id) {
-            Alert.alert('Error', 'You must be logged in to create a supervisor');
+            alert('You must be logged in to create a supervisor');
             return;
         }
 
         try {
-            setLoading(true);
-            console.log(`Creating supervisor with adminId=${user.id}`);
-
+            setCreateLoading(true);
             const response = await axios.post(`${API_BASE_URL}/api/auth/create-supervisor`, {
                 username: formData.username,
                 password: formData.password,
@@ -108,531 +107,549 @@ const GlobalManageSupervisorsScreen = () => {
             }
         } catch (error) {
             console.error('Error creating supervisor:', error);
-            Alert.alert('Error', error.response?.data?.message || 'Failed to create supervisor');
+            alert(error.response?.data?.message || 'Failed to create supervisor');
         } finally {
-            setLoading(false);
+            setCreateLoading(false);
         }
     };
 
-    const showCredentials = (supervisor) => {
-        setSelectedSupervisor({
-            ...supervisor,
-            password: '',
-            isNew: false,
-            isReset: false
-        });
-        setCredentialsModalVisible(true);
-    };
-
-    // Note: Reset password logic might need adjustment if it was site-dependent.
-    // For now, assuming we can't easily reset password without site context or need a new endpoint.
-    // Actually, the previous endpoint was /api/sites/:siteId/supervisors/:supId/reset-password
-    // We might need a global reset password endpoint or just disable it here for now.
-    // Let's disable it for now or implement a global one later.
-    // Or better, update the backend to allow resetting password without siteId if admin matches.
-    // For this iteration, I'll comment out the reset functionality or show a message.
-
-    const renderSupervisorItem = ({ item }) => (
-        <View style={styles.supervisorCard}>
-            <View style={styles.supervisorInfo}>
-                <Text style={styles.supervisorName}>{item.username}</Text>
-                <Text style={styles.supervisorRole}>
-                    {item.assignedSites && item.assignedSites.length > 0
-                        ? `Assigned to ${item.assignedSites.length} site(s)`
-                        : 'No sites assigned'}
-                </Text>
-                {item.assignedSites && item.assignedSites.length > 0 && (
-                    <Text style={styles.siteList}>
-                        {item.assignedSites.map(s => s.siteName).join(', ')}
-                    </Text>
-                )}
-            </View>
-
-            <View style={styles.actionButtons}>
-                {/* 
-                <TouchableOpacity
-                    style={styles.viewButton}
-                    onPress={() => showCredentials(item)}
-                >
-                    <Ionicons name="key-outline" size={22} color="#2094F3" />
-                </TouchableOpacity>
-                */}
-                {/* Delete button logic would also need a global endpoint */}
-            </View>
-        </View>
+    // --- Filtering ---
+    const filteredSupervisors = supervisors.filter(sup =>
+        sup.username.toLowerCase().includes(query.toLowerCase())
     );
 
-    if (!user) {
+    if (loading && !refreshing) {
         return (
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
-                <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                    <Text style={{ marginTop: 20, color: '#FFFFFF', fontSize: 16 }}>Loading user data...</Text>
-                </View>
-            </LinearGradient>
+            <div style={styles.loadingContainer}>
+                <div style={styles.spinner}></div>
+                <p style={styles.loadingText}>Loading Supervisors...</p>
+            </div>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={styles.webBackButton}
-            >
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-                <Text style={styles.webBackButtonText}>Back</Text>
-            </TouchableOpacity>
+        <div style={styles.page}>
+            {/* Header */}
+            <header style={styles.header}>
+                <div style={styles.headerLeft}>
+                    <button onClick={() => navigation.goBack()} style={styles.backButton}>
+                        <IoArrowBack size={20} />
+                    </button>
+                    <div>
+                        <h1 style={styles.title}>Manage Supervisors</h1>
+                        <span style={styles.subtitle}>Global List</span>
+                    </div>
+                </div>
 
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
-                <View style={styles.safeAreaWeb}>
-                    <View style={styles.mainContainer}>
-                        <View style={styles.header}>
-                            <View style={styles.headerContent}>
-                                <Text style={styles.title}>Manage Supervisors</Text>
-                                <Text style={styles.subtitle}>All Supervisors</Text>
-                            </View>
+                <div style={styles.headerRight}>
+                    <div style={styles.searchContainer}>
+                        <IoSearchOutline color="#666" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search supervisors..."
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            style={styles.searchInput}
+                        />
+                    </div>
 
-                            <TouchableOpacity
-                                style={styles.headerAddButton}
-                                onPress={() => {
-                                    setModalVisible(true);
-                                    resetForm();
-                                }}
+                    <button onClick={fetchSupervisors} disabled={refreshing} style={styles.iconButton} title="Refresh">
+                        <IoRefresh size={22} className={refreshing ? 'spin' : ''} />
+                    </button>
+
+                    <button
+                        style={styles.primaryButton}
+                        onClick={() => {
+                            setModalVisible(true);
+                            resetForm();
+                        }}
+                    >
+                        <IoAddCircleOutline size={20} style={{ marginRight: '8px' }} />
+                        Create New
+                    </button>
+                </div>
+            </header>
+
+            {/* Content */}
+            <main style={styles.content}>
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                        <h2 style={styles.panelTitle}>All Supervisors</h2>
+                        <span style={styles.countBadge}>{filteredSupervisors.length}</span>
+                    </div>
+
+                    <div style={styles.listContainer}>
+                        {filteredSupervisors.map(sup => (
+                            <div
+                                key={sup._id}
+                                style={styles.listItem}
+                                onClick={() => navigation.navigate('SupervisorDetail', { supervisor: sup })}
                             >
-                                <Ionicons name="add-circle" size={32} color="#fff" />
-                                <Text style={styles.headerAddButtonText}>Create New</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <div style={styles.listIcon}>
+                                    <IoBriefcaseOutline size={24} color="#6610f2" />
+                                </div>
+                                <div style={styles.listContent}>
+                                    <div style={styles.listTitle}>{sup.username}</div>
+                                    <div style={styles.listSubtitle}>
+                                        {sup.assignedSites && sup.assignedSites.length > 0
+                                            ? `Assigned to ${sup.assignedSites.length} site(s): ${sup.assignedSites.map(s => s.siteName).join(', ')}`
+                                            : 'No sites assigned'}
+                                    </div>
+                                </div>
+                                <div style={styles.listActions}>
+                                    <IoChevronForward size={20} color="#ccc" />
+                                </div>
+                            </div>
+                        ))}
 
-                        <View style={styles.contentArea}>
-                            <FlatList
-                                data={supervisors}
-                                renderItem={renderSupervisorItem}
-                                keyExtractor={(item) => item._id?.toString() || Math.random().toString()}
-                                contentContainerStyle={styles.listContainer}
-                                refreshing={loading}
-                                onRefresh={fetchSupervisors}
-                                ListEmptyComponent={
-                                    <View style={styles.emptyState}>
-                                        <Ionicons
-                                            name="person-outline"
-                                            size={64}
-                                            color="#9CA3AF"
-                                        />
-                                        <Text style={styles.emptyText}>No supervisors found</Text>
-                                        <Text style={styles.emptySubtext}>
-                                            Use the 'Create New' button above to create a supervisor account.
-                                        </Text>
-                                    </View>
-                                }
-                            />
-                        </View>
-                    </View>
-                </View>
-            </LinearGradient>
+                        {filteredSupervisors.length === 0 && (
+                            <div style={styles.emptyState}>
+                                <IoPersonOutline size={48} color="#ccc" style={{ marginBottom: '10px' }} />
+                                <p>No supervisors found matching your search.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
 
-            {/* Create Supervisor Modal */}
-            <Modal
-                visible={modalVisible}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => {
-                    setModalVisible(false);
-                    resetForm();
-                }}
-            >
-                <Pressable
-                    style={styles.modalOverlay}
-                    onPress={() => {
-                        setModalVisible(false);
-                        resetForm();
-                    }}
-                >
-                    <Pressable style={styles.modalContent} onPress={() => { }}>
-                        <Text style={styles.modalTitle}>Create New Supervisor</Text>
+            {/* Create Modal */}
+            {modalVisible && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <div style={styles.modalHeader}>
+                            <h3 style={styles.modalTitle}>Create New Supervisor</h3>
+                            <button onClick={() => setModalVisible(false)} style={styles.closeButton}>
+                                <IoCloseOutline size={24} />
+                            </button>
+                        </div>
 
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="person" size={20} color="#2094F3" style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Username"
-                                value={formData.username}
-                                onChangeText={(text) => setFormData({ ...formData, username: text })}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                placeholderTextColor="#9CA3AF"
-                            />
-                        </View>
+                        <div style={styles.modalBody}>
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>Username</label>
+                                <div style={styles.inputWrapper}>
+                                    <IoPersonOutline style={styles.inputIcon} />
+                                    <input
+                                        type="text"
+                                        style={styles.input}
+                                        placeholder="Enter username"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    />
+                                </div>
+                            </div>
 
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="lock-closed" size={20} color="#2094F3" style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Password"
-                                value={formData.password}
-                                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                                secureTextEntry={!showPassword}
-                                placeholderTextColor="#9CA3AF"
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
-                            </TouchableOpacity>
-                        </View>
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>Password</label>
+                                <div style={styles.inputWrapper}>
+                                    <IoKeyOutline style={styles.inputIcon} />
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        style={styles.input}
+                                        placeholder="Enter password"
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                    <button
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={styles.eyeButton}
+                                    >
+                                        {showPassword ? <IoEyeOffOutline /> : <IoEyeOutline />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.cancelButton]}
-                                onPress={() => {
-                                    setModalVisible(false);
-                                    resetForm();
-                                }}
+                        <div style={styles.modalFooter}>
+                            <button
+                                onClick={() => setModalVisible(false)}
+                                style={styles.secondaryButton}
                             >
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.createButton]}
-                                onPress={createSupervisor}
-                                disabled={loading}
+                                Cancel
+                            </button>
+                            <button
+                                onClick={createSupervisor}
+                                disabled={createLoading}
+                                style={{ ...styles.primaryButton, opacity: createLoading ? 0.7 : 1 }}
                             >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.createButtonText}>Create</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </Pressable>
-                </Pressable>
-            </Modal>
+                                {createLoading ? 'Creating...' : 'Create Supervisor'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Credentials Modal */}
-            <Modal
-                visible={credentialsModalVisible}
-                animationType="fade"
-                transparent={true}
-                onRequestClose={() => setCredentialsModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.successIconContainer}>
-                            <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
-                        </View>
-                        <Text style={styles.modalTitle}>
-                            {selectedSupervisor?.isNew ? 'Supervisor Created!' : 'Supervisor Credentials'}
-                        </Text>
-
-                        <View style={styles.credentialsContainer}>
-                            <View style={styles.credentialRow}>
-                                <Text style={styles.credentialLabel}>Username:</Text>
-                                <Text style={styles.credentialValue}>{selectedSupervisor?.username}</Text>
-                            </View>
-                            {selectedSupervisor?.password ? (
-                                <View style={styles.credentialRow}>
-                                    <Text style={styles.credentialLabel}>Password:</Text>
-                                    <Text style={styles.credentialValue}>{selectedSupervisor?.password}</Text>
-                                </View>
-                            ) : null}
-                        </View>
-
-                        {selectedSupervisor?.isNew && (
-                            <Text style={styles.warningText}>
+            {credentialsModalVisible && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <div style={{ ...styles.modalBody, textAlign: 'center', padding: '40px 20px' }}>
+                            <IoCheckmarkCircleOutline size={60} color="#28a745" style={{ marginBottom: '20px' }} />
+                            <h3 style={{ ...styles.modalTitle, marginBottom: '10px' }}>Supervisor Created!</h3>
+                            <p style={{ color: '#666', marginBottom: '30px' }}>
                                 Please save these credentials now. The password will not be visible again.
-                            </Text>
-                        )}
+                            </p>
 
-                        <TouchableOpacity
-                            style={[styles.modalButton, styles.createButton, { marginTop: 20, width: '100%' }]}
-                            onPress={() => setCredentialsModalVisible(false)}
-                        >
-                            <Text style={styles.createButtonText}>Done</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-        </View>
+                            <div style={styles.credentialsBox}>
+                                <div style={styles.credentialRow}>
+                                    <span style={styles.credLabel}>Username:</span>
+                                    <span style={styles.credValue}>{selectedSupervisor?.username}</span>
+                                </div>
+                                <div style={styles.credentialRow}>
+                                    <span style={styles.credLabel}>Password:</span>
+                                    <span style={styles.credValue}>{selectedSupervisor?.password}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setCredentialsModalVisible(false)}
+                                style={{ ...styles.primaryButton, width: '100%', marginTop: '20px' }}
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
+        </div>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
+const styles = {
+    page: {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#f4f6f9',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     },
-    gradient: {
-        flex: 1,
-    },
-    safeAreaWeb: {
-        flex: 1,
-        width: '100%',
-        maxWidth: 1200,
-        alignSelf: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-    },
-    webBackButton: {
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        zIndex: 10,
-        flexDirection: 'row',
+    loadingContainer: {
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        padding: 8,
-        borderRadius: 8,
+        backgroundColor: '#f4f6f9',
     },
-    webBackButtonText: {
-        color: '#fff',
-        marginLeft: 5,
-        fontWeight: '600',
+    spinner: {
+        width: '40px',
+        height: '40px',
+        border: '4px solid #e0e0e0',
+        borderTop: '4px solid #007bff',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
     },
-    mainContainer: {
-        flex: 1,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        overflow: 'hidden',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
-        marginBottom: 20,
+    loadingText: {
+        marginTop: '15px',
+        color: '#666',
+        fontSize: '16px',
     },
     header: {
-        padding: 24,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        flexDirection: 'row',
+        backgroundColor: '#ffffff',
+        padding: '15px 30px',
+        display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        zIndex: 10,
     },
-    headerContent: {
-        flex: 1,
+    headerLeft: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+    },
+    backButton: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: '8px',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        color: '#555',
+        transition: 'background 0.2s',
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#1a1a1a',
-        marginBottom: 4,
+        fontSize: '20px',
+        fontWeight: '700',
+        color: '#333',
+        margin: 0,
     },
     subtitle: {
-        fontSize: 16,
-        color: '#666',
+        fontSize: '13px',
+        color: '#888',
     },
-    headerAddButton: {
-        flexDirection: 'row',
+    headerRight: {
+        display: 'flex',
         alignItems: 'center',
-        backgroundColor: '#2094F3',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        shadowColor: "#2094F3",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        gap: '15px',
     },
-    headerAddButtonText: {
+    searchContainer: {
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: '#f1f3f5',
+        padding: '8px 12px',
+        borderRadius: '8px',
+        width: '250px',
+    },
+    searchInput: {
+        border: 'none',
+        background: 'transparent',
+        marginLeft: '8px',
+        outline: 'none',
+        width: '100%',
+        fontSize: '14px',
+    },
+    iconButton: {
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#555',
+        padding: '8px',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    primaryButton: {
+        backgroundColor: '#007bff',
         color: '#fff',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        fontSize: '14px',
         fontWeight: '600',
-        fontSize: 16,
-        marginLeft: 8,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        transition: 'background 0.2s',
     },
-    contentArea: {
+    content: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        padding: '30px',
+        overflowY: 'auto',
+        maxWidth: '1000px',
+        width: '100%',
+        margin: '0 auto',
+    },
+    panel: {
+        backgroundColor: '#fff',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        border: '1px solid #eee',
+        overflow: 'hidden',
+    },
+    panelHeader: {
+        padding: '15px 20px',
+        borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#fafafa',
+    },
+    panelTitle: {
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#444',
+        margin: 0,
+    },
+    countBadge: {
+        backgroundColor: '#6610f2',
+        color: '#fff',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        padding: '2px 8px',
+        borderRadius: '10px',
     },
     listContainer: {
-        padding: 20,
+        padding: '15px',
     },
-    supervisorCard: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
+    listItem: {
+        display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-        borderLeftWidth: 4,
-        borderLeftColor: '#2094F3',
+        padding: '15px',
+        borderRadius: '8px',
+        marginBottom: '10px',
+        border: '1px solid #f5f5f5',
+        transition: 'background 0.2s',
+        backgroundColor: '#fff',
+        cursor: 'pointer',
+        ':hover': {
+            backgroundColor: '#f9f9f9',
+        }
     },
-    supervisorInfo: {
+    listIcon: {
+        backgroundColor: '#f0f2f5',
+        width: '48px',
+        height: '48px',
+        borderRadius: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: '15px',
+    },
+    listContent: {
         flex: 1,
     },
-    supervisorName: {
-        fontSize: 18,
+    listTitle: {
+        fontSize: '16px',
         fontWeight: '600',
         color: '#333',
-        marginBottom: 4,
     },
-    supervisorRole: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 2,
-    },
-    siteList: {
-        fontSize: 13,
+    listSubtitle: {
+        fontSize: '14px',
         color: '#888',
-        fontStyle: 'italic',
+        marginTop: '4px',
     },
-    actionButtons: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    listActions: {
+        display: 'flex',
+        gap: '8px',
     },
-    viewButton: {
-        padding: 8,
-        backgroundColor: '#e3f2fd',
-        borderRadius: 8,
-        marginRight: 8,
+    btnGhost: {
+        background: 'none',
+        border: '1px solid #eee',
+        borderRadius: '6px',
+        padding: '8px',
+        cursor: 'pointer',
+        color: '#666',
+        display: 'flex',
     },
     emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-        marginTop: 40,
-    },
-    emptyText: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#333',
-        marginTop: 16,
-    },
-    emptySubtext: {
-        fontSize: 15,
-        color: '#666',
         textAlign: 'center',
-        marginTop: 8,
-        maxWidth: 300,
+        padding: '40px',
+        color: '#999',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
     },
+    // Modal Styles
     modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 1000,
     },
     modalContent: {
         backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 24,
+        borderRadius: '12px',
         width: '90%',
-        maxWidth: 400,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 10,
+        maxWidth: '450px',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        padding: '20px',
+        borderBottom: '1px solid #eee',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     modalTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: '18px',
+        fontWeight: '700',
         color: '#333',
-        marginBottom: 24,
-        textAlign: 'center',
+        margin: 0,
     },
-    inputContainer: {
-        flexDirection: 'row',
+    closeButton: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#999',
+        padding: '4px',
+    },
+    modalBody: {
+        padding: '20px',
+    },
+    inputGroup: {
+        marginBottom: '20px',
+    },
+    label: {
+        display: 'block',
+        marginBottom: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#555',
+    },
+    inputWrapper: {
+        display: 'flex',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: 12,
-        marginBottom: 16,
-        paddingHorizontal: 16,
-        height: 50,
-        borderWidth: 1,
-        borderColor: '#eee',
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        padding: '0 12px',
+        height: '42px',
+        backgroundColor: '#f9f9f9',
     },
     inputIcon: {
-        marginRight: 12,
+        color: '#888',
+        marginRight: '10px',
+        fontSize: '18px',
     },
     input: {
+        border: 'none',
+        background: 'transparent',
         flex: 1,
-        fontSize: 16,
+        height: '100%',
+        outline: 'none',
+        fontSize: '15px',
+    },
+    eyeButton: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#888',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    modalFooter: {
+        padding: '20px',
+        borderTop: '1px solid #eee',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '12px',
+    },
+    secondaryButton: {
+        backgroundColor: '#f1f3f5',
         color: '#333',
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 24,
-        gap: 12,
-    },
-    modalButton: {
-        flex: 1,
-        height: 50,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cancelButton: {
-        backgroundColor: '#f5f5f5',
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    createButton: {
-        backgroundColor: '#2094F3',
-    },
-    cancelButtonText: {
-        color: '#666',
-        fontSize: 16,
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        fontSize: '14px',
         fontWeight: '600',
+        cursor: 'pointer',
     },
-    createButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    successIconContainer: {
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    credentialsContainer: {
+    credentialsBox: {
         backgroundColor: '#f8f9fa',
-        padding: 16,
-        borderRadius: 12,
-        width: '100%',
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#e9ecef',
+        border: '1px solid #e9ecef',
+        borderRadius: '8px',
+        padding: '15px',
+        textAlign: 'left',
     },
     credentialRow: {
-        flexDirection: 'row',
+        display: 'flex',
         justifyContent: 'space-between',
-        marginBottom: 8,
-        paddingBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        marginBottom: '10px',
+        paddingBottom: '10px',
+        borderBottom: '1px solid #eee',
     },
-    credentialLabel: {
-        fontSize: 14,
+    credLabel: {
         color: '#666',
-        fontWeight: '500',
+        fontSize: '14px',
     },
-    credentialValue: {
-        fontSize: 16,
-        color: '#333',
+    credValue: {
         fontWeight: 'bold',
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        color: '#333',
+        fontFamily: 'monospace',
+        fontSize: '15px',
     },
-    warningText: {
-        color: '#ff9800',
-        fontSize: 13,
-        textAlign: 'center',
-        marginBottom: 10,
-        fontStyle: 'italic',
-    },
-});
+};
 
 export default GlobalManageSupervisorsScreen;

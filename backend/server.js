@@ -10,6 +10,7 @@ const siteRoutes = require('./routes/sites');
 const warehouseRoutes = require('./routes/warehouses');
 const staffRoutes = require('./routes/staff');
 const attendanceRoutes = require('./routes/attendance');
+const messageRoutes = require('./routes/messages');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/sites', siteRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

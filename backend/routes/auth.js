@@ -302,4 +302,34 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// ✅ DELETE Supervisor (Admin only)
+router.delete('/supervisors/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId } = req.query;
+
+    if (!adminId) {
+      return res.status(400).json({ success: false, message: 'Admin ID is required' });
+    }
+
+    // Verify admin
+    const admin = await User.findOne({ _id: adminId, role: 'admin' });
+    if (!admin) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const supervisor = await User.findOneAndDelete({ _id: id, role: 'supervisor', createdBy: adminId });
+
+    if (!supervisor) {
+      return res.status(404).json({ success: false, message: 'Supervisor not found or unauthorized' });
+    }
+
+    res.json({ success: true, message: 'Supervisor deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting supervisor:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete supervisor' });
+  }
+});
+
 module.exports = router;

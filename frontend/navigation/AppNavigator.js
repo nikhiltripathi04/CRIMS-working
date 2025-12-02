@@ -31,6 +31,7 @@ import SupplyRequestStatusScreen from '@/screens/SupplyRequestStatusScreen';
 import CreateStaffScreen from '@/screens/CreateStaffScreen';
 import StaffDetailsScreen from '@/screens/StaffDetailsScreen';
 import StaffDashboardWeb from '@/screens/StaffDashboard';
+import SupervisorDetailScreen from '@/screens/SupervisorDetailScreen';
 // ...other imports // Import the ResetPasswordScreen
 
 const Stack = createStackNavigator();
@@ -54,6 +55,7 @@ let AttendanceReportScreen;
 let AnnouncementsScreen;
 let CreateStaffScreenScreen;
 let StaffDetailsScreenScreen;
+let SupervisorDetailScreenScreen;
 let StaffDashboardScreen;
 
 
@@ -77,6 +79,7 @@ if (Platform.OS === 'web') {
   AnnouncementsScreen = require('../screens/Announcements.web').default;
   CreateStaffScreenScreen = require('../screens/CreateStaffScreen.web').default;
   StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen.web').default;
+  SupervisorDetailScreenScreen = require('../screens/SupervisorDetailScreen.web').default;
   StaffDashboardScreen = require('../screens/StaffDashboard.web').default;
 
 } else {
@@ -99,7 +102,7 @@ if (Platform.OS === 'web') {
   CreateStaffScreenScreen = require('../screens/CreateStaffScreen').default;
   StaffDashboardScreen = require('../screens/StaffDashboard').default;
   StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen').default;
-
+  SupervisorDetailScreenScreen = require('../screens/SupervisorDetailScreen').default;
 }
 
 export default function AppNavigator() {
@@ -236,7 +239,7 @@ export default function AppNavigator() {
 
             {/* <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreenScreen} options={{ headerShown: false }} />
-
+            <Stack.Screen name="SupervisorDetail" component={SupervisorDetailScreenScreen} options={{ headerShown: false }} />
             {/* <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreenScreen} options={{ headerShown: false }} />
             <Stack.Screen name="GlobalManageSupervisors" component={GlobalManageSupervisorsScreenScreen} options={{ headerShown: false }} />

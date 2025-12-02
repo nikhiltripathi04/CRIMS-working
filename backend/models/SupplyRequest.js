@@ -39,8 +39,14 @@ const supplyRequestSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected'],
+        // Added 'in_transit' to the enum
+        enum: ['pending', 'approved', 'rejected', 'in_transit'], 
         default: 'pending'
+    },
+    // Optional: Group ID to identify items requested together in a list
+    batchId: {
+        type: String, 
+        required: false
     },
     transferredQuantity: {
         type: Number,

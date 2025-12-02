@@ -4,14 +4,16 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { auth, adminOnly } = require('../middleware/auth');
 
-// Submit attendance (Staff only)
+// Submit attendance (Staff AND Supervisor)
 router.post('/', auth, async (req, res) => {
     try {
-        // Only staff members can submit attendance
-        if (req.user.role !== 'staff') {
+        // ALLOW BOTH STAFF AND SUPERVISORS
+        const allowedRoles = ['staff', 'supervisor'];
+        
+        if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Only staff members can submit attendance'
+                message: 'Only staff and supervisors can submit attendance'
             });
         }
 
@@ -44,7 +46,7 @@ router.post('/', auth, async (req, res) => {
 
         // Create attendance record
         const attendance = new Attendance({
-            staffId: req.user._id,
+            staffId: req.user._id, // This stores the ID of whoever is logged in (Staff or Supervisor)
             type,
             photo,
             photoUploadedAt: new Date(),
@@ -79,13 +81,15 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Get own attendance records (Staff only)
+// Get own attendance records (Staff AND Supervisor)
 router.get('/my-records', auth, async (req, res) => {
     try {
-        if (req.user.role !== 'staff') {
+        const allowedRoles = ['staff', 'supervisor'];
+
+        if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Only staff members can access this endpoint'
+                message: 'Unauthorized access'
             });
         }
 
@@ -119,28 +123,15 @@ router.get('/my-records', auth, async (req, res) => {
     }
 });
 
-// Get attendance records for a specific staff member (Admin only)
-router.get('/staff/:staffId', auth, adminOnly, async (req, res) => {
+// ... (Keep the rest of the Admin routes as they were) ...
+// Get attendance records for a specific staff/supervisor (Admin only)
+router.get('/user/:userId', auth, adminOnly, async (req, res) => {
     try {
-        const { staffId } = req.params;
+        const { userId } = req.params;
         const { startDate, endDate } = req.query;
 
-        // Verify the staff member exists and was created by this admin
-        const staff = await User.findOne({
-            _id: staffId,
-            role: 'staff',
-            createdBy: req.user._id
-        });
-
-        if (!staff) {
-            return res.status(404).json({
-                success: false,
-                message: 'Staff member not found or you do not have permission to view their records'
-            });
-        }
-
         // Build query
-        const query = { staffId };
+        const query = { staffId: userId };
 
         if (startDate || endDate) {
             query.timestamp = {};
@@ -150,52 +141,30 @@ router.get('/staff/:staffId', auth, adminOnly, async (req, res) => {
 
         const records = await Attendance.find(query)
             .sort({ timestamp: -1 })
-            .populate('staffId', 'fullName username');
+            .populate('staffId', 'fullName username role');
 
         res.json({
             success: true,
             count: records.length,
-            staff: {
-                id: staff._id,
-                fullName: staff.fullName,
-                username: staff.username
-            },
             data: records
         });
 
     } catch (error) {
-        console.error('Get staff attendance error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching staff attendance records'
-        });
+        res.status(500).json({ success: false, message: 'Error fetching records' });
     }
 });
-
-// Alias route to match frontend expectation: GET /api/staff/:staffId/attendance
-// This is registered in server.js under /api/attendance, so the full path will be:
-// /api/attendance/staff/:staffId/attendance (which won't work)
-// Instead, we need to add this route to the staff.js routes file OR
-// add it here with a different pattern that server.js can route correctly
 
 // Manual cleanup of old photos (Admin only)
 router.delete('/cleanup', auth, adminOnly, async (req, res) => {
     try {
         const result = await Attendance.cleanupOldPhotos();
-
         res.json({
             success: true,
             message: 'Photo cleanup completed',
             modifiedCount: result.modifiedCount
         });
-
     } catch (error) {
-        console.error('Cleanup error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error during cleanup',
-            error: error.message
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
