@@ -9,7 +9,7 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password, expectedRole } = req.body;
 
-    // Include population for siteId and warehouseId
+    // Include population for assignedSites and warehouseId
     const user = await User.findOne({ username })
       .populate('siteId', 'siteName location')
       .populate('warehouseId', 'warehouseName location');
@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Login error:', error);
-    res.status(500).json({ success: false, message: 'An error occurred during login' });
+    res.status(500).json({ success: false, message: 'An error occurred during login', error: error.message });
   }
 });
 
