@@ -32,6 +32,7 @@ import CreateStaffScreen from '@/screens/CreateStaffScreen';
 import StaffDetailsScreen from '@/screens/StaffDetailsScreen';
 import StaffDashboardWeb from '@/screens/StaffDashboard';
 import SupervisorDetailScreen from '@/screens/SupervisorDetailScreen';
+import AdminMessagesScreen from '@/screens/AdminMessagesScreen';
 // ...other imports // Import the ResetPasswordScreen
 
 const Stack = createStackNavigator();
@@ -57,6 +58,7 @@ let CreateStaffScreenScreen;
 let StaffDetailsScreenScreen;
 let SupervisorDetailScreenScreen;
 let StaffDashboardScreen;
+let AdminMessagesScreenScreen;
 
 
 if (Platform.OS === 'web') {
@@ -81,7 +83,7 @@ if (Platform.OS === 'web') {
   StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen.web').default;
   SupervisorDetailScreenScreen = require('../screens/SupervisorDetailScreen.web').default;
   StaffDashboardScreen = require('../screens/StaffDashboard.web').default;
-
+  AdminMessagesScreenScreen = require('../screens/AdminMessagesScreen.web').default;
 } else {
   AdminDashboardScreen = require('../screens/AdminDashboard').default;
   CreateSiteScreenScreen = require('../screens/CreateSiteScreen').default;
@@ -103,6 +105,7 @@ if (Platform.OS === 'web') {
   StaffDashboardScreen = require('../screens/StaffDashboard').default;
   StaffDetailsScreenScreen = require('../screens/StaffDetailsScreen').default;
   SupervisorDetailScreenScreen = require('../screens/SupervisorDetailScreen').default;
+  //AdminMessagesScreenScreen = require('../screens/AdminMessagesScreen').default;
 }
 
 export default function AppNavigator() {
@@ -233,7 +236,7 @@ export default function AppNavigator() {
 
             <Stack.Screen name="WarehouseReports" component={WarehouseReportsScreen} options={{ headerShown: false }} />
 
-
+            <Stack.Screen name="AdminMessages" component={AdminMessagesScreen} options={{ headerShown: false }} />
             {/* <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} /> */}
             <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreenScreen} options={{ headerShown: false }} />
 

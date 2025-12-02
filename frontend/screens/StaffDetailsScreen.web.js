@@ -1,31 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import AttendanceCalendar from '../components/AttendanceCalendar';
 
-// --- Mock Components for Web ---
-const ActivityIndicator = () => (
-    <div style={styles.spinner}></div>
-);
-
-const Alert = {
-    alert: (title, message, buttons) => {
-        if (buttons && buttons.length > 1) {
-            const result = window.confirm(`${title}\n\n${message}`);
-            if (result) {
-                const confirmBtn = buttons.find(b => b.style === 'destructive' || b.text === 'Delete' || b.text === 'Yes');
-                if (confirmBtn && confirmBtn.onPress) confirmBtn.onPress();
-            }
-        } else {
-            window.alert(`${title}\n${message}`);
-        }
-    }
-};
-
-const StaffDetailsScreenWeb = ({ route }) => {
-    // Handle both route params (from navigation) or direct prop usage if needed
-    const initialStaff = route?.params?.staff || {};
+const StaffDetailsScreenWeb = () => {
+    const route = useRoute();
+    const initialStaff = route.params?.staff || {};
     const [staff, setStaff] = useState(initialStaff);
     const [attendanceLogs, setAttendanceLogs] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -261,48 +244,56 @@ const StaffDetailsScreenWeb = ({ route }) => {
                     <p style={styles.emptyText}>No attendance records found.</p>
                 </div>
             ) : (
-                <div style={styles.attendanceList}>
-                    {attendanceLogs.map((log) => (
-                        <div key={log._id} style={styles.attendanceItem}>
-                            <div style={styles.attendanceIconWrapper}>
-                                {log.type === 'login' ? (
-                                    <div style={{ ...styles.attendanceIcon, backgroundColor: '#E6FFFA' }}>
-                                        <Ionicons name="enter" size={20} color="#10B981" />
+                <div style={styles.attendanceContainer}>
+                    {/* Calendar View */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <AttendanceCalendar attendanceLogs={attendanceLogs} />
+                    </div>
+
+                    {/* List View (Existing) */}
+                    <h4 style={{ margin: '0 0 10px 0', color: '#666' }}>Recent Logs</h4>
+                    <div style={styles.attendanceList}>
+                        {attendanceLogs.slice(0, 5).map((log) => (
+                            <div key={log._id} style={styles.attendanceItem}>
+                                <div style={styles.attendanceIconWrapper}>
+                                    {log.type === 'login' ? (
+                                        <div style={{ ...styles.attendanceIcon, backgroundColor: '#E6FFFA' }}>
+                                            <Ionicons name="enter" size={20} color="#10B981" />
+                                        </div>
+                                    ) : (
+                                        <div style={{ ...styles.attendanceIcon, backgroundColor: '#FFF5F5' }}>
+                                            <Ionicons name="exit" size={20} color="#EF4444" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={styles.attendanceContent}>
+                                    <div style={styles.attendanceTitle}>
+                                        {log.type === 'login' ? 'Checked In' : 'Checked Out'}
                                     </div>
-                                ) : (
-                                    <div style={{ ...styles.attendanceIcon, backgroundColor: '#FFF5F5' }}>
-                                        <Ionicons name="exit" size={20} color="#EF4444" />
+                                    <div style={styles.attendanceTime}>
+                                        {new Date(log.timestamp).toLocaleDateString()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </div>
+                                    <div style={styles.attendanceLocation}>
+                                        <Ionicons name="location-sharp" size={12} color="#6B7280" />
+                                        <span style={{ marginLeft: 4, fontSize: '13px', lineHeight: '1.4' }}>
+                                            {log.location ?
+                                                (log.location.displayText || `${log.location.latitude.toFixed(4)}, ${log.location.longitude.toFixed(4)}`)
+                                                : 'Location unknown'}
+                                        </span>
+                                    </div>
+                                </div>
+                                {log.photo && (
+                                    <button
+                                        style={styles.viewPhotoButton}
+                                        onClick={() => setSelectedAttendance(log)}
+                                    >
+                                        <Ionicons name="image-outline" size={18} color="#007bff" />
+                                        <span style={{ marginLeft: 6 }}>View Photo</span>
+                                    </button>
                                 )}
                             </div>
-                            <div style={styles.attendanceContent}>
-                                <div style={styles.attendanceTitle}>
-                                    {log.type === 'login' ? 'Checked In' : 'Checked Out'}
-                                </div>
-                                <div style={styles.attendanceTime}>
-                                    {new Date(log.timestamp).toLocaleDateString()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                                <div style={styles.attendanceLocation}>
-                                    <Ionicons name="location-sharp" size={12} color="#6B7280" />
-                                    <span style={{ marginLeft: 4, fontSize: '13px', lineHeight: '1.4' }}>
-                                        {/* Display Address if available, otherwise coordinates */}
-                                        {log.location ?
-                                            (log.location.displayText || `${log.location.latitude.toFixed(4)}, ${log.location.longitude.toFixed(4)}`)
-                                            : 'Location unknown'}
-                                    </span>
-                                </div>
-                            </div>
-                            {log.photo && (
-                                <button
-                                    style={styles.viewPhotoButton}
-                                    onClick={() => setSelectedAttendance(log)}
-                                >
-                                    <Ionicons name="image-outline" size={18} color="#007bff" />
-                                    <span style={{ marginLeft: 6 }}>View Photo</span>
-                                </button>
-                            )}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
@@ -589,34 +580,32 @@ const styles = {
         height: '80px',
         borderRadius: '50%',
         backgroundColor: '#e0f2fe',
-        color: '#0369a1',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: '16px',
-        border: '4px solid #f0f9ff',
     },
     avatarText: {
         fontSize: '32px',
         fontWeight: '700',
+        color: '#0284c7',
     },
     profileName: {
-        margin: 0,
-        fontSize: '22px',
+        margin: '0 0 4px 0',
+        fontSize: '20px',
         fontWeight: '700',
         color: '#111827',
     },
     profileUsername: {
         color: '#6b7280',
-        fontSize: '15px',
-        marginTop: '4px',
+        fontSize: '14px',
+        marginBottom: '12px',
     },
     roleBadge: {
-        marginTop: '12px',
         backgroundColor: '#f3f4f6',
         color: '#374151',
         padding: '4px 12px',
-        borderRadius: '20px',
+        borderRadius: '16px',
         fontSize: '12px',
         fontWeight: '600',
         textTransform: 'uppercase',
@@ -625,7 +614,6 @@ const styles = {
         height: '1px',
         backgroundColor: '#e5e7eb',
         margin: '20px 0',
-        width: '100%',
     },
     infoRow: {
         display: 'flex',
@@ -637,27 +625,20 @@ const styles = {
         color: '#6b7280',
     },
     infoValue: {
-        fontWeight: '600',
-        color: '#374151',
+        color: '#111827',
+        fontWeight: '500',
     },
-    // Actions Card Styles
+    // Action Card Styles
     cardTitle: {
-        margin: '0',
+        margin: '0 0 20px 0',
         fontSize: '18px',
-        fontWeight: '600',
-        color: '#1f2937',
-    },
-    cardHeaderRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
+        fontWeight: '700',
+        color: '#111827',
     },
     actionList: {
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
-        marginTop: '20px',
     },
     actionButton: {
         display: 'flex',
@@ -668,7 +649,7 @@ const styles = {
         borderRadius: '8px',
         cursor: 'pointer',
         textAlign: 'left',
-        transition: 'background 0.2s',
+        transition: 'all 0.2s',
         width: '100%',
     },
     actionIcon: {
@@ -688,50 +669,69 @@ const styles = {
         fontSize: '14px',
         fontWeight: '600',
         color: '#1f2937',
+        marginBottom: '2px',
     },
     actionDesc: {
         fontSize: '12px',
         color: '#6b7280',
-        marginTop: '2px',
     },
     deleteButton: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '8px',
-        width: '100%',
         padding: '12px',
-        backgroundColor: '#fff5f5',
-        color: '#dc2626',
-        border: '1px solid #feb2b2',
+        backgroundColor: '#fef2f2',
+        border: '1px solid #fee2e2',
         borderRadius: '8px',
+        color: '#dc2626',
         fontWeight: '600',
         cursor: 'pointer',
-        marginTop: '10px',
-        fontSize: '14px',
+        width: '100%',
+        marginTop: '8px',
     },
-    // Attendance Styles
+    // Attendance Card Styles
+    cardHeaderRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+    },
     btnGhostSmall: {
         background: 'transparent',
-        border: '1px solid #eee',
-        borderRadius: '6px',
+        border: 'none',
         cursor: 'pointer',
-        padding: '4px 8px',
+        padding: '4px',
+        borderRadius: '4px',
+    },
+    emptyState: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 0',
+        color: '#9ca3af',
+    },
+    emptyText: {
+        marginTop: '12px',
+        fontSize: '14px',
+    },
+    attendanceContainer: {
+        display: 'flex',
+        flexDirection: 'column',
     },
     attendanceList: {
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
-        maxHeight: '400px',
-        overflowY: 'auto',
     },
     attendanceItem: {
         display: 'flex',
         alignItems: 'center',
         padding: '12px',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
         backgroundColor: '#f9fafb',
+        borderRadius: '8px',
+        border: '1px solid #f3f4f6',
     },
     attendanceIconWrapper: {
         marginRight: '12px',
@@ -739,7 +739,7 @@ const styles = {
     attendanceIcon: {
         width: '36px',
         height: '36px',
-        borderRadius: '50%',
+        borderRadius: '8px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -758,111 +758,92 @@ const styles = {
         marginTop: '2px',
     },
     attendanceLocation: {
-        fontSize: '11px',
-        color: '#6b7280',
-        marginTop: '2px',
         display: 'flex',
         alignItems: 'center',
+        marginTop: '4px',
     },
     viewPhotoButton: {
         display: 'flex',
         alignItems: 'center',
-        padding: '6px 12px',
-        backgroundColor: '#fff',
-        border: '1px solid #007bff',
+        padding: '6px 10px',
+        backgroundColor: '#e0f2fe',
+        border: 'none',
         borderRadius: '6px',
-        color: '#007bff',
+        color: '#0284c7',
         fontSize: '12px',
         fontWeight: '500',
         cursor: 'pointer',
-        marginLeft: '12px',
-    },
-    emptyState: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px',
-        color: '#ccc',
-    },
-    emptyText: {
-        marginTop: '10px',
-        color: '#9ca3af',
     },
     // Modal Styles
     modalOverlay: {
         position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 100,
-        backdropFilter: 'blur(2px)',
-    },
-    photoModalContainer: {
-        backgroundColor: '#fff',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '500px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        display: 'flex',
-        flexDirection: 'column',
+        zIndex: 50,
+        backdropFilter: 'blur(4px)',
     },
     modalContainer: {
         backgroundColor: '#fff',
         borderRadius: '12px',
         width: '90%',
         maxWidth: '400px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+        overflow: 'hidden',
+    },
+    photoModalContainer: {
+        backgroundColor: '#fff',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '500px',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+        overflow: 'hidden',
     },
     modalHeader: {
+        padding: '16px 20px',
+        borderBottom: '1px solid #e5e7eb',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '16px 20px',
-        borderBottom: '1px solid #e5e7eb',
     },
     modalTitle: {
         margin: 0,
         fontSize: '18px',
         fontWeight: '600',
-        color: '#1f2937',
+        color: '#111827',
     },
     closeButton: {
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
         padding: '4px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    photoModalBody: {
-        padding: '20px',
     },
     modalBody: {
         padding: '20px',
     },
+    photoModalBody: {
+        padding: '0',
+    },
     photoWrapper: {
         width: '100%',
-        aspectRatio: '4/3',
-        backgroundColor: '#f3f4f6',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        marginBottom: '20px',
+        height: '300px',
+        backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
     },
     attendancePhoto: {
-        width: '100%',
-        height: '100%',
+        maxWidth: '100%',
+        maxHeight: '100%',
         objectFit: 'contain',
     },
     photoMeta: {
+        padding: '20px',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',

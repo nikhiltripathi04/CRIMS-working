@@ -96,4 +96,26 @@ router.get('/site/:siteId', auth, async (req, res) => {
     }
 });
 
+// Get ALL messages for an Admin (from all their sites)
+router.get('/admin/all', auth, async (req, res) => {
+    try {
+        // 1. Find all sites managed by this admin
+        const sites = await Site.find({ adminId: req.user._id });
+        const siteIds = sites.map(site => site._id);
+
+        // 2. Find all messages linked to these sites
+        const messages = await Message.find({ siteId: { $in: siteIds } })
+            .sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            count: messages.length,
+            data: messages
+        });
+    } catch (error) {
+        console.error('Fetch all messages error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;

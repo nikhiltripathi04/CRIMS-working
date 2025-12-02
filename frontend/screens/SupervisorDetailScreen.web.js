@@ -14,6 +14,7 @@ import {
     IoImageOutline,
     IoClose
 } from 'react-icons/io5';
+import AttendanceCalendar from '../components/AttendanceCalendar';
 
 const SupervisorDetailScreen = () => {
     const navigation = useNavigation();
@@ -171,8 +172,15 @@ const SupervisorDetailScreen = () => {
                     {activeTab === 'attendance' && (
                         <div style={styles.card}>
                             <h3 style={styles.cardTitle}>
-                                <IoTimeOutline style={styles.cardIcon} /> Recent Attendance
+                                <IoTimeOutline style={styles.cardIcon} /> Attendance History
                             </h3>
+
+                            {/* Calendar View */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <AttendanceCalendar attendanceLogs={attendance} />
+                            </div>
+
+                            <h4 style={{ margin: '0 0 15px 0', color: '#666' }}>Recent Logs</h4>
                             {loading ? (
                                 <p>Loading...</p>
                             ) : attendance.length > 0 ? (

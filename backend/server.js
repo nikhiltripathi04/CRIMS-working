@@ -19,11 +19,6 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// IMPORTANT: Increase the body parser limit for OCR images
-
-
-// Add request logging middleware (optional but helpful)
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/sites', siteRoutes);
@@ -48,7 +43,6 @@ app.get('/', (req, res) => {
 const createDefaultUsers = async () => {
     try {
         const User = require('./models/User');
-
         // Check if admin exists
         const adminExists = await User.findOne({ username: 'admin' });
 
