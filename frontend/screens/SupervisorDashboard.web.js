@@ -26,27 +26,46 @@ import {
 // --- SUB-COMPONENT: MESSAGES SECTION ---
 const MessageSection = ({ site, user, API_BASE_URL, onBack }) => {
   const [messageText, setMessageText] = useState('');
-  const [videoLink, setVideoLink] = useState('');
+  const [videoFile, setVideoFile] = useState(null);
   const [sending, setSending] = useState(false);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        alert('File size too large. Max 50MB.');
+        return;
+      }
+      setVideoFile(file);
+    }
+  };
+
   const sendMessage = async () => {
-    if (!messageText && !videoLink) {
-      return alert('Please enter a message or video link');
+    if (!messageText && !videoFile) {
+      return alert('Please enter a message or select a video');
     }
     setSending(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/messages/send`, {
-        siteId: site._id,
-        content: messageText,
-        videoUrl: videoLink
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const formData = new FormData();
+      formData.append('siteId', site._id);
+      if (messageText) formData.append('content', messageText);
+      if (videoFile) formData.append('video', videoFile);
+
+      await axios.post(`${API_BASE_URL}/api/messages/send`, formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
       alert('Message sent to Admin');
       setMessageText('');
-      setVideoLink('');
+      setVideoFile(null);
+      // Reset file input if possible
+      const fileInput = document.getElementById('videoInput');
+      if (fileInput) fileInput.value = '';
     } catch (error) {
-      alert('Failed to send message');
+      console.error(error);
+      alert('Failed to send message: ' + (error.response?.data?.message || error.message));
     } finally {
       setSending(false);
     }
@@ -71,16 +90,22 @@ const MessageSection = ({ site, user, API_BASE_URL, onBack }) => {
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.label}>Video Link (Optional)</label>
+          <label style={styles.label}>Attach Video (Max 50MB)</label>
           <input
+            id="videoInput"
+            type="file"
+            accept="video/*"
             style={styles.input}
-            placeholder="Paste video URL..."
-            value={videoLink}
-            onChange={(e) => setVideoLink(e.target.value)}
+            onChange={handleFileChange}
           />
+          {videoFile && (
+            <div style={{ marginTop: '5px', fontSize: '12px', color: '#28a745' }}>
+              Selected: {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(2)} MB)
+            </div>
+          )}
         </div>
         <button style={styles.primaryBtn} onClick={sendMessage} disabled={sending}>
-          {sending ? 'Sending...' : 'Send Message'}
+          {sending ? 'Uploading & Sending...' : 'Send Message'}
         </button>
       </div>
     </div>
@@ -798,51 +823,51 @@ export default function SupervisorDashboardWeb() {
 
       {/* Global Styles for Animations */}
       <style>{`
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .spin {
+          animation: spin 1s linear infinite;
+        }
       `}</style>
     </div>
   );
 }
 
-// --- Sub-Components ---
-
+// --- HELPER COMPONENTS ---
 const StatCard = ({ icon, color, count, label, isText }) => (
   <div style={styles.statCard}>
-    <div style={{ ...styles.statIcon, color, backgroundColor: `${color}15` }}>{icon}</div>
+    <div style={{ ...styles.statIcon, backgroundColor: `${color}15`, color: color }}>
+      {icon}
+    </div>
     <div>
       <div style={isText ? styles.statText : styles.statCount}>{count}</div>
       <div style={styles.statLabel}>{label}</div>
     </div>
-  </div>
+  </div >
 );
 
 const ActionButton = ({ label, icon, color, onClick, disabled }) => (
   <button
-    style={{ ...styles.actionButton, color, borderColor: color, opacity: disabled ? 0.6 : 1 }}
+    style={{ ...styles.actionButton, borderColor: color, color: color, opacity: disabled ? 0.6 : 1 }}
     onClick={onClick}
     disabled={disabled}
   >
-    <span style={{ marginRight: '6px', display: 'flex' }}>{icon}</span>
+    <span style={{ marginRight: '8px', display: 'flex' }}>{icon}</span>
     {label}
   </button>
 );
 
 const ListItem = ({ title, subtitle, icon, onOpen, hideDelete }) => (
-  <div style={styles.listItem}>
+  <div style={styles.listItem} onClick={onOpen}>
     <div style={styles.listIcon}>{icon}</div>
     <div style={styles.listContent}>
       <div style={styles.listTitle}>{title}</div>
       <div style={styles.listSubtitle}>{subtitle}</div>
     </div>
     <div style={styles.listActions}>
-      <button style={styles.btnGhost} onClick={onOpen} title="Open">
-        <IoChevronForward size={18} />
-      </button>
+      <button style={styles.btnGhost}><IoChevronForward size={18} /></button>
     </div>
   </div>
 );
@@ -851,22 +876,22 @@ const EmptyState = ({ text }) => (
   <div style={styles.emptyState}>{text}</div>
 );
 
-// --- CSS Styles ---
+// --- STYLES ---
 const styles = {
   page: {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    backgroundColor: '#f4f6f9',
+    backgroundColor: '#f4f6f8',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   loadingContainer: {
-    height: '100vh',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f4f6f9',
+    height: '100vh',
+    backgroundColor: '#f4f6f8',
   },
   spinner: {
     width: '40px',

@@ -4,15 +4,21 @@ const Message = require('../models/Message');
 const Site = require('../models/Site');
 const User = require('../models/User'); // Admin
 const { auth } = require('../middleware/auth');
+const { upload } = require('../config/cloudinaryConfig');
 
 // Send a message (Supervisor -> Admin)
-router.post('/send', auth, async (req, res) => {
+router.post('/send', auth, upload.single('video'), async (req, res) => {
     try {
         if (req.user.role !== 'supervisor') {
             return res.status(403).json({ message: 'Only supervisors can send messages' });
         }
 
-        const { siteId, content, videoUrl } = req.body;
+        const { siteId, content } = req.body;
+        let videoUrl = req.body.videoUrl; // In case it's sent as a string (backward compatibility)
+
+        if (req.file) {
+            videoUrl = req.file.path; // Cloudinary URL
+        }
 
         if (!siteId) {
             return res.status(400).json({ message: 'Site ID is required' });
