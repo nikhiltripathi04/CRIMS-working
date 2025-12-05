@@ -112,7 +112,7 @@ const activityLogSchema = new mongoose.Schema({
   performedByRole: {
     type: String,
     required: true,
-    enum: ['admin', 'supervisor','warehouse_manager']
+    enum: ['admin', 'supervisor', 'warehouse_manager']
   },
   timestamp: {
     type: Date,
