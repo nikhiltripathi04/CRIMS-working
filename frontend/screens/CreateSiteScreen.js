@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Switch
+  Modal,
+  FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -27,21 +28,52 @@ const CreateSiteScreen = ({ navigation }) => {
   const [siteName, setSiteName] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [createSupervisor, setCreateSupervisor] = useState(false);
+
+  // Supervisor Logic (Updated to match web)
+  const [supervisorMode, setSupervisorMode] = useState('none'); // 'none', 'new', 'existing'
   const [supervisorUsername, setSupervisorUsername] = useState('');
   const [supervisorPassword, setSupervisorPassword] = useState('');
   const [showSupervisorPassword, setShowSupervisorPassword] = useState(false);
+
+  const [existingSupervisors, setExistingSupervisors] = useState([]);
+  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
+  const [isSupervisorModalVisible, setIsSupervisorModalVisible] = useState(false);
+
   const [loading, setLoading] = useState(false);
-  const { API_BASE_URL, user } = useAuth();
+  const { API_BASE_URL, user, token } = useAuth(); // Assuming 'token' is available or auth header is handled
+
+  useEffect(() => {
+    if (user && user.id) {
+      fetchSupervisors();
+    }
+  }, [user]);
+
+  const fetchSupervisors = async () => {
+    try {
+      // Ensure we pass token if required, though previous code implies adminId might be enough or handled globally
+      // Replicating web fetch logic:
+      const res = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+      if (res.data.success) {
+        setExistingSupervisors(res.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching supervisors:', error);
+    }
+  };
 
   const handleCreateSite = async () => {
-    if (!siteName || !location) {
+    if (!siteName.trim() || !location.trim()) {
       Alert.alert('Error', 'Please enter site name and location');
       return;
     }
 
-    if (createSupervisor && (!supervisorUsername || !supervisorPassword)) {
+    if (supervisorMode === 'new' && (!supervisorUsername.trim() || !supervisorPassword.trim())) {
       Alert.alert('Error', 'Please enter supervisor username and password');
+      return;
+    }
+
+    if (supervisorMode === 'existing' && !selectedSupervisor) {
+      Alert.alert('Error', 'Please select a supervisor');
       return;
     }
 
@@ -60,21 +92,23 @@ const CreateSiteScreen = ({ navigation }) => {
         adminId: user.id
       };
 
-      // If creating supervisor, add supervisor data
-      if (createSupervisor) {
+      // Add supervisor data based on mode
+      if (supervisorMode === 'new') {
         siteData.supervisorUsername = supervisorUsername;
         siteData.supervisorPassword = supervisorPassword;
+      } else if (supervisorMode === 'existing') {
+        siteData.existingSupervisorId = selectedSupervisor._id;
       }
 
       const response = await axios.post(`${API_BASE_URL}/api/sites`, siteData);
 
       console.log('Site creation response:', response.data);
 
-      if (createSupervisor) {
+      if (supervisorMode === 'new') {
         Alert.alert(
           'Success',
           `Site created!\n\nSupervisor credentials:\n\nUsername: ${supervisorUsername}\nPassword: ${supervisorPassword}\n\nSave these, as the password will not be shown again.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          [{ text: 'OK', onPress: () => navigation.goBack() }] // Or navigation.navigate('AdminDashboard') to refresh
         );
       } else {
         Alert.alert('Success', 'Site created successfully', [
@@ -85,8 +119,6 @@ const CreateSiteScreen = ({ navigation }) => {
       console.error('Create site error:', error);
 
       if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
         Alert.alert('Error', error.response.data.message || 'Failed to create site');
       } else {
         Alert.alert('Error', 'Failed to create site. Please check your connection.');
@@ -96,15 +128,41 @@ const CreateSiteScreen = ({ navigation }) => {
     }
   };
 
+  // Render for Supervisor Selection Modal
+  const renderSupervisorItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.modalItem}
+      onPress={() => {
+        setSelectedSupervisor(item);
+        setIsSupervisorModalVisible(false);
+      }}
+    >
+      <View style={styles.modalItemIcon}>
+        <Text style={styles.modalItemInitials}>{item.username.charAt(0).toUpperCase()}</Text>
+      </View>
+      <View>
+        <Text style={styles.modalItemText}>{item.username}</Text>
+        <Text style={styles.modalItemSubText}>
+          {item.assignedSites?.length ? `${item.assignedSites.length} sites assigned` : 'No sites assigned'}
+        </Text>
+      </View>
+      {selectedSupervisor?._id === item._id && (
+        <Ionicons name="checkmark-circle" size={24} color="#2094f3" style={{ marginLeft: 'auto' }} />
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Create New Site</Text>
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create New Site</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <KeyboardAvoidingView
@@ -169,36 +227,37 @@ const CreateSiteScreen = ({ navigation }) => {
 
             {/* Supervisor Section Divider */}
             <View style={styles.divider} />
+            <Text style={styles.sectionTitle}>Supervisor Assignment</Text>
 
-            {/* Toggle for creating supervisor */}
-            <TouchableOpacity
-              style={styles.toggleContainer}
-              onPress={() => setCreateSupervisor(!createSupervisor)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.toggleLeft}>
-                <Ionicons
-                  name="person-add-outline"
-                  size={isIpad ? 24 : 20}
-                  color="#2094f3"
-                  style={styles.toggleIcon}
-                />
-                <View>
-                  <Text style={styles.toggleTitle}>Add Supervisor Account</Text>
-                  <Text style={styles.toggleSubtitle}>Create login credentials for site supervisor</Text>
-                </View>
-              </View>
-              <Switch
-                value={createSupervisor}
-                onValueChange={setCreateSupervisor}
-                trackColor={{ false: '#ddd', true: '#81b0ff' }}
-                thumbColor={createSupervisor ? '#2094f3' : '#f4f3f4'}
-                ios_backgroundColor="#ddd"
-              />
-            </TouchableOpacity>
+            {/* Supervisor Mode Selection */}
+            <View style={styles.modeContainer}>
+              <TouchableOpacity
+                style={[styles.modeButton, supervisorMode === 'none' && styles.modeButtonActive]}
+                onPress={() => setSupervisorMode('none')}
+              >
+                <Ionicons name="ban-outline" size={20} color={supervisorMode === 'none' ? '#fff' : '#666'} />
+                <Text style={[styles.modeText, supervisorMode === 'none' && styles.modeTextActive]}>None</Text>
+              </TouchableOpacity>
 
-            {/* Supervisor Fields */}
-            {createSupervisor && (
+              <TouchableOpacity
+                style={[styles.modeButton, supervisorMode === 'new' && styles.modeButtonActive]}
+                onPress={() => setSupervisorMode('new')}
+              >
+                <Ionicons name="person-add-outline" size={20} color={supervisorMode === 'new' ? '#fff' : '#666'} />
+                <Text style={[styles.modeText, supervisorMode === 'new' && styles.modeTextActive]}>New</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modeButton, supervisorMode === 'existing' && styles.modeButtonActive]}
+                onPress={() => setSupervisorMode('existing')}
+              >
+                <Ionicons name="people-outline" size={20} color={supervisorMode === 'existing' ? '#fff' : '#666'} />
+                <Text style={[styles.modeText, supervisorMode === 'existing' && styles.modeTextActive]}>Existing</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* New Supervisor Fields */}
+            {supervisorMode === 'new' && (
               <View style={styles.supervisorSection}>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Supervisor Username <Text style={styles.requiredStar}>*</Text></Text>
@@ -208,7 +267,7 @@ const CreateSiteScreen = ({ navigation }) => {
                       style={styles.input}
                       value={supervisorUsername}
                       onChangeText={setSupervisorUsername}
-                      placeholder="Choose username for supervisor"
+                      placeholder="Choose username"
                       placeholderTextColor="#999"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -224,7 +283,7 @@ const CreateSiteScreen = ({ navigation }) => {
                       style={styles.input}
                       value={supervisorPassword}
                       onChangeText={setSupervisorPassword}
-                      placeholder="Set password for supervisor"
+                      placeholder="Set password"
                       placeholderTextColor="#999"
                       secureTextEntry={!showSupervisorPassword}
                       autoCapitalize="none"
@@ -245,6 +304,23 @@ const CreateSiteScreen = ({ navigation }) => {
               </View>
             )}
 
+            {/* Existing Supervisor Selection */}
+            {supervisorMode === 'existing' && (
+              <View style={styles.supervisorSection}>
+                <Text style={styles.label}>Select Supervisor <Text style={styles.requiredStar}>*</Text></Text>
+                <TouchableOpacity
+                  style={styles.selectorButton}
+                  onPress={() => setIsSupervisorModalVisible(true)}
+                >
+                  <Ionicons name="person-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                  <Text style={[styles.selectorText, !selectedSupervisor && { color: '#999' }]}>
+                    {selectedSupervisor ? selectedSupervisor.username : 'Select a Supervisor'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
@@ -258,7 +334,7 @@ const CreateSiteScreen = ({ navigation }) => {
                   <>
                     <Ionicons name="add-circle-outline" size={isIpad ? 24 : 20} color="#fff" style={styles.buttonIcon} />
                     <Text style={styles.buttonText}>
-                      {createSupervisor ? 'Create Site & Supervisor' : 'Create Site'}
+                      Create Site
                     </Text>
                   </>
                 )}
@@ -277,6 +353,32 @@ const CreateSiteScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Supervisor Selection Modal */}
+      <Modal
+        visible={isSupervisorModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsSupervisorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Supervisor</Text>
+              <TouchableOpacity onPress={() => setIsSupervisorModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={existingSupervisors}
+              keyExtractor={item => item._id}
+              renderItem={renderSupervisorItem}
+              ListEmptyComponent={<Text style={styles.emptyListText}>No supervisors found.</Text>}
+            />
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -288,22 +390,21 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#2094f3',
-    paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 40) : 20,
+    paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 10) : 20,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-    marginTop: 80
+  backButton: {
+    padding: 5
   },
   headerTitle: {
-    fontSize: isIpad ? 28 : 24,
+    fontSize: isIpad ? 24 : 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    textAlign: 'center'
   },
   container: {
     flex: 1,
@@ -370,35 +471,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e5e5',
     marginVertical: isIpad ? 25 : 20,
   },
-  toggleContainer: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15
+  },
+  modeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: isIpad ? 20 : 15,
-    borderRadius: 12,
-    marginBottom: isIpad ? 20 : 15,
+    marginBottom: 20,
+    backgroundColor: '#f0f2f5',
+    padding: 4,
+    borderRadius: 12
   },
-  toggleLeft: {
+  modeButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 5
   },
-  toggleIcon: {
-    marginRight: isIpad ? 15 : 12,
+  modeButtonActive: {
+    backgroundColor: '#2094f3',
+    elevation: 2
   },
-  toggleTitle: {
-    fontSize: isIpad ? 18 : 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2
-  },
-  toggleSubtitle: {
-    fontSize: isIpad ? 14 : 12,
+  modeText: {
     color: '#666',
+    fontWeight: '600',
+    fontSize: 14
+  },
+  modeTextActive: {
+    color: '#fff'
   },
   supervisorSection: {
     marginTop: isIpad ? 10 : 5,
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 15,
+    backgroundColor: '#fff'
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#333'
   },
   buttonContainer: {
     marginTop: isIpad ? 30 : 20,
@@ -442,6 +564,69 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: isIpad ? 18 : 16,
     fontWeight: '500',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    height: '60%', // Take up 60% of screen
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 15
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0'
+  },
+  modalItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15
+  },
+  modalItemInitials: {
+    color: '#2094f3',
+    fontSize: 18,
+    fontWeight: 'bold'
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500'
+  },
+  modalItemSubText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2
+  },
+  emptyListText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#999'
   }
 });
 

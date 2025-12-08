@@ -114,8 +114,15 @@ const checkSiteOwnership = async (req, res, next) => {
             if (admin) {
                 site = await Site.findById(siteId);
 
-                if (site && site.adminId.toString() === adminId.toString()) {
-                    user = admin;
+                if (site) {
+                    // Check if admin owns the site OR belongs to the same company
+                    const isOwner = site.adminId.toString() === adminId.toString();
+                    const isSameCompany = site.companyId && admin.companyId &&
+                        site.companyId.toString() === admin.companyId.toString();
+
+                    if (isOwner || isSameCompany) {
+                        user = admin;
+                    }
                 }
             }
         }
@@ -318,6 +325,7 @@ router.post('/', async (req, res) => {
                 password: supervisorPassword,
                 role: 'supervisor',
                 createdBy: adminId,
+                companyId: admin.companyId, // Add companyId for the supervisor
                 assignedSites: [site._id] // Assign this site
             });
 

@@ -27,7 +27,12 @@ import ManageSupervisorsScreen from '../screens/ManageSupervisorsScreen';
 import ManageWarehouseManagersScreen from '../screens/ManageWarehouseManagersScreen';
 import WarehouseSuppliesScreen from '../screens/WarehouseSuppliesScreen';
 import WarehouseReportsScreen from '../screens/WarehouseReportsScreen';
-// import AdminMessagesScreen from '@/screens/AdminMessagesScreen'; // Commented out in your original native code
+import GlobalSitesScreen from '../screens/GlobalSitesScreen';
+import GlobalStaffScreen from '../screens/GlobalStaffScreen';
+import GlobalSupervisorsScreen from '../screens/GlobalSupervisorsScreen';
+import GlobalWarehousesScreen from '../screens/GlobalWarehousesScreen';
+import AdminMessagesScreen from '../screens/AdminMessagesScreen';
+import ActivityLogsScreen from '../screens/ActivityLogsScreen';
 
 // Warehouse Manager
 import WarehouseManagerDashboard from '../screens/WarehouseManagerDashboard';
@@ -131,6 +136,12 @@ export default function AppNavigator() {
             <Stack.Screen name="ManageSupervisors" component={ManageSupervisorsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Announcements" component={Announcements} options={{ headerShown: false }} />
             <Stack.Screen name="ManageWarehouseManagers" component={ManageWarehouseManagersScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GlobalSites" component={GlobalSitesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GlobalStaff" component={GlobalStaffScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GlobalSupervisors" component={GlobalSupervisorsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GlobalWarehouses" component={GlobalWarehousesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="AdminMessages" component={AdminMessagesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ActivityLogs" component={ActivityLogsScreen} options={{ headerShown: false }} />
           </>
         ) : user.role === 'warehouse_manager' ? (
           <>

@@ -8,11 +8,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { auth } = require('../middleware/auth');
 
-// Mock email service
-const sendEmail = async (to, subject, text) => {
-    console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}, Body: ${text}`);
-    return true;
-};
+const sendEmail = require('../utils/email');
 
 // Register Company
 router.post('/register', async (req, res) => {
@@ -57,16 +53,18 @@ router.post('/register', async (req, res) => {
         await adminUser.save();
 
         // Send Email
-        await sendEmail(mail, 'Your Company Credentials', `
-            Welcome to CRIMS!
-            Your company "${companyName}" has been registered.
-            
-            Here are your admin credentials:
-            Username: ${adminUsername}
-            Password: ${adminPassword}
-            
-            Please login and change your password immediately.
-        `);
+        const emailHtml = `
+            <h2>Welcome to CRIMS!</h2>
+            <p>Your company "<strong>${companyName}</strong>" has been registered successfully.</p>
+            <p>Here are your admin credentials:</p>
+            <ul>
+                <li><strong>Username:</strong> ${adminUsername}</li>
+                <li><strong>Password:</strong> ${adminPassword}</li>
+            </ul>
+            <p>Please login and change your password immediately.</p>
+        `;
+
+        await sendEmail(mail, 'Your Company Credentials', emailHtml);
 
         res.status(201).json({
             success: true,
