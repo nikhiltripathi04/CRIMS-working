@@ -182,10 +182,19 @@ router.get('/', async (req, res) => {
 
         console.log(`Fetching sites for admin ID: ${adminId}`);
 
-        // Find sites that belong to this admin
-        const sites = await Site.find({ adminId }).populate('supervisors', 'username');
+        // Find the admin to get companyId
+        const admin = await User.findById(adminId);
+        let query = { adminId };
 
-        console.log(`Found ${sites.length} sites for admin ID: ${adminId}`);
+        if (admin && admin.companyId) {
+            query = { companyId: admin.companyId };
+            console.log(`Admin belongs to company ${admin.companyId}. Fetching all company sites.`);
+        }
+
+        // Find sites that belong to this admin or company
+        const sites = await Site.find(query).populate('supervisors', 'username');
+
+        console.log(`Found ${sites.length} sites for query:`, query);
 
         res.json({
             success: true,
@@ -270,10 +279,11 @@ router.post('/', async (req, res) => {
         // Extract supervisor data if provided
         const { supervisorUsername, supervisorPassword, ...siteDataWithoutSupervisor } = req.body;
 
-        // Create site with adminId
+        // Create site with adminId and companyId
         const siteData = {
             ...siteDataWithoutSupervisor,
             adminId,
+            companyId: admin.companyId, // Add companyId from admin
             supervisors: [] // Initialize empty supervisors array
         };
 

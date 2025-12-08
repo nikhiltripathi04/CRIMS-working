@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // ✅ LOGIN Route
@@ -47,6 +48,15 @@ router.post('/login', async (req, res) => {
       extraData.assignedSites = user.assignedSites;
     }
 
+    // Populate company info
+    if (user.companyId) {
+      const company = await mongoose.model('Company').findById(user.companyId);
+      if (company) {
+        extraData.companyId = company._id;
+        extraData.companyName = company.name;
+      }
+    }
+
     res.json({
       success: true,
       token,
@@ -54,6 +64,8 @@ router.post('/login', async (req, res) => {
         id: user._id,
         username: user.username,
         role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
         ...extraData
       }
     });
@@ -99,6 +111,7 @@ router.post('/create-supervisor', async (req, res) => {
       password,
       role: 'supervisor',
       createdBy: adminId,
+      companyId: admin.companyId, // Link to company
       assignedSites: [] // Initially empty
     });
 
@@ -133,7 +146,14 @@ router.get('/supervisors', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Admin ID is required' });
     }
 
-    const supervisors = await User.find({ role: 'supervisor', createdBy: adminId })
+    const admin = await User.findById(adminId);
+    let query = { role: 'supervisor', createdBy: adminId };
+
+    if (admin && admin.companyId) {
+      query = { role: 'supervisor', companyId: admin.companyId };
+    }
+
+    const supervisors = await User.find(query)
       .select('username _id assignedSites')
       .populate('assignedSites', 'siteName');
 
@@ -329,6 +349,99 @@ router.delete('/supervisors/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting supervisor:', error);
     res.status(500).json({ success: false, message: 'Failed to delete supervisor' });
+  }
+});
+
+// ✅ CREATE ADMIN (Company Owner only)
+router.post('/create-admin', async (req, res) => {
+  try {
+    const { username, password, email, firstName, lastName, phoneNumber, authAdminId } = req.body; // authAdminId from frontend sending user.id
+
+    if (!username || !password || !email || !authAdminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, password, email, and creator ID are required'
+      });
+    }
+
+    // Verify company owner
+    const owner = await User.findOne({ _id: authAdminId, role: 'company_owner' });
+    if (!owner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: Only company owners can create admins'
+      });
+    }
+
+    // Check if username/email exists
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username or email already exists'
+      });
+    }
+
+    const newAdmin = new User({
+      username,
+      password,
+      email,
+      firstName: firstName || 'Admin',
+      lastName: lastName || 'User',
+      phoneNumber: phoneNumber || '0000000000',
+      role: 'admin',
+      companyId: owner.companyId,
+      createdBy: owner._id
+    });
+
+    await newAdmin.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully',
+      data: {
+        id: newAdmin._id,
+        username: newAdmin.username,
+        role: newAdmin.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating admin',
+      error: error.message
+    });
+  }
+});
+
+// ✅ GET Company Admins (Company Owner only)
+router.get('/company-admins', async (req, res) => {
+  try {
+    const { ownerId } = req.query;
+
+    if (!ownerId) {
+      return res.status(400).json({ success: false, message: 'Owner ID is required' });
+    }
+
+    // Verify owner
+    const owner = await User.findById(ownerId);
+    if (!owner || owner.role !== 'company_owner') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const admins = await User.find({ role: 'admin', companyId: owner.companyId })
+      .select('username email firstName lastName phoneNumber _id createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: admins
+    });
+  } catch (error) {
+    console.error('Error fetching company admins:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch admins' });
   }
 });
 

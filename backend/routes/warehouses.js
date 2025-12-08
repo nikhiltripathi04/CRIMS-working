@@ -49,8 +49,14 @@ const adminOnly = (req, res, next) => {
 // Routes using the simplified auth
 router.get('/', validateUser, adminOnly, async (req, res) => {
     try {
-        // Admin sees only their warehouses
-        const warehouses = await Warehouse.find({ adminId: req.user._id })
+        let query = { adminId: req.user._id };
+
+        if (req.user.companyId) {
+            query = { companyId: req.user.companyId };
+        }
+
+        // Admin sees warehouses for their company or created by them
+        const warehouses = await Warehouse.find(query)
             .populate('managers', 'username');
         res.json({ success: true, data: warehouses });
     } catch (e) {
@@ -525,6 +531,7 @@ router.post('/', validateUser, adminOnly, async (req, res) => {
             location,
             managers: [],
             adminId: req.user._id, // This admin owns the warehouse
+            companyId: req.user.companyId, // Add company association
             supplies: []
         });
         await warehouse.save();
@@ -535,7 +542,8 @@ router.post('/', validateUser, adminOnly, async (req, res) => {
             password: managerPassword,
             role: 'warehouse_manager',
             warehouseId: warehouse._id,
-            createdBy: req.user._id // This admin created the manager
+            createdBy: req.user._id, // This admin created the manager
+            companyId: req.user.companyId // Link manager to company
         });
         await manager.save();
 
@@ -963,59 +971,59 @@ router.delete('/:warehouseId/managers/:managerId', validateUser, adminOnly, asyn
 
 // Replace your existing DELETE /:warehouseId route with this safe version
 router.delete('/:warehouseId', validateUser, adminOnly, async (req, res) => {
-  try {
-    const { warehouseId } = req.params;
+    try {
+        const { warehouseId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(warehouseId)) {
-      return res.status(400).json({ success: false, message: 'Invalid warehouse id' });
+        if (!mongoose.Types.ObjectId.isValid(warehouseId)) {
+            return res.status(400).json({ success: false, message: 'Invalid warehouse id' });
+        }
+
+        const warehouse = await Warehouse.findById(warehouseId);
+        if (!warehouse) {
+            return res.status(404).json({ success: false, message: 'Warehouse not found' });
+        }
+
+        // LOG the full warehouse object so you can inspect fields present in DB
+        console.log('DELETE /warehouses/:warehouseId - warehouse object:', JSON.stringify(warehouse, null, 2));
+
+        // Try multiple possible owner fields safely
+        const ownerCandidate = (
+            (warehouse.createdBy && typeof warehouse.createdBy.toString === 'function' && warehouse.createdBy.toString()) ||
+            (warehouse.adminId && typeof warehouse.adminId.toString === 'function' && warehouse.adminId.toString()) ||
+            (warehouse.admin && typeof warehouse.admin.toString === 'function' && warehouse.admin.toString()) ||
+            null
+        );
+
+        if (!ownerCandidate) {
+            console.warn(`Warehouse ${warehouseId} is missing owner metadata (createdBy/adminId/admin)`);
+            return res.status(500).json({
+                success: false,
+                message: 'Warehouse owner metadata missing. Contact support.'
+            });
+        }
+
+        const requesterId = req.user && req.user._id ? req.user._id.toString() : null;
+        if (!requesterId) {
+            return res.status(401).json({ success: false, message: 'Requester not authenticated' });
+        }
+
+        if (ownerCandidate !== requesterId) {
+            return res.status(403).json({ success: false, message: 'Not authorized to delete this warehouse' });
+        }
+
+        // Delete warehouse managers and the warehouse
+        await User.deleteMany({
+            role: 'warehouse_manager',
+            warehouseId: warehouseId
+        });
+
+        await Warehouse.findByIdAndDelete(warehouseId);
+
+        return res.json({ success: true, message: 'Warehouse and all its managers deleted successfully' });
+    } catch (e) {
+        console.error('Delete warehouse error:', e);
+        return res.status(500).json({ success: false, message: e.message || 'Server error' });
     }
-
-    const warehouse = await Warehouse.findById(warehouseId);
-    if (!warehouse) {
-      return res.status(404).json({ success: false, message: 'Warehouse not found' });
-    }
-
-    // LOG the full warehouse object so you can inspect fields present in DB
-    console.log('DELETE /warehouses/:warehouseId - warehouse object:', JSON.stringify(warehouse, null, 2));
-
-    // Try multiple possible owner fields safely
-    const ownerCandidate = (
-      (warehouse.createdBy && typeof warehouse.createdBy.toString === 'function' && warehouse.createdBy.toString()) ||
-      (warehouse.adminId && typeof warehouse.adminId.toString === 'function' && warehouse.adminId.toString()) ||
-      (warehouse.admin && typeof warehouse.admin.toString === 'function' && warehouse.admin.toString()) ||
-      null
-    );
-
-    if (!ownerCandidate) {
-      console.warn(`Warehouse ${warehouseId} is missing owner metadata (createdBy/adminId/admin)`);
-      return res.status(500).json({
-        success: false,
-        message: 'Warehouse owner metadata missing. Contact support.'
-      });
-    }
-
-    const requesterId = req.user && req.user._id ? req.user._id.toString() : null;
-    if (!requesterId) {
-      return res.status(401).json({ success: false, message: 'Requester not authenticated' });
-    }
-
-    if (ownerCandidate !== requesterId) {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete this warehouse' });
-    }
-
-    // Delete warehouse managers and the warehouse
-    await User.deleteMany({
-      role: 'warehouse_manager',
-      warehouseId: warehouseId
-    });
-
-    await Warehouse.findByIdAndDelete(warehouseId);
-
-    return res.json({ success: true, message: 'Warehouse and all its managers deleted successfully' });
-  } catch (e) {
-    console.error('Delete warehouse error:', e);
-    return res.status(500).json({ success: false, message: e.message || 'Server error' });
-  }
 });
 
 router.delete('/:warehouseId', validateUser, adminOnly, async (req, res) => {

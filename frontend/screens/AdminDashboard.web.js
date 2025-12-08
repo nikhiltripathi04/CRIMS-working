@@ -4,14 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 // Using react-icons for better web rendering consistency
-import { 
-  IoLogOutOutline, 
-  IoSearchOutline, 
-  IoRefresh, 
-  IoAddCircleOutline, 
-  IoPeopleOutline, 
-  IoCubeOutline, 
-  IoLocationOutline, 
+import {
+  IoLogOutOutline,
+  IoSearchOutline,
+  IoRefresh,
+  IoAddCircleOutline,
+  IoPeopleOutline,
+  IoCubeOutline,
+  IoLocationOutline,
   IoBriefcaseOutline,
   IoVideocamOutline, // For Messages
   IoChevronForward,
@@ -36,11 +36,11 @@ export default function AdminDashboardWeb() {
     if (!user) return;
     setRefreshing(true);
     // Don't set loading to true on refresh to keep UI stable
-    if (!sites.length) setLoading(true); 
+    if (!sites.length) setLoading(true);
 
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      
+
       const [sitesRes, whRes, staffRes, supRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`),
         axios.get(`${API_BASE_URL}/api/warehouses?adminId=${user.id}`),
@@ -95,7 +95,7 @@ export default function AdminDashboardWeb() {
   const filterList = (list, keys) => {
     if (!query) return list;
     const lowerQuery = query.toLowerCase();
-    return list.filter(item => 
+    return list.filter(item =>
       keys.some(key => item[key] && item[key].toLowerCase().includes(lowerQuery))
     );
   };
@@ -122,7 +122,7 @@ export default function AdminDashboardWeb() {
           <h1 style={styles.title}>Admin Dashboard</h1>
           <span style={styles.roleBadge}>ADMINISTRATOR</span>
         </div>
-        
+
         <div style={styles.headerRight}>
           <div style={styles.searchContainer}>
             <IoSearchOutline color="#666" size={18} />
@@ -138,7 +138,7 @@ export default function AdminDashboardWeb() {
           <button onClick={fetchAll} disabled={refreshing} style={styles.iconButton} title="Refresh">
             <IoRefresh size={22} className={refreshing ? 'spin' : ''} />
           </button>
-          
+
           <button onClick={handleLogout} style={styles.logoutButton} title="Logout">
             <IoLogOutOutline size={22} color="#fff" />
           </button>
@@ -146,156 +146,162 @@ export default function AdminDashboardWeb() {
       </header>
 
       <main style={styles.content}>
-        
+
         {/* --- Quick Stats Row --- */}
         <div style={styles.statsRow}>
-          <StatCard icon={<IoLocationOutline/>} color="#007bff" count={sites.length} label="Active Sites" />
-          <StatCard icon={<IoCubeOutline/>} color="#17a2b8" count={warehouses.length} label="Warehouses" />
-          <StatCard icon={<IoBriefcaseOutline/>} color="#6610f2" count={supervisors.length} label="Supervisors" />
-          <StatCard icon={<IoPeopleOutline/>} color="#28a745" count={staff.length} label="Staff Members" />
+          <StatCard icon={<IoLocationOutline />} color="#007bff" count={sites.length} label="Active Sites" />
+          <StatCard icon={<IoCubeOutline />} color="#17a2b8" count={warehouses.length} label="Warehouses" />
+          <StatCard icon={<IoBriefcaseOutline />} color="#6610f2" count={supervisors.length} label="Supervisors" />
+          <StatCard icon={<IoPeopleOutline />} color="#28a745" count={staff.length} label="Staff Members" />
         </div>
 
         {/* --- Primary Actions --- */}
         <div style={styles.actionToolbar}>
-            <div style={{display: 'flex', gap: '15px'}}>
-                <ActionButton 
-                    label="New Site" 
-                    icon={<IoAddCircleOutline/>} 
-                    color="#007bff" 
-                    onClick={() => navigation.navigate('CreateSite')} 
-                />
-                <ActionButton 
-                    label="New Warehouse" 
-                    icon={<IoAddCircleOutline/>} 
-                    color="#17a2b8" 
-                    onClick={() => navigation.navigate('CreateWarehouse')} 
-                />
-            </div>
-            
-            {/* NEW: Messages Entry Point */}
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <ActionButton
+              label="New Site"
+              icon={<IoAddCircleOutline />}
+              color="#007bff"
+              onClick={() => navigation.navigate('CreateSite')}
+            />
+            <ActionButton
+              label="New Warehouse"
+              icon={<IoAddCircleOutline />}
+              color="#17a2b8"
+              onClick={() => navigation.navigate('CreateWarehouse')}
+            />
+          </div>
+
+          {/* NEW: Messages Entry Point */}
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button style={styles.messageButton} onClick={() => navigation.navigate('AdminMessages')}>
-                <IoVideocamOutline size={20} style={{marginRight: '8px'}} />
-                View Site Messages
+              <IoVideocamOutline size={20} style={{ marginRight: '8px' }} />
+              View Site Messages
             </button>
+            <button style={{ ...styles.messageButton, backgroundColor: '#fd7e14', marginLeft: '10px' }} onClick={() => navigation.navigate('ActivityLogs')}>
+              <IoLogOutOutline size={20} style={{ marginRight: '8px', transform: 'rotate(180deg)' }} />
+              Activity Logs
+            </button>
+          </div>
         </div>
 
         <div style={styles.gridContainer}>
-            
-            {/* Left Column */}
-            <div style={styles.column}>
-                
-                {/* Sites Panel */}
-                <div style={styles.panel}>
-                    <div style={styles.panelHeader}>
-                        <h2 style={styles.panelTitle}>Sites</h2>
-                        <span style={styles.countBadge}>{filteredSites.length}</span>
-                    </div>
-                    <div style={styles.listContainer}>
-                        {filteredSites.map(site => (
-                            <ListItem 
-                                key={site._id}
-                                title={site.siteName}
-                                subtitle={site.location}
-                                icon={<IoLocationOutline color="#007bff" size={20}/>}
-                                onDelete={() => confirmDelete('Site', site._id, '/api/sites')}
-                                onOpen={() => navigation.navigate('SiteDetails', { site, siteName: site.siteName })}
-                            />
-                        ))}
-                        {filteredSites.length === 0 && <EmptyState text="No sites found" />}
-                    </div>
-                </div>
 
-                {/* Supervisors Panel */}
-                <div style={styles.panel}>
-                    <div style={styles.panelHeader}>
-                        <h2 style={styles.panelTitle}>Supervisors</h2>
-                        <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
-                            <button 
-                                style={styles.textBtn} 
-                                onClick={() => navigation.navigate('GlobalManageSupervisors')}
-                            >
-                                Manage Global List
-                            </button>
-                            <span style={{...styles.countBadge, backgroundColor: '#6610f2'}}>{filteredSupervisors.length}</span>
-                        </div>
-                    </div>
-                    <div style={styles.listContainer}>
-                        {filteredSupervisors.map(sup => (
-                            <ListItem 
-                                key={sup._id}
-                                title={sup.username}
-                                subtitle={sup.assignedSites?.length ? `${sup.assignedSites.length} Sites` : 'Unassigned'}
-                                icon={<IoBriefcaseOutline color="#6610f2" size={20}/>}
-                                // Supervisors are managed via GlobalManageSupervisors mostly, but allow simple open
-                                onOpen={() => navigation.navigate('GlobalManageSupervisors')}
-                                hideDelete // Safer to delete from management screen
-                            />
-                        ))}
-                         {filteredSupervisors.length === 0 && <EmptyState text="No supervisors found" />}
-                    </div>
-                </div>
+          {/* Left Column */}
+          <div style={styles.column}>
 
+            {/* Sites Panel */}
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h2 style={styles.panelTitle}>Sites</h2>
+                <span style={styles.countBadge}>{filteredSites.length}</span>
+              </div>
+              <div style={styles.listContainer}>
+                {filteredSites.map(site => (
+                  <ListItem
+                    key={site._id}
+                    title={site.siteName}
+                    subtitle={site.location}
+                    icon={<IoLocationOutline color="#007bff" size={20} />}
+                    onDelete={() => confirmDelete('Site', site._id, '/api/sites')}
+                    onOpen={() => navigation.navigate('SiteDetails', { site, siteName: site.siteName })}
+                  />
+                ))}
+                {filteredSites.length === 0 && <EmptyState text="No sites found" />}
+              </div>
             </div>
 
-            {/* Right Column */}
-            <div style={styles.column}>
-                
-                {/* Warehouses Panel */}
-                <div style={styles.panel}>
-                    <div style={styles.panelHeader}>
-                        <h2 style={styles.panelTitle}>Warehouses</h2>
-                        <span style={{...styles.countBadge, backgroundColor: '#17a2b8'}}>{filteredWarehouses.length}</span>
-                    </div>
-                    <div style={styles.listContainer}>
-                        {filteredWarehouses.map(wh => (
-                            <ListItem 
-                                key={wh._id}
-                                title={wh.warehouseName}
-                                subtitle={wh.location}
-                                icon={<IoCubeOutline color="#17a2b8" size={20}/>}
-                                onDelete={() => confirmDelete('Warehouse', wh._id, '/api/warehouses')}
-                                onOpen={() => navigation.navigate('WarehouseDetails', { warehouse: wh })}
-                            />
-                        ))}
-                         {filteredWarehouses.length === 0 && <EmptyState text="No warehouses found" />}
-                    </div>
+            {/* Supervisors Panel */}
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h2 style={styles.panelTitle}>Supervisors</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    style={styles.textBtn}
+                    onClick={() => navigation.navigate('GlobalManageSupervisors')}
+                  >
+                    Manage Global List
+                  </button>
+                  <span style={{ ...styles.countBadge, backgroundColor: '#6610f2' }}>{filteredSupervisors.length}</span>
                 </div>
-
-                {/* Staff Panel */}
-                <div style={styles.panel}>
-                    <div style={styles.panelHeader}>
-                        <h2 style={styles.panelTitle}>Staff</h2>
-                        <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
-                            <button 
-                                style={styles.textBtn} 
-                                onClick={() => navigation.navigate('CreateStaff')}
-                            >
-                                + Add New
-                            </button>
-                            <span style={{...styles.countBadge, backgroundColor: '#28a745'}}>{filteredStaff.length}</span>
-                        </div>
-                    </div>
-                    <div style={styles.listContainer}>
-                        {filteredStaff.map(s => (
-                            <ListItem 
-                                key={s._id}
-                                title={s.fullName}
-                                subtitle={`@${s.username}`}
-                                icon={<IoPeopleOutline color="#28a745" size={20}/>}
-                                onDelete={() => confirmDelete('Staff', s._id, '/api/staff')}
-                                onOpen={() => navigation.navigate('StaffDetails', { staff: s })}
-                            />
-                        ))}
-                         {filteredStaff.length === 0 && <EmptyState text="No staff found" />}
-                    </div>
-                </div>
-
+              </div>
+              <div style={styles.listContainer}>
+                {filteredSupervisors.map(sup => (
+                  <ListItem
+                    key={sup._id}
+                    title={sup.username}
+                    subtitle={sup.assignedSites?.length ? `${sup.assignedSites.length} Sites` : 'Unassigned'}
+                    icon={<IoBriefcaseOutline color="#6610f2" size={20} />}
+                    // Supervisors are managed via GlobalManageSupervisors mostly, but allow simple open
+                    onOpen={() => navigation.navigate('GlobalManageSupervisors')}
+                    hideDelete // Safer to delete from management screen
+                  />
+                ))}
+                {filteredSupervisors.length === 0 && <EmptyState text="No supervisors found" />}
+              </div>
             </div>
+
+          </div>
+
+          {/* Right Column */}
+          <div style={styles.column}>
+
+            {/* Warehouses Panel */}
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h2 style={styles.panelTitle}>Warehouses</h2>
+                <span style={{ ...styles.countBadge, backgroundColor: '#17a2b8' }}>{filteredWarehouses.length}</span>
+              </div>
+              <div style={styles.listContainer}>
+                {filteredWarehouses.map(wh => (
+                  <ListItem
+                    key={wh._id}
+                    title={wh.warehouseName}
+                    subtitle={wh.location}
+                    icon={<IoCubeOutline color="#17a2b8" size={20} />}
+                    onDelete={() => confirmDelete('Warehouse', wh._id, '/api/warehouses')}
+                    onOpen={() => navigation.navigate('WarehouseDetails', { warehouse: wh })}
+                  />
+                ))}
+                {filteredWarehouses.length === 0 && <EmptyState text="No warehouses found" />}
+              </div>
+            </div>
+
+            {/* Staff Panel */}
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h2 style={styles.panelTitle}>Staff</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    style={styles.textBtn}
+                    onClick={() => navigation.navigate('CreateStaff')}
+                  >
+                    + Add New
+                  </button>
+                  <span style={{ ...styles.countBadge, backgroundColor: '#28a745' }}>{filteredStaff.length}</span>
+                </div>
+              </div>
+              <div style={styles.listContainer}>
+                {filteredStaff.map(s => (
+                  <ListItem
+                    key={s._id}
+                    title={s.fullName}
+                    subtitle={`@${s.username}`}
+                    icon={<IoPeopleOutline color="#28a745" size={20} />}
+                    onDelete={() => confirmDelete('Staff', s._id, '/api/staff')}
+                    onOpen={() => navigation.navigate('StaffDetails', { staff: s })}
+                  />
+                ))}
+                {filteredStaff.length === 0 && <EmptyState text="No staff found" />}
+              </div>
+            </div>
+
+          </div>
 
         </div>
 
       </main>
-      
+
       {/* Global Styles for Animations */}
       <style>{`
         .spin { animation: spin 1s linear infinite; }
@@ -312,44 +318,44 @@ export default function AdminDashboardWeb() {
 // --- Sub-Components ---
 
 const StatCard = ({ icon, color, count, label }) => (
-    <div style={styles.statCard}>
-        <div style={{...styles.statIcon, color, backgroundColor: `${color}15`}}>{icon}</div>
-        <div>
-            <div style={styles.statCount}>{count}</div>
-            <div style={styles.statLabel}>{label}</div>
-        </div>
+  <div style={styles.statCard}>
+    <div style={{ ...styles.statIcon, color, backgroundColor: `${color}15` }}>{icon}</div>
+    <div>
+      <div style={styles.statCount}>{count}</div>
+      <div style={styles.statLabel}>{label}</div>
     </div>
+  </div>
 );
 
 const ActionButton = ({ label, icon, color, onClick }) => (
-    <button style={{...styles.actionButton, color, borderColor: color}} onClick={onClick}>
-        <span style={{marginRight: '6px', display: 'flex'}}>{icon}</span>
-        {label}
-    </button>
+  <button style={{ ...styles.actionButton, color, borderColor: color }} onClick={onClick}>
+    <span style={{ marginRight: '6px', display: 'flex' }}>{icon}</span>
+    {label}
+  </button>
 );
 
 const ListItem = ({ title, subtitle, icon, onDelete, onOpen, hideDelete }) => (
-    <div style={styles.listItem}>
-        <div style={styles.listIcon}>{icon}</div>
-        <div style={styles.listContent}>
-            <div style={styles.listTitle}>{title}</div>
-            <div style={styles.listSubtitle}>{subtitle}</div>
-        </div>
-        <div style={styles.listActions}>
-            <button style={styles.btnGhost} onClick={onOpen} title="Open Details">
-                <IoOpenOutline size={18} />
-            </button>
-            {!hideDelete && (
-                <button style={styles.btnDanger} onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
-                    <IoTrashOutline size={18} />
-                </button>
-            )}
-        </div>
+  <div style={styles.listItem}>
+    <div style={styles.listIcon}>{icon}</div>
+    <div style={styles.listContent}>
+      <div style={styles.listTitle}>{title}</div>
+      <div style={styles.listSubtitle}>{subtitle}</div>
     </div>
+    <div style={styles.listActions}>
+      <button style={styles.btnGhost} onClick={onOpen} title="Open Details">
+        <IoOpenOutline size={18} />
+      </button>
+      {!hideDelete && (
+        <button style={styles.btnDanger} onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
+          <IoTrashOutline size={18} />
+        </button>
+      )}
+    </div>
+  </div>
 );
 
 const EmptyState = ({ text }) => (
-    <div style={styles.emptyState}>{text}</div>
+  <div style={styles.emptyState}>{text}</div>
 );
 
 // --- CSS Styles ---
@@ -591,7 +597,7 @@ const styles = {
     border: '1px solid #f5f5f5',
     transition: 'background 0.2s',
     ':hover': {
-        backgroundColor: '#f9f9f9',
+      backgroundColor: '#f9f9f9',
     }
   },
   listIcon: {

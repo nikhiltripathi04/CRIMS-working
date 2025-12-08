@@ -12,7 +12,7 @@ const activityLogSchema = new mongoose.Schema({
             "supply_requested",
             'supply_transferred',
             'supply_request_approved',    // Add this
-            'supply_request_rejected', 
+            'supply_request_rejected',
             'manager_added',
             'manager_password_reset',
             'warehouse_created',
@@ -64,9 +64,13 @@ const warehouseSchema = new mongoose.Schema({
     location: String,
     managers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     adminId: { // Add this to track which admin owns this warehouse
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', 
-        required: true 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company'
     },
     supplies: [warehouseSupplySchema],
     activityLogs: [activityLogSchema]

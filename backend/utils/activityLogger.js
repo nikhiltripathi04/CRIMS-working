@@ -1,5 +1,6 @@
 const Site = require('../models/Site');
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog'); // Import centralized model
 
 class ActivityLogger {
   static async logActivity(siteId, action, performedBy, details, description) {
@@ -62,8 +63,32 @@ class ActivityLogger {
         delete logEntry.performedBy;
       }
 
+      // Add to site's embedded logs (legacy support + site specific view)
       site.activityLogs.push(logEntry);
       await site.save();
+
+      // NEW: Log to centralized ActivityLog model
+      try {
+        if (site.companyId) {
+          const centralizedLog = new ActivityLog({
+            companyId: site.companyId,
+            action,
+            performedBy: userId,
+            performedByName: username,
+            performedByRole: userRole,
+            targetId: siteId,
+            targetModel: 'Site',
+            details: logEntry.details,
+            timestamp: logEntry.timestamp
+          });
+          await centralizedLog.save();
+          console.log('📝 Centralized activity logged');
+        } else {
+          console.warn('⚠️ Site has no companyId, skipping centralized log');
+        }
+      } catch (centralLogErr) {
+        console.error('❌ Failed to log centralized activity:', centralLogErr.message);
+      }
 
       console.log(`📝 Activity logged: ${description}`);
       return logEntry;
@@ -72,8 +97,6 @@ class ActivityLogger {
       return null;
     }
   }
-
-  // ... rest of your existing methods ...
 
   static async getActivityLogs(siteId, limit = 50) {
     try {

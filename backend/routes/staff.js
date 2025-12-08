@@ -31,6 +31,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
             username: username.toLowerCase().trim(),
             password, // Will be hashed by pre-save hook
             role: 'staff',
+            companyId: req.user.companyId, // Link to company
             createdBy: req.user._id, // req.user is set by auth middleware
             createdAt: new Date()
         });
@@ -62,10 +63,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
 // Get all staff members created by this admin
 router.get('/', auth, adminOnly, async (req, res) => {
     try {
-        const staffMembers = await User.find({
-            role: 'staff',
-            createdBy: req.user._id
-        }).select('-password').sort({ createdAt: -1 });
+        let query = { role: 'staff', createdBy: req.user._id };
+
+        if (req.user.companyId) {
+            query = { role: 'staff', companyId: req.user.companyId };
+        }
+
+        const staffMembers = await User.find(query).select('-password').sort({ createdAt: -1 });
 
         res.json({
             success: true,

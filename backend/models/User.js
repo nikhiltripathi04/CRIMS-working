@@ -14,25 +14,38 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: function () { return this.role === 'admin'; }, // Required for admin
+        required: function () { return this.role === 'admin' || this.role === 'company_owner'; }, // Required for admin & owner
         unique: true,
-        sparse: true // Allows null values but enforces uniqueness for non-null
+        sparse: true
     },
     phoneNumber: {
         type: String,
-        required: function () { return this.role === 'admin'; } // Required for admin
+        required: function () { return this.role === 'admin' || this.role === 'company_owner'; }
     },
     firmName: {
         type: String,
-        required: false // Optional
+        required: false
+    },
+    firstName: {
+        type: String,
+        required: function () { return this.role === 'admin' || this.role === 'company_owner'; }
+    },
+    lastName: {
+        type: String,
+        required: function () { return this.role === 'admin' || this.role === 'company_owner'; }
     },
     fullName: {
         type: String,
         required: function () { return this.role === 'staff'; }
     },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company',
+        required: function () { return this.role !== 'superadmin'; }
+    },
     role: {
         type: String,
-        enum: ['admin', 'supervisor', 'warehouse_manager', 'staff'],
+        enum: ['admin', 'supervisor', 'warehouse_manager', 'staff', 'company_owner'],
         required: true
     },
     assignedSites: [{

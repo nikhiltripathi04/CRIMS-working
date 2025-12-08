@@ -26,6 +26,7 @@ app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/company', require('./routes/company'));
 
 // Basic route for testing
 app.get('/', (req, res) => {
@@ -43,6 +44,23 @@ app.get('/', (req, res) => {
 const createDefaultUsers = async () => {
     try {
         const User = require('./models/User');
+        const Company = require('./models/Company');
+
+        // Check if default company exists
+        let company = await Company.findOne({ name: 'Default Construction Co' });
+
+        if (!company) {
+            company = new Company({
+                name: 'Default Construction Co',
+                email: 'contact@defaultconstruction.com',
+                phoneNumber: '1234567890',
+                gstin: '22AAAAA0000A1Z5',
+                address: '123 Construction Ave, Builder City'
+            });
+            await company.save();
+            console.log('✅ Default company created');
+        }
+
         // Check if admin exists
         const adminExists = await User.findOne({ username: 'admin' });
 
@@ -53,7 +71,10 @@ const createDefaultUsers = async () => {
                 password: 'admin123',  // Don't hash here - let the pre-save hook do it
                 role: 'admin',
                 email: 'admin@example.com',
-                phoneNumber: '1234567890'
+                phoneNumber: '1234567890',
+                firstName: 'System',
+                lastName: 'Admin',
+                companyId: company._id
             });
             await admin.save();
             console.log('✅ Default admin created: username=admin, password=admin123');
