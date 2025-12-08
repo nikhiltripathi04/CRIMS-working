@@ -20,9 +20,12 @@ import * as Location from 'expo-location';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { Calendar } from 'react-native-calendars';
 
 const { width: screenWidth } = Dimensions.get("window");
-const isIpad = screenWidth >= 768;
+const isIpad = screenWidth >= 768; // Simple check for larger screens
 
 const StaffDashboardScreen = () => {
     const { user, token, logout, API_BASE_URL } = useAuth();
@@ -148,17 +151,20 @@ const StaffDashboardScreen = () => {
     // --- 3. Camera Logic ---
 
     const startAttendanceProcess = async (type) => {
+        // Haptic Feedback for better interaction
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
         // Check permissions
         if (!cameraPermission?.granted) {
             const permission = await requestCameraPermission();
             if (!permission.granted) {
-                Alert.alert("Permission Denied", "Camera permission is required.");
+                Alert.alert("Permission", "We need camera access to take your photo.");
                 return;
             }
         }
 
         if (!hasLocationPermission) {
-            Alert.alert("Permission Denied", "Location permission is required.");
+            Alert.alert("Permission", "We need location access to know where you are.");
             return;
         }
 
@@ -206,16 +212,61 @@ const StaffDashboardScreen = () => {
         setAttendanceType(null);
     };
 
+    // --- CHECK TODAY'S STATUS & CALENDAR MARKING ---
+    const todayStr = new Date().toDateString();
+    const todaysRecords = attendanceHistory.filter(r => new Date(r.timestamp || r.date).toDateString() === todayStr);
+    const hasCheckedIn = todaysRecords.some(r => r.type === 'login');
+    const hasCheckedOut = todaysRecords.some(r => r.type === 'logout');
+
+    const getMarkedDates = () => {
+        const marked = {};
+        attendanceHistory.forEach(record => {
+            const dateStr = new Date(record.timestamp || record.date).toISOString().split('T')[0];
+
+            if (!marked[dateStr]) {
+                marked[dateStr] = {
+                    dots: [],
+                    selected: true,
+                    selectedColor: 'transparent', // Custom background handling if needed
+                    textStyle: { fontWeight: 'bold' }
+                };
+            }
+
+            // Avoid duplicate dots for same type on same day
+            const hasType = marked[dateStr].dots.some(d => d.key === record.type);
+            if (!hasType) {
+                marked[dateStr].dots.push({
+                    key: record.type,
+                    color: record.type === 'login' ? '#10B981' : '#EF4444',
+                    selectedDotColor: record.type === 'login' ? '#10B981' : '#EF4444',
+                });
+            }
+        });
+
+        // Highlight today
+        const todayIso = new Date().toISOString().split('T')[0];
+        marked[todayIso] = {
+            ...(marked[todayIso] || {}),
+            selected: true,
+            selectedColor: '#E0F2FE',
+            selectedTextColor: '#0284C7'
+        };
+
+        return marked;
+    };
+
+    const markedDates = getMarkedDates();
+
     // --- 4. Submission Logic ---
 
     const handleSubmitAttendance = async () => {
         if ((!locationData || fetchingLocation) && !locationData?.latitude) {
-            Alert.alert("Wait", "Still fetching precise location...");
+            Alert.alert("Please Wait", "We are still finding your location...");
             return;
         }
 
         if (!token) {
-            Alert.alert("Error", "Authentication missing.");
+            Alert.alert("Error", "You are not logged in.");
             return;
         }
 
@@ -239,11 +290,12 @@ const StaffDashboardScreen = () => {
             });
 
             if (res.data.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert(
-                    "Success",
-                    `Successfully Marked: ${attendanceType === 'login' ? 'Check In' : 'Check Out'}`,
+                    "Success!",
+                    `You have successfully ${attendanceType === 'login' ? 'CHECKED IN' : 'CHECKED OUT'}.`,
                     [{
-                        text: "OK", onPress: () => {
+                        text: "Great!", onPress: () => {
                             setCapturedImage(null);
                             setAttendanceType(null);
                             fetchMyRecords();
@@ -251,10 +303,12 @@ const StaffDashboardScreen = () => {
                     }]
                 );
             } else {
-                Alert.alert("Failed", res.data.message || "Unknown error");
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Alert.alert("Failed", res.data.message || "Something went wrong.");
             }
         } catch (error) {
             console.error(error);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             const msg = error.response?.data?.message || error.message || "Submission failed";
             Alert.alert("Error", msg);
         } finally {
@@ -394,19 +448,17 @@ const StaffDashboardScreen = () => {
     // 3. Dashboard View (Default)
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerContent}>
-                    <View>
-                        <Text style={styles.headerTitle}>Staff Portal</Text>
-                        <Text style={styles.headerSubtitle}>Welcome, {user.fullName || user.username}</Text>
-                    </View>
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <Ionicons name="log-out-outline" size={22} color="#fff" />
-                    </TouchableOpacity>
+            {/* Header - Personalized & Simple */}
+            <View style={styles.headerContainer}>
+                <View>
+                    <Text style={styles.greetingText}>Hello,</Text>
+                    <Text style={styles.userNameText}>{user?.fullName || user?.username || 'Staff'}</Text>
                 </View>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                    <Ionicons name="power" size={24} color="#EF4444" />
+                </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -414,76 +466,123 @@ const StaffDashboardScreen = () => {
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.card}>
-                    {/* Clock Section */}
-                    <View style={styles.clockContainer}>
-                        <Text style={styles.timeText}>
-                            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
-                        <Text style={styles.dateText}>
-                            {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                {/* 1. Status Banner - Immediate Feedback */}
+                <View style={[
+                    styles.statusCard,
+                    hasCheckedIn && !hasCheckedOut ? styles.statusCardActive : styles.statusCardInactive
+                ]}>
+                    <Text style={styles.statusLabel}>CURRENT STATUS</Text>
+                    <View style={styles.statusRow}>
+                        <View style={[
+                            styles.statusDot,
+                            { backgroundColor: hasCheckedIn && !hasCheckedOut ? '#10B981' : '#9CA3AF' }
+                        ]} />
+                        <Text style={styles.statusMainText}>
+                            {hasCheckedIn
+                                ? (hasCheckedOut ? "FINISHED FOR TODAY" : "ON DUTY")
+                                : "NOT STARTED"}
                         </Text>
                     </View>
+                    {hasCheckedIn && !hasCheckedOut && (
+                        <Text style={styles.statusSubText}>
+                            Started at {todaysRecords.find(r => r.type === 'login')?.timestamp ? new Date(todaysRecords.find(r => r.type === 'login').timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                        </Text>
+                    )}
+                </View>
 
-                    {/* Action Buttons */}
-                    <View style={styles.actionsContainer}>
-                        <TouchableOpacity
-                            style={[styles.actionBtn, styles.btnIn]}
-                            onPress={() => startAttendanceProcess('login')}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.iconCircleIn}>
-                                <Ionicons name="enter" size={32} color="#fff" />
+                {/* 2. Live Clock - Large & Readable */}
+                <View style={styles.timeContainer}>
+                    <Text style={styles.bigTimeText}>
+                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    <Text style={styles.dateText}>
+                        {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </Text>
+                </View>
+
+                {/* 3. Primary Actions - HUGE Buttons */}
+                <View style={styles.actionGrid}>
+                    {/* Start Work Button */}
+                    <TouchableOpacity
+                        style={[
+                            styles.actionCard,
+                            styles.actionCardGreen,
+                            hasCheckedIn && styles.actionCardDisabled
+                        ]}
+                        onPress={() => {
+                            if (!hasCheckedIn) {
+                                startAttendanceProcess('login');
+                            } else {
+                                Alert.alert("Already Started", "You have already checked in today.");
+                            }
+                        }}
+                        activeOpacity={hasCheckedIn ? 1 : 0.7}
+                        disabled={hasCheckedIn}
+                    >
+                        <View style={styles.iconCircleGreen}>
+                            <Ionicons name="enter" size={42} color="#10B981" />
+                        </View>
+                        <View>
+                            <Text style={styles.actionCardTitle}>START WORK</Text>
+                            <Text style={styles.actionCardSubtitle}>Check In</Text>
+                        </View>
+                        {hasCheckedIn && (
+                            <View style={styles.completedOverlay}>
+                                <Ionicons name="checkmark-circle" size={48} color="#fff" />
+                                <Text style={styles.completedText}>DONE</Text>
                             </View>
-                            <View>
-                                <Text style={styles.btnLabel}>Check In</Text>
-                                <Text style={styles.btnSubLabel}>Start your shift</Text>
+                        )}
+                    </TouchableOpacity>
+
+                    {/* End Work Button */}
+                    <TouchableOpacity
+                        style={[
+                            styles.actionCard,
+                            styles.actionCardRed,
+                            (!hasCheckedIn || hasCheckedOut) && styles.actionCardDisabled
+                        ]}
+                        onPress={() => {
+                            if (hasCheckedIn && !hasCheckedOut) {
+                                startAttendanceProcess('logout');
+                            } else {
+                                if (hasCheckedOut) Alert.alert("Finished", "You have already checked out today.");
+                                else Alert.alert("Not Started", "You need to Start Work (Check In) first.");
+                            }
+                        }}
+                        activeOpacity={(!hasCheckedIn || hasCheckedOut) ? 1 : 0.7}
+                        disabled={!hasCheckedIn || hasCheckedOut}
+                    >
+                        <View style={styles.iconCircleRed}>
+                            <Ionicons name="exit" size={42} color="#EF4444" />
+                        </View>
+                        <View>
+                            <Text style={styles.actionCardTitle}>END WORK</Text>
+                            <Text style={styles.actionCardSubtitle}>Check Out</Text>
+                        </View>
+                        {hasCheckedOut && (
+                            <View style={styles.completedOverlay}>
+                                <Ionicons name="checkmark-circle" size={48} color="#fff" />
+                                <Text style={styles.completedText}>DONE</Text>
                             </View>
-                        </TouchableOpacity>
+                        )}
+                    </TouchableOpacity>
+                </View>
 
-                        <TouchableOpacity
-                            style={[styles.actionBtn, styles.btnOut]}
-                            onPress={() => startAttendanceProcess('logout')}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.iconCircleOut}>
-                                <Ionicons name="exit" size={32} color="#fff" />
-                            </View>
-                            <View>
-                                <Text style={styles.btnLabel}>Check Out</Text>
-                                <Text style={styles.btnSubLabel}>End your shift</Text>
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.divider} />
-
-                    {/* Recent Activity */}
-                    <Text style={styles.sectionTitle}>Recent Activity</Text>
-
+                {/* 4. Recent Activity - Simplified List */}
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>Today's Activity</Text>
                     {attendanceHistory.length === 0 ? (
-                        <Text style={styles.emptyText}>No recent records found.</Text>
+                        <View style={styles.emptyStateSimple}>
+                            <Text style={styles.emptyTextSimple}>No activity recorded yet.</Text>
+                        </View>
                     ) : (
                         <View style={styles.historyList}>
                             {attendanceHistory.slice(0, 5).map((record, index) => (
-                                <View key={record._id || index} style={styles.historyItem}>
-                                    <View style={[
-                                        styles.historyIcon,
-                                        { backgroundColor: record.type === 'login' ? '#D1FAE5' : '#FEE2E2' }
-                                    ]}>
-                                        <Ionicons
-                                            name={record.type === 'login' ? "enter" : "exit"}
-                                            size={18}
-                                            color={record.type === 'login' ? '#059669' : '#DC2626'}
-                                        />
-                                    </View>
-                                    <View style={styles.historyContent}>
-                                        <Text style={styles.historyType}>
-                                            {record.type === 'login' ? 'Checked In' : 'Checked Out'}
-                                        </Text>
-                                        <Text style={styles.historyLocation} numberOfLines={1}>
-                                            {record.location?.address || "Address unavailable"}
-                                        </Text>
+                                <View key={record._id || index} style={styles.historyRow}>
+                                    <View style={[styles.historyDot, { backgroundColor: record.type === 'login' ? '#10B981' : '#EF4444' }]} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.historyType}>{record.type === 'login' ? 'Started Work' : 'Ended Work'}</Text>
+                                        <Text style={styles.historyLocation} numberOfLines={1}>{record.location?.address || 'GPS Location'}</Text>
                                     </View>
                                     <Text style={styles.historyTime}>
                                         {new Date(record.timestamp || record.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -493,6 +592,43 @@ const StaffDashboardScreen = () => {
                         </View>
                     )}
                 </View>
+
+                {/* 5. Calendar - Just for reference */}
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>Attendance Calendar</Text>
+                    <View style={styles.calendarWrapper}>
+                        <Calendar
+                            current={new Date().toISOString().split('T')[0]}
+                            hideExtraDays={true}
+                            disableMonthChange={false}
+                            firstDay={1}
+                            hideDayNames={false}
+                            showWeekNumbers={false}
+                            markingType={'multi-dot'}
+                            markedDates={markedDates}
+                            theme={{
+                                backgroundColor: '#ffffff',
+                                calendarBackground: '#ffffff',
+                                textSectionTitleColor: '#9CA3AF',
+                                selectedDayBackgroundColor: '#2563EB',
+                                selectedDayTextColor: '#ffffff',
+                                todayTextColor: '#2563EB',
+                                dayTextColor: '#1F2937',
+                                textDisabledColor: '#E5E7EB',
+                                dotColor: '#2563EB',
+                                selectedDotColor: '#ffffff',
+                                arrowColor: '#2563EB',
+                                monthTextColor: '#1F2937',
+                                textDayFontWeight: '600',
+                                textMonthFontWeight: 'bold',
+                                textDayHeaderFontWeight: '600',
+                                textDayFontSize: 16,
+                            }}
+                        />
+                    </View>
+                </View>
+
+                <View style={{ height: 40 }} />
             </ScrollView>
         </SafeAreaView>
     );
@@ -501,96 +637,59 @@ const StaffDashboardScreen = () => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#2094f3',
+        backgroundColor: '#F3F4F6',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#F3F4F6',
     },
 
-    // Header
-    header: {
-        backgroundColor: '#2094f3',
-        paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 10) : 10,
+    // --- New Header ---
+    headerContainer: {
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'android' ? 40 : 20,
         paddingBottom: 20,
-        paddingHorizontal: 20,
-    },
-    headerContent: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
     },
-    headerTitle: {
-        fontSize: isIpad ? 28 : 24,
+    greetingText: {
+        fontSize: 16,
+        color: '#6B7280',
+        fontWeight: '500',
+    },
+    userNameText: {
+        fontSize: 24,
         fontWeight: 'bold',
-        color: '#FFFFFF',
-    },
-    headerSubtitle: {
-        fontSize: isIpad ? 16 : 14,
-        color: 'rgba(255,255,255,0.9)',
+        color: '#1F2937',
         marginTop: 2,
     },
     logoutButton: {
-        padding: 8,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 8,
+        padding: 12,
+        backgroundColor: '#FEF2F2',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FECACA',
     },
 
-    // Main Container
+    // --- Main Container ---
     container: {
         flex: 1,
-        backgroundColor: '#2094f3',
     },
     contentContainer: {
-        padding: isIpad ? 40 : 20,
-        paddingTop: 10,
-    },
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: isIpad ? 30 : 20,
-        paddingBottom: 30,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-        minHeight: 500,
+        padding: 24,
     },
 
-    // Clock
-    clockContainer: {
-        alignItems: 'center',
-        marginBottom: 30,
-        marginTop: 10,
-    },
-    timeText: {
-        fontSize: isIpad ? 56 : 42,
-        fontWeight: '800',
-        color: '#333',
-        letterSpacing: -1,
-    },
-    dateText: {
-        fontSize: isIpad ? 18 : 15,
-        color: '#888',
-        fontWeight: '600',
-        marginTop: 4,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-
-    // Action Buttons
-    actionsContainer: {
-        gap: 16,
-        marginBottom: 20,
-    },
-    actionBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    // --- Status Card ---
+    statusCard: {
         padding: 20,
-        borderRadius: 16,
+        borderRadius: 20,
+        marginBottom: 24,
         borderWidth: 1,
         elevation: 2,
         shadowColor: '#000',
@@ -598,296 +697,248 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
     },
-    btnIn: {
-        backgroundColor: '#F0FDF4',
-        borderColor: '#DCFCE7',
+    statusCardActive: {
+        backgroundColor: '#ECFDF5',
+        borderColor: '#10B981',
     },
-    btnOut: {
-        backgroundColor: '#FEF2F2',
-        borderColor: '#FEE2E2',
+    statusCardInactive: {
+        backgroundColor: '#fff',
+        borderColor: '#E5E7EB',
     },
-    iconCircleIn: {
-        width: 48, height: 48, borderRadius: 12,
-        backgroundColor: '#10B981',
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 16,
-    },
-    iconCircleOut: {
-        width: 48, height: 48, borderRadius: 12,
-        backgroundColor: '#EF4444',
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 16,
-    },
-    btnLabel: {
-        fontSize: 18,
+    statusLabel: {
+        fontSize: 13,
         fontWeight: '700',
+        letterSpacing: 1,
+        color: '#6B7280',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    statusDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+    },
+    statusMainText: {
+        fontSize: 22,
+        fontWeight: '800',
         color: '#1F2937',
     },
-    btnSubLabel: {
-        fontSize: 13,
+    statusSubText: {
+        marginTop: 8,
+        fontSize: 15,
+        color: '#059669',
+        fontWeight: '600',
+    },
+
+    // --- Live Clock ---
+    timeContainer: {
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    bigTimeText: {
+        fontSize: 56,
+        fontWeight: '900',
+        color: '#111827',
+        fontVariant: ['tabular-nums'],
+        letterSpacing: -2,
+    },
+    dateText: {
+        fontSize: 18,
         color: '#6B7280',
-        marginTop: 2,
+        fontWeight: '500',
+        marginTop: -4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 
-    divider: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginVertical: 24,
+    // --- Action Grid (Buttons) ---
+    actionGrid: {
+        gap: 20,
+        marginBottom: 32,
     },
-
-    // History
-    sectionTitle: {
+    actionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 24,
+        borderRadius: 24,
+        backgroundColor: '#fff',
+        borderWidth: 2,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        minHeight: 110,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    actionCardGreen: {
+        borderColor: '#10B981',
+    },
+    actionCardRed: {
+        borderColor: '#EF4444',
+    },
+    actionCardDisabled: {
+        backgroundColor: '#F3F4F6',
+        borderColor: '#E5E7EB',
+        opacity: 0.6,
+        elevation: 0,
+    },
+    iconCircleGreen: {
+        width: 64, height: 64,
+        borderRadius: 32,
+        backgroundColor: '#ECFDF5',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 20,
+    },
+    iconCircleRed: {
+        width: 64, height: 64,
+        borderRadius: 32,
+        backgroundColor: '#FEF2F2',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 20,
+    },
+    actionCardTitle: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1F2937',
+        marginBottom: 4,
+    },
+    actionCardSubtitle: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#333',
-        marginBottom: 16,
+        color: '#6B7280',
+        fontWeight: '500',
     },
-    emptyText: {
-        textAlign: 'center',
-        color: '#999',
-        fontStyle: 'italic',
-        marginTop: 10,
+    completedOverlay: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(16, 185, 129, 0.9)', // Green overlay
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
+        gap: 10,
+    },
+    completedText: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '900',
+        letterSpacing: 2,
+    },
+
+    // --- Sections --
+    sectionContainer: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#374151',
+        marginBottom: 16,
+        marginLeft: 4,
+    },
+    emptyStateSimple: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    emptyTextSimple: {
+        color: '#9CA3AF',
+        fontSize: 15,
     },
     historyList: {
         gap: 12,
     },
-    historyItem: {
+    historyRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 12,
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: '#F3F4F6',
     },
-    historyIcon: {
-        width: 32, height: 32, borderRadius: 8,
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 12,
-    },
-    historyContent: {
-        flex: 1,
+    historyDot: {
+        width: 12, height: 12,
+        borderRadius: 6,
+        marginRight: 16,
     },
     historyType: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
-        color: '#333',
+        color: '#1F2937',
     },
     historyLocation: {
-        fontSize: 12,
-        color: '#666',
+        fontSize: 13,
+        color: '#6B7280',
         marginTop: 2,
     },
     historyTime: {
-        fontSize: 12,
-        color: '#999',
+        fontSize: 14,
+        color: '#9CA3AF',
         fontWeight: '500',
     },
-
-    // --- Camera View Styles ---
-    fullScreenCamera: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    camera: {
-        flex: 1,
-    },
-    cameraOverlay: {
-        flex: 1,
-        backgroundColor: 'transparent',
-        justifyContent: 'space-between',
-    },
-    cameraHeader: {
-        padding: 20,
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-    },
-    cameraTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    cameraSubtitle: {
-        color: '#ccc',
-        fontSize: 14,
-    },
-    locationOverlay: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    locBadgeFetching: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 6
-    },
-    locBadgeFound: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(16, 185, 129, 0.9)', // Green
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 6
-    },
-    locBadgeError: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(239, 68, 68, 0.9)', // Red
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 6
-    },
-    locTextFetching: { color: '#E69138', fontSize: 12, fontWeight: '600' },
-    locTextFound: { color: '#fff', fontSize: 12, fontWeight: '600' },
-    locTextError: { color: '#fff', fontSize: 12, fontWeight: '600' },
-
-    cameraControls: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 30,
-        paddingBottom: 50,
-    },
-    btnCancelCam: {
-        padding: 10,
-    },
-    txtCancelCam: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    btnCaptureOuter: {
-        width: 72, height: 72,
-        borderRadius: 36,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    btnCaptureInner: {
-        width: 60, height: 60,
-        borderRadius: 30,
+    calendarWrapper: {
         backgroundColor: '#fff',
-    },
-    btnFlipCam: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         padding: 10,
     },
 
-    // --- Preview Styles ---
-    centerContent: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 20,
-        backgroundColor: '#2094f3',
-    },
-    previewCard: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    previewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    previewTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    badge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    badgeText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    previewImage: {
-        width: '100%',
-        height: 300,
-        borderRadius: 12,
-        backgroundColor: '#eee',
-        marginBottom: 16,
-    },
-    detailsBox: {
-        backgroundColor: '#F9FAFB',
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#eee',
-        marginBottom: 20,
-        gap: 12
-    },
-    detailRow: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'flex-start',
-    },
-    detailText: {
-        fontSize: 14,
-        color: '#333',
-        fontWeight: '500',
-        lineHeight: 20,
-    },
-    detailSubText: {
-        fontSize: 12,
-        color: '#888',
-        marginTop: 2,
-    },
-    refreshBtn: {
-        padding: 4,
-    },
-    previewActions: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    btnRetake: {
-        flex: 1,
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        alignItems: 'center',
-    },
-    btnRetakeText: {
-        fontSize: 16,
-        color: '#555',
-        fontWeight: '600',
-    },
-    btnSubmit: {
-        flex: 2,
-        padding: 15,
-        borderRadius: 12,
-        backgroundColor: '#10B981',
-        alignItems: 'center',
-        shadowColor: '#10B981',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 4
-    },
-    btnDisabled: {
-        opacity: 0.7,
-        backgroundColor: '#9ca3af',
-    },
-    btnSubmitText: {
-        fontSize: 16,
-        color: '#fff',
-        fontWeight: 'bold',
-    },
+    // --- Camera & Modal Styles (Keep existing ones but ensuring keys match) ---
+    fullScreenCamera: { flex: 1, backgroundColor: '#000' },
+    camera: { flex: 1 },
+    cameraOverlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'space-between' },
+    cameraHeader: { padding: 40, paddingTop: 60, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    cameraTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+    cameraSubtitle: { color: '#E5E7EB', fontSize: 18, marginTop: 8, textAlign: 'center' },
+    locationOverlay: { alignItems: 'center', padding: 10 },
+    locBadgeFound: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, gap: 8 },
+    locTextFound: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    locBadgeFetching: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 20 },
+    locTextFetching: { color: '#E69138', fontSize: 14 },
+    locBadgeError: { backgroundColor: 'rgba(239, 68, 68, 0.9)', padding: 10, borderRadius: 20 },
+    locTextError: { color: '#fff', fontSize: 14 },
+    cameraControls: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', padding: 40, paddingBottom: 60, backgroundColor: 'rgba(0,0,0,0.5)' },
+    btnCancelCam: { padding: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 50 },
+    txtCancelCam: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    btnCaptureOuter: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center' },
+    btnCaptureInner: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff', borderWidth: 4, borderColor: 'rgba(0,0,0,0.1)' },
+    btnFlipCam: { padding: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 50 },
+
+    // Preview
+    centerContent: { flexGrow: 1, justifyContent: 'center', padding: 20, backgroundColor: '#F3F4F6' },
+    previewCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, elevation: 4 },
+    previewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    previewTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937' },
+    badge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+    badgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' },
+    previewImage: { width: '100%', height: 350, borderRadius: 16, backgroundColor: '#E5E7EB', marginBottom: 20 },
+    detailsBox: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 24, gap: 16 },
+    detailRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+    detailText: { fontSize: 16, color: '#1F2937', fontWeight: '500', lineHeight: 24 },
+    detailSubText: { fontSize: 14, color: '#666' },
+    previewActions: { flexDirection: 'column', gap: 16 },
+    btnRetake: { padding: 16, borderRadius: 16, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', backgroundColor: '#fff' },
+    btnRetakeText: { fontSize: 18, color: '#4B5563', fontWeight: '700' },
+    btnSubmit: { padding: 20, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 4 },
+    btnSubmitText: { fontSize: 20, color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
+    btnDisabled: { opacity: 0.5, backgroundColor: '#9CA3AF' },
+    refreshBtn: { padding: 8 }
 });
+
 
 export default StaffDashboardScreen;

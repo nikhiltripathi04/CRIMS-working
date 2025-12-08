@@ -67,7 +67,7 @@ export default function StaffDashboardWeb() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        
+
         // Temporary object with coords
         const currentLoc = {
           latitude,
@@ -76,7 +76,7 @@ export default function StaffDashboardWeb() {
           address: "Fetching address details...",
           timestamp: new Date().toISOString()
         };
-        
+
         setLocationData(currentLoc);
 
         // Reverse Geocoding via Nominatim (OpenStreetMap)
@@ -89,7 +89,7 @@ export default function StaffDashboardWeb() {
             }
           });
           const data = await response.json();
-          
+
           if (data && data.display_name) {
             setLocationData(prev => ({
               ...prev,
@@ -118,11 +118,11 @@ export default function StaffDashboardWeb() {
         if (err.code === 1) msg = "Location permission denied.";
         if (err.code === 2) msg = "Position unavailable. Check GPS.";
         if (err.code === 3) msg = "Location request timed out.";
-        
+
         setErrorMsg(msg);
         setFetchingLocation(false);
       },
-      { 
+      {
         enableHighAccuracy: true, // Force GPS 
         timeout: 20000,           // Wait up to 20s for a good lock
         maximumAge: 0             // Do not use cached position
@@ -139,11 +139,11 @@ export default function StaffDashboardWeb() {
 
     try {
       // 1. Start Camera
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' } // Prefer back camera on phones
       });
       streamRef.current = stream;
-      
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -182,7 +182,7 @@ export default function StaffDashboardWeb() {
 
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
       setCapturedImage(imageDataUrl);
-      
+
       stopCamera();
     }
   };
@@ -194,14 +194,20 @@ export default function StaffDashboardWeb() {
     setErrorMsg(null);
   };
 
+  // --- CHECK TODAY'S STATUS ---
+  const todayStr = new Date().toDateString();
+  const todaysRecords = attendanceHistory.filter(r => new Date(r.timestamp || r.date).toDateString() === todayStr);
+  const hasCheckedIn = todaysRecords.some(r => r.type === 'login');
+  const hasCheckedOut = todaysRecords.some(r => r.type === 'logout');
+
   // --- 2. Submission Logic ---
 
   const handleSubmitAttendance = async () => {
     if ((!locationData || fetchingLocation) && !errorMsg) {
-        alert("Still fetching precise location... please wait a moment.");
-        return;
+      alert("Still fetching precise location... please wait a moment.");
+      return;
     }
-    
+
     if (!capturedImage) {
       alert("Photo required.");
       return;
@@ -216,14 +222,14 @@ export default function StaffDashboardWeb() {
 
     try {
       const userIdVal = user.id || user._id;
-      
+
       const payload = {
         type: attendanceType,
         photo: capturedImage,
         location: locationData, // Includes address now
         date: new Date().toISOString(),
-        user: userIdVal,   
-        userId: userIdVal, 
+        user: userIdVal,
+        userId: userIdVal,
         tenant_id: user.tenant_id || user.tenantId || null
       };
 
@@ -239,10 +245,10 @@ export default function StaffDashboardWeb() {
       if (!response.ok) {
         const errorText = await response.text();
         try {
-            const errorJson = JSON.parse(errorText);
-            throw new Error(errorJson.message || errorJson.error || `Server error: ${response.status}`);
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.message || errorJson.error || `Server error: ${response.status}`);
         } catch (e) {
-            throw new Error(errorText || `Server error: ${response.status}`);
+          throw new Error(errorText || `Server error: ${response.status}`);
         }
       }
 
@@ -252,7 +258,7 @@ export default function StaffDashboardWeb() {
         window.alert(`Successfully Marked: ${attendanceType === 'login' ? 'Check In' : 'Check Out'}`);
         setCapturedImage(null);
         setAttendanceType(null);
-        fetchMyRecords(); 
+        fetchMyRecords();
       } else {
         throw new Error(data.message || "Failed to submit attendance");
       }
@@ -288,7 +294,7 @@ export default function StaffDashboardWeb() {
 
       {/* Main Content */}
       <main style={styles.mainContent}>
-        
+
         {/* VIEW 1: Dashboard / Selection Panel */}
         {!cameraActive && !capturedImage && (
           <div style={styles.attendanceCard}>
@@ -302,26 +308,40 @@ export default function StaffDashboardWeb() {
             </div>
 
             <div style={styles.actionContainer}>
-              <button 
-                style={{...styles.actionBtn, ...styles.btnIn}} 
-                onClick={() => startAttendanceProcess('login')}
+              <button
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.btnIn,
+                  ...(hasCheckedIn ? styles.btnDisabled : {})
+                }}
+                onClick={() => !hasCheckedIn ? startAttendanceProcess('login') : alert("You have already checked in today.")}
+                disabled={hasCheckedIn}
               >
-                <div style={styles.iconCircleIn}>
-                  <Ionicons name="enter" size={32} color="#10B981" />
+                <div style={{ ...styles.iconCircleIn, ...(hasCheckedIn ? styles.iconDisabled : {}) }}>
+                  {hasCheckedIn ? <Ionicons name="checkmark-circle" size={32} color="white" /> : <Ionicons name="enter" size={32} color="#10B981" />}
                 </div>
-                <span style={styles.btnLabel}>Check In</span>
-                <span style={styles.btnSubLabel}>Start your shift</span>
+                <div>
+                  <span style={{ ...styles.btnLabel, ...(hasCheckedIn ? styles.textDisabled : {}) }}>Check In</span>
+                  <span style={styles.btnSubLabel}>{hasCheckedIn ? "Done for today" : "Start your shift"}</span>
+                </div>
               </button>
 
-              <button 
-                style={{...styles.actionBtn, ...styles.btnOut}} 
-                onClick={() => startAttendanceProcess('logout')}
+              <button
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.btnOut,
+                  ...(hasCheckedOut ? styles.btnDisabled : {})
+                }}
+                onClick={() => !hasCheckedOut ? startAttendanceProcess('logout') : alert("You have already checked out today.")}
+                disabled={hasCheckedOut}
               >
-                <div style={styles.iconCircleOut}>
-                  <Ionicons name="exit" size={32} color="#EF4444" />
+                <div style={{ ...styles.iconCircleOut, ...(hasCheckedOut ? styles.iconDisabled : {}) }}>
+                  {hasCheckedOut ? <Ionicons name="checkmark-circle" size={32} color="white" /> : <Ionicons name="exit" size={32} color="#EF4444" />}
                 </div>
-                <span style={styles.btnLabel}>Check Out</span>
-                <span style={styles.btnSubLabel}>End your shift</span>
+                <div>
+                  <span style={{ ...styles.btnLabel, ...(hasCheckedOut ? styles.textDisabled : {}) }}>Check Out</span>
+                  <span style={styles.btnSubLabel}>{hasCheckedOut ? "Done for today" : "End your shift"}</span>
+                </div>
               </button>
             </div>
 
@@ -329,33 +349,33 @@ export default function StaffDashboardWeb() {
 
             {/* Recent Activity */}
             <div style={styles.historyContainer}>
-                <h3 style={styles.historyTitle}>Recent Activity</h3>
-                {attendanceHistory.length === 0 ? (
-                    <p style={styles.emptyText}>No records found.</p>
-                ) : (
-                    <div style={styles.historyList}>
-                        {attendanceHistory.slice(0, 5).map(record => (
-                            <div key={record._id} style={styles.historyItem}>
-                                <div style={{
-                                    ...styles.historyIcon,
-                                    backgroundColor: record.type === 'login' ? '#D1FAE5' : '#FEE2E2',
-                                    color: record.type === 'login' ? '#059669' : '#DC2626'
-                                }}>
-                                    <Ionicons name={record.type === 'login' ? "enter" : "exit"} size={16} />
-                                </div>
-                                <div style={styles.historyContent}>
-                                    <span style={styles.historyType}>{record.type === 'login' ? 'Checked In' : 'Checked Out'}</span>
-                                    <span style={styles.historyLocation}>
-                                      {record.location?.address || "Address unavailable"}
-                                    </span>
-                                </div>
-                                <div style={styles.historyDate}>
-                                    {new Date(record.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </div>
-                            </div>
-                        ))}
+              <h3 style={styles.historyTitle}>Recent Activity</h3>
+              {attendanceHistory.length === 0 ? (
+                <p style={styles.emptyText}>No records found.</p>
+              ) : (
+                <div style={styles.historyList}>
+                  {attendanceHistory.slice(0, 5).map(record => (
+                    <div key={record._id} style={styles.historyItem}>
+                      <div style={{
+                        ...styles.historyIcon,
+                        backgroundColor: record.type === 'login' ? '#D1FAE5' : '#FEE2E2',
+                        color: record.type === 'login' ? '#059669' : '#DC2626'
+                      }}>
+                        <Ionicons name={record.type === 'login' ? "enter" : "exit"} size={16} />
+                      </div>
+                      <div style={styles.historyContent}>
+                        <span style={styles.historyType}>{record.type === 'login' ? 'Checked In' : 'Checked Out'}</span>
+                        <span style={styles.historyLocation}>
+                          {record.location?.address || "Address unavailable"}
+                        </span>
+                      </div>
+                      <div style={styles.historyDate}>
+                        {new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
-                )}
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -365,26 +385,26 @@ export default function StaffDashboardWeb() {
           <div style={styles.cameraContainer}>
             <div style={styles.cameraHeader}>
               <h3>Take Photo</h3>
-              <p style={{fontSize: 13, color: '#666', margin: '4px 0'}}>Please stand at the site.</p>
+              <p style={{ fontSize: 13, color: '#666', margin: '4px 0' }}>Please stand at the site.</p>
             </div>
-            
+
             <div style={styles.videoWrapper}>
               <video ref={videoRef} style={styles.video} playsInline muted autoPlay></video>
               <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
             </div>
 
             <div style={styles.locationStatus}>
-                {fetchingLocation ? (
-                    <span style={{color: '#E69138', display:'flex', alignItems:'center', gap: 6}}>
-                       <Ionicons name="sync" className="spin" /> Getting high accuracy location...
-                    </span>
-                ) : locationData ? (
-                    <span style={{color: '#10B981', display:'flex', alignItems:'center', gap: 6}}>
-                        <Ionicons name="location" /> Location Locked ({locationData.accuracy ? Math.round(locationData.accuracy) + 'm accuracy' : 'GPS'})
-                    </span>
-                ) : (
-                    <span style={{color: '#EF4444'}}>Location not found</span>
-                )}
+              {fetchingLocation ? (
+                <span style={{ color: '#E69138', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="sync" className="spin" /> Getting high accuracy location...
+                </span>
+              ) : locationData ? (
+                <span style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="location" /> Location Locked ({locationData.accuracy ? Math.round(locationData.accuracy) + 'm accuracy' : 'GPS'})
+                </span>
+              ) : (
+                <span style={{ color: '#EF4444' }}>Location not found</span>
+              )}
             </div>
 
             <div style={styles.cameraControls}>
@@ -392,7 +412,7 @@ export default function StaffDashboardWeb() {
               <button style={styles.btnCapture} onClick={takePhoto}>
                 <div style={styles.captureInnerRing}></div>
               </button>
-              <div style={{width: 60}}></div> 
+              <div style={{ width: 60 }}></div>
             </div>
           </div>
         )}
@@ -402,13 +422,13 @@ export default function StaffDashboardWeb() {
           <div style={styles.previewContainer}>
             <div style={styles.previewHeader}>
               <h3>Confirm Attendance</h3>
-              <span style={{...styles.badgeType, backgroundColor: attendanceType === 'login' ? '#10B981' : '#EF4444'}}>
+              <span style={{ ...styles.badgeType, backgroundColor: attendanceType === 'login' ? '#10B981' : '#EF4444' }}>
                 {attendanceType === 'login' ? 'CHECK IN' : 'CHECK OUT'}
               </span>
             </div>
 
             <div style={styles.imageWrapper}>
-                <img src={capturedImage} alt="Attendance" style={styles.previewImage} />
+              <img src={capturedImage} alt="Attendance" style={styles.previewImage} />
             </div>
 
             <div style={styles.detailsCard}>
@@ -418,21 +438,21 @@ export default function StaffDashboardWeb() {
               </div>
               <div style={styles.detailRow}>
                 <Ionicons name="location-outline" size={18} color="#6B7280" />
-                <div style={{flex: 1}}>
-                  <span style={{fontSize: 13, wordBreak: 'break-word', lineHeight: '1.4', display: 'block'}}>
-                    {locationData && locationData.address ? 
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 13, wordBreak: 'break-word', lineHeight: '1.4', display: 'block' }}>
+                    {locationData && locationData.address ?
                       locationData.address
-                      : fetchingLocation ? <span style={{color: 'orange'}}>Refining address...</span> : <span style={{color: 'red'}}>Address unavailable</span>
+                      : fetchingLocation ? <span style={{ color: 'orange' }}>Refining address...</span> : <span style={{ color: 'red' }}>Address unavailable</span>
                     }
                   </span>
                   {locationData && (
-                     <span style={{fontSize: 11, color: '#9ca3af'}}>
-                        Accuracy: {locationData.accuracy ? `~${Math.round(locationData.accuracy)}m` : 'Unknown'}
-                     </span>
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                      Accuracy: {locationData.accuracy ? `~${Math.round(locationData.accuracy)}m` : 'Unknown'}
+                    </span>
                   )}
                 </div>
                 <button onClick={fetchLocation} style={styles.refreshBtn} title="Refresh Location">
-                    <Ionicons name={fetchingLocation ? "sync" : "refresh"} size={16} color="#7C3AED" />
+                  <Ionicons name={fetchingLocation ? "sync" : "refresh"} size={16} color="#7C3AED" />
                 </button>
               </div>
             </div>
@@ -510,7 +530,7 @@ const styles = {
     padding: '20px',
     overflowY: 'auto',
   },
-  
+
   // --- Dashboard Card ---
   attendanceCard: {
     backgroundColor: 'white',
@@ -607,6 +627,20 @@ const styles = {
     textAlign: 'center',
     width: '100%',
     border: '1px solid #FECACA',
+    border: '1px solid #FECACA',
+  },
+  btnDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    cursor: 'not-allowed',
+    opacity: 0.8
+  },
+  iconDisabled: {
+    backgroundColor: '#9CA3AF',
+    color: 'white'
+  },
+  textDisabled: {
+    color: '#9CA3AF'
   },
 
   // --- History Section ---

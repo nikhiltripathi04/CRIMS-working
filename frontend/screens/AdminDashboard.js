@@ -27,7 +27,8 @@ const isIpad = isIOS && Platform.isPad;
 const AdminDashboard = () => {
     const [sites, setSites] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
-    const [staff, setStaff] = useState([]); // NEW: Staff State
+    const [staff, setStaff] = useState([]);
+    const [supervisors, setSupervisors] = useState([]); // NEW: Supervisors State
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState(''); // NEW: Search Query
@@ -89,12 +90,28 @@ const AdminDashboard = () => {
         }
     }, [user, API_BASE_URL, token]);
 
+    // NEW: Fetch Supervisors
+    const fetchSupervisors = useCallback(async () => {
+        if (!user || !user.id) {
+            setSupervisors([]);
+            return;
+        }
+        try {
+            const response = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+            if (response.data.success) {
+                setSupervisors(response.data.data || []);
+            }
+        } catch (error) {
+            console.log('Error fetching supervisors:', error);
+        }
+    }, [user, API_BASE_URL]);
+
     const fetchAllData = useCallback(async () => {
         if (!user) return;
         setRefreshing(true);
-        await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff()]);
+        await Promise.all([fetchSites(), fetchWarehouses(), fetchStaff(), fetchSupervisors()]);
         setRefreshing(false);
-    }, [fetchSites, fetchWarehouses, fetchStaff, user]);
+    }, [fetchSites, fetchWarehouses, fetchStaff, fetchSupervisors, user]);
 
     useEffect(() => {
         if (user) {
@@ -171,6 +188,10 @@ const AdminDashboard = () => {
         ]);
     }, [API_BASE_URL, fetchStaff, token]);
 
+    // NEW: Delete Supervisor (Mostly handled in ManageSupervisors, but good to have)
+    // const deleteSupervisor = ... (Skipping simple delete here as web redirects to Global List, but we can add if needed. For now sticking to parity with "Manage Global List" link pattern)
+
+
     // --- Helpers ---
 
     const getSiteAttendance = useCallback((site) => {
@@ -217,19 +238,23 @@ const AdminDashboard = () => {
 
     // --- Filtering Logic ---
     const lowerQuery = searchQuery.toLowerCase();
-    
-    const filteredWarehouses = warehouses.filter(w => 
-        w.warehouseName?.toLowerCase().includes(lowerQuery) || 
+
+    const filteredWarehouses = warehouses.filter(w =>
+        w.warehouseName?.toLowerCase().includes(lowerQuery) ||
         w.location?.toLowerCase().includes(lowerQuery)
     );
 
-    const filteredSites = sites.filter(s => 
-        s.siteName?.toLowerCase().includes(lowerQuery) || 
+    const filteredSites = sites.filter(s =>
+        s.siteName?.toLowerCase().includes(lowerQuery) ||
         s.location?.toLowerCase().includes(lowerQuery)
     );
 
-    const filteredStaff = staff.filter(s => 
-        s.fullName?.toLowerCase().includes(lowerQuery) || 
+    const filteredStaff = staff.filter(s =>
+        s.fullName?.toLowerCase().includes(lowerQuery) ||
+        s.username?.toLowerCase().includes(lowerQuery)
+    );
+
+    const filteredSupervisors = supervisors.filter(s =>
         s.username?.toLowerCase().includes(lowerQuery)
     );
 
@@ -338,7 +363,7 @@ const AdminDashboard = () => {
     // NEW: Staff Card Renderer
     const renderStaffCard = ({ item }) => (
         <View style={styles.staffCard}>
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={styles.staffContent}
                 onPress={() => navigation.navigate('StaffDetails', { staff: item })}
             >
@@ -353,7 +378,7 @@ const AdminDashboard = () => {
                         <Text style={styles.staffUsername}>@{item.username}</Text>
                     </View>
                     <View style={styles.roleBadge}>
-                         <Text style={styles.roleText}>{item.role || 'Staff'}</Text>
+                        <Text style={styles.roleText}>{item.role || 'Staff'}</Text>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -363,7 +388,31 @@ const AdminDashboard = () => {
         </View>
     );
 
-    const renderSectionHeader = ({ section: { title, icon, count } }) => (
+    // NEW: Supervisor Card Renderer
+    const renderSupervisorCard = ({ item }) => (
+        <View style={styles.supervisorCard}>
+            <TouchableOpacity
+                style={styles.supervisorContent}
+                // Supervisors are better managed in the detailed list, but we can open simplified detail or the management screen
+                onPress={() => navigation.navigate('SupervisorDetail', { supervisor: item })}
+            >
+                <View style={styles.supervisorHeader}>
+                    <View style={styles.supervisorIcon}>
+                        <Ionicons name="briefcase-outline" size={24} color="#6610f2" />
+                    </View>
+                    <View style={styles.supervisorInfo}>
+                        <Text style={styles.supervisorName}>{item.username}</Text>
+                        <Text style={styles.supervisorSites}>
+                            {item.assignedSites?.length ? `${item.assignedSites.length} Sites Assigned` : 'No Sites Assigned'}
+                        </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </View>
+            </TouchableOpacity>
+        </View>
+    );
+
+    const renderSectionHeader = ({ section: { title, icon, count, action } }) => (
         <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
                 <Ionicons name={icon} size={isIpad ? 24 : 20} color="#2094F3" />
@@ -372,6 +421,11 @@ const AdminDashboard = () => {
                     <Text style={styles.countText}>{count}</Text>
                 </View>
             </View>
+            {action && (
+                <TouchableOpacity onPress={action.onPress} style={styles.sectionHeaderAction}>
+                    <Text style={styles.sectionHeaderActionText}>{action.label}</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
@@ -408,6 +462,20 @@ const AdminDashboard = () => {
         });
     }
 
+    if (filteredSupervisors.length > 0) {
+        sections.push({
+            title: 'Supervisors',
+            icon: 'briefcase-outline',
+            count: filteredSupervisors.length,
+            data: filteredSupervisors,
+            renderItem: renderSupervisorCard,
+            action: {
+                label: 'Manage Global List',
+                onPress: () => navigation.navigate('ManageSupervisors')
+            }
+        });
+    }
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
@@ -419,7 +487,7 @@ const AdminDashboard = () => {
                             <View>
                                 <Text style={styles.title}>{user.username}'s Dashboard</Text>
                                 <Text style={styles.subtitle}>
-                                    {warehouses.length} warehouse(s) • {sites.length} site(s) • {staff.length} staff
+                                    {warehouses.length} warehouse(s) • {sites.length} site(s) • {staff.length} staff • {supervisors.length} supervisors
                                 </Text>
                             </View>
                             <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -440,6 +508,24 @@ const AdminDashboard = () => {
                                     placeholderTextColor="#9CA3AF"
                                     clearButtonMode="while-editing"
                                 />
+                            </View>
+
+                            {/* NEW: Quick Actions Row */}
+                            <View style={styles.quickActionsRow}>
+                                <TouchableOpacity
+                                    style={[styles.quickActionButton, { backgroundColor: '#6f42c1' }]}
+                                    onPress={() => Alert.alert('Coming Soon', 'Site Messages screen is under construction for mobile.')}
+                                >
+                                    <Ionicons name="videocam-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                                    <Text style={styles.quickActionText}>Messages</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.quickActionButton, { backgroundColor: '#fd7e14' }]}
+                                    onPress={() => Alert.alert('Coming Soon', 'Activity Logs screen is under construction for mobile.')}
+                                >
+                                    <Ionicons name="list-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                                    <Text style={styles.quickActionText}>Logs</Text>
+                                </TouchableOpacity>
                             </View>
 
                             {sections.length > 0 ? (
@@ -475,19 +561,25 @@ const AdminDashboard = () => {
                                 <View style={styles.modalOverlay}>
                                     <View style={styles.modalCard}>
                                         <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateSite'); }}>
-                                            <Ionicons name="business-outline" size={22} color="#2094F3" style={{marginRight: 10}} />
+                                            <Ionicons name="business-outline" size={22} color="#2094F3" style={{ marginRight: 10 }} />
                                             <Text style={styles.modalOptionText}>Create Site</Text>
                                         </TouchableOpacity>
-                                        
+
                                         <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateWarehouse'); }}>
-                                            <Ionicons name="storefront-outline" size={22} color="#E69138" style={{marginRight: 10}} />
+                                            <Ionicons name="storefront-outline" size={22} color="#E69138" style={{ marginRight: 10 }} />
                                             <Text style={styles.modalOptionText}>Create Warehouse</Text>
                                         </TouchableOpacity>
 
                                         {/* NEW: Create Staff Option */}
                                         <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateStaff'); }}>
-                                            <Ionicons name="people-outline" size={22} color="#10B981" style={{marginRight: 10}} />
+                                            <Ionicons name="people-outline" size={22} color="#10B981" style={{ marginRight: 10 }} />
                                             <Text style={styles.modalOptionText}>Create Staff</Text>
+                                        </TouchableOpacity>
+
+                                        {/* NEW: Create Supervisor Option */}
+                                        <TouchableOpacity style={styles.modalOption} onPress={() => { setShowAddOptions(false); navigation.navigate('CreateSupervisor'); }}>
+                                            <Ionicons name="briefcase-outline" size={22} color="#6610f2" style={{ marginRight: 10 }} />
+                                            <Text style={styles.modalOptionText}>Create Supervisor</Text>
                                         </TouchableOpacity>
 
                                         <TouchableOpacity style={styles.modalCancel} onPress={() => setShowAddOptions(false)}>
@@ -509,7 +601,7 @@ const styles = StyleSheet.create({
     gradient: { flex: 1 },
     safeArea: { flex: 1 },
     mainContainer: { flex: 1, width: isIpad ? '85%' : '100%', alignSelf: 'center' },
-    
+
     // Header
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: screenWidth * 0.05, paddingTop: screenHeight * 0.06, paddingBottom: screenHeight * 0.03 },
     title: { color: '#FFFFFF', fontSize: isIpad ? screenWidth * 0.035 : screenWidth * 0.06, fontWeight: 'bold', marginBottom: screenHeight * 0.006 },
@@ -539,7 +631,7 @@ const styles = StyleSheet.create({
     // Warehouse Card
     warehouseCard: { backgroundColor: '#FEF8F0', borderRadius: 16, marginBottom: 16, shadowColor: '#E69138', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4, minHeight: 120, position: 'relative' },
     warehouseCardContent: { flex: 1, padding: 16 },
-    
+
     // Site Card
     siteCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4, position: 'relative' },
     siteContent: { flex: 1, padding: 16 },
@@ -579,6 +671,24 @@ const styles = StyleSheet.create({
     emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, marginTop: 60 },
     emptyText: { fontSize: 18, color: '#666', marginTop: 16, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: '#888', marginTop: 8, textAlign: 'center' },
+
+    // Quick Actions
+    quickActionsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    quickActionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    quickActionText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+
+    // Supervisor Card
+    supervisorCard: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: '#6610f2', padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+    supervisorContent: { flex: 1 },
+    supervisorHeader: { flexDirection: 'row', alignItems: 'center' },
+    supervisorIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f3e5f5', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    supervisorInfo: { flex: 1 },
+    supervisorName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    supervisorSites: { fontSize: 12, color: '#666', marginTop: 2 },
+
+    // Section Header Action
+    sectionHeaderAction: { marginRight: 8 },
+    sectionHeaderActionText: { color: '#007bff', fontSize: 12, fontWeight: '600' },
 
     // Add Button & Modal
     addButton: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2094F3', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },

@@ -39,6 +39,7 @@ import SupplyRequestStatusScreen from '@/screens/SupplyRequestStatusScreen';
 // Staff & Supervisor
 import StaffDashboard from '@/screens/StaffDashboard';
 import SupervisorDashboard from '../screens/SupervisorDashboard';
+import SupervisorSuppliesScreen from '../screens/SupervisorSuppliesScreen';
 import AttendanceReport from '@/screens/AttendanceReport';
 import SupervisorDetailScreen from '@/screens/SupervisorDetailScreen';
 import Announcements from '@/screens/Announcements';
@@ -115,6 +116,8 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} />
+            <Stack.Screen name="SupervisorSupplies" component={SupervisorSuppliesScreen} />
+            <Stack.Screen name="SupplyRequestStatus" component={SupplyRequestStatusScreen} />
             <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} />
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} />
             <Stack.Screen name="CreateSupplyRequest" component={CreateSupplyRequestScreen} />

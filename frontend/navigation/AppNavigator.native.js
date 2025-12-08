@@ -17,6 +17,7 @@ import AdminDashboard from '../screens/AdminDashboard';
 import CreateSiteScreen from '../screens/CreateSiteScreen';
 import CreateWarehouseScreen from '../screens/CreateWarehouseScreen';
 import CreateStaffScreen from '@/screens/CreateStaffScreen';
+import CreateSupervisorScreen from '@/screens/CreateSupervisorScreen'; // NEW
 import SiteDetailsScreen from '../screens/SiteDetailsScreen';
 import WarehouseDetailsScreen from '../screens/WarehouseDetailsScreen';
 import StaffDetailsScreen from '@/screens/StaffDetailsScreen';
@@ -36,9 +37,11 @@ import SupplyRequestStatusScreen from '@/screens/SupplyRequestStatusScreen';
 // Staff & Supervisor
 import StaffDashboard from '@/screens/StaffDashboard';
 import SupervisorDashboard from '../screens/SupervisorDashboard';
+import SupervisorSuppliesScreen from '../screens/SupervisorSuppliesScreen';
 import AttendanceReport from '@/screens/AttendanceReport';
 import SupervisorDetailScreen from '@/screens/SupervisorDetailScreen';
 import Announcements from '@/screens/Announcements';
+import SupervisorMessageScreen from '@/screens/SupervisorMessageScreen'; // NEW
 
 const Stack = createStackNavigator();
 
@@ -116,6 +119,7 @@ export default function AppNavigator() {
             <Stack.Screen name="CreateSite" component={CreateSiteScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CreateWarehouse" component={CreateWarehouseScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CreateStaff" component={CreateStaffScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="CreateSupervisor" component={CreateSupervisorScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="WarehouseDetails" component={WarehouseDetailsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="StaffDetails" component={StaffDetailsScreen} options={{ headerShown: false }} />
@@ -143,11 +147,14 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} options={{ headerShown: false }} />
+            <Stack.Screen name="SupervisorSupplies" component={SupervisorSuppliesScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="SupplyRequestStatus" component={SupplyRequestStatusScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ManageSupplies" component={ManageSuppliesScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ManageWorkers" component={ManageWorkersScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CreateSupplyRequest" component={CreateSupplyRequestScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AttendanceReport" component={AttendanceReport} options={{ headerShown: false }} />
             <Stack.Screen name="Announcements" component={Announcements} options={{ headerShown: false }} />
+            <Stack.Screen name="SupervisorMessage" component={SupervisorMessageScreen} options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

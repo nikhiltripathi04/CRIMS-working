@@ -9,7 +9,7 @@ router.post('/', auth, async (req, res) => {
     try {
         // ALLOW BOTH STAFF AND SUPERVISORS
         const allowedRoles = ['staff', 'supervisor'];
-        
+
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -40,6 +40,26 @@ router.post('/', auth, async (req, res) => {
                 message: 'Location must include latitude and longitude'
             });
         }
+
+        // --- NEW: One Check-in/out per day Check ---
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const existingRecord = await Attendance.findOne({
+            staffId: req.user._id,
+            type,
+            timestamp: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        if (existingRecord) {
+            return res.status(400).json({
+                success: false,
+                message: `You have already marked ${type === 'login' ? 'Check In' : 'Check Out'} for today.`
+            });
+        }
+        // -------------------------------------------
 
         // Create display text for location
         const displayText = location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
