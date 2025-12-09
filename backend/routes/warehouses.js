@@ -6,6 +6,7 @@ const Warehouse = require('../models/Warehouse');
 const User = require('../models/User');
 const SupplyRequest = require('../models/SupplyRequest');
 const Site = require('../models/Site'); // Make sure to import Site model
+const ActivityLogger = require('../utils/activityLogger');
 
 
 
@@ -283,15 +284,13 @@ router.post('/supply-requests/:requestId/approve', validateUser, async (req, res
             },
             description: `Supply request for ${transferQuantity} ${supplyRequest.unit} of "${supplyRequest.itemName}" approved by ${req.user.username}`
         });
-        // Add activity log to warehouse
-        if (!warehouse.activityLogs) warehouse.activityLogs = [];
-        warehouse.activityLogs.push({
-            action: 'supply_updated',
-            performedBy: req.user._id,
-            performedByName: req.user.username,
-            performedByRole: req.user.role,
-            timestamp: new Date(),
-            details: {
+
+        // Log to ActivityLogger (handles both warehouse local and centralized log)
+        await ActivityLogger.logActivity(
+            warehouse._id,
+            'supply_request_approved',
+            req.user,
+            {
                 actionType: 'supply_request_approved',
                 itemName: supplyRequest.itemName,
                 requestedQuantity: supplyRequest.requestedQuantity,
@@ -301,8 +300,9 @@ router.post('/supply-requests/:requestId/approve', validateUser, async (req, res
                 remainingQuantity: warehouse.supplies[supplyIndex].quantity,
                 transferPrice: warehousePrice
             },
-            description: `${req.user.username} approved and transferred ${transferQuantity} ${supplyRequest.unit} of "${supplyRequest.itemName}" to ${supplyRequest.siteName} at ₹${warehousePrice} per ${supplyRequest.unit}`
-        });
+            `${req.user.username} approved and transferred ${transferQuantity} ${supplyRequest.unit} of "${supplyRequest.itemName}" to ${supplyRequest.siteName} at ₹${warehousePrice} per ${supplyRequest.unit}`,
+            'Warehouse'
+        );
 
         // Save all documents
         console.log('[APPROVE] Saving all documents...');
@@ -360,27 +360,21 @@ router.post('/supply-requests/:requestId/reject', validateUser, async (req, res)
 
         await supplyRequest.save();
 
-        // Add activity log to warehouse
-        const warehouse = await Warehouse.findById(supplyRequest.warehouseId);
-        if (warehouse) {
-            if (!warehouse.activityLogs) warehouse.activityLogs = [];
-            warehouse.activityLogs.push({
-                action: 'supply_request_rejected',
-                performedBy: req.user._id,
-                performedByName: req.user.username,
-                performedByRole: req.user.role,
-                timestamp: new Date(),
-                details: {
-                    itemName: supplyRequest.itemName,
-                    requestedQuantity: supplyRequest.requestedQuantity,
-                    unit: supplyRequest.unit,
-                    requestedBySite: supplyRequest.siteName,
-                    reason: reason || 'No reason provided'
-                },
-                description: `${req.user.username} rejected supply request for ${supplyRequest.requestedQuantity} ${supplyRequest.unit} of "${supplyRequest.itemName}" from ${supplyRequest.siteName}`
-            });
-            await warehouse.save();
-        }
+        // Log rejection to Warehouse
+        await ActivityLogger.logActivity(
+            warehouse._id,
+            'supply_request_rejected',
+            req.user,
+            {
+                itemName: supplyRequest.itemName,
+                requestedQuantity: supplyRequest.requestedQuantity,
+                unit: supplyRequest.unit,
+                requestedBySite: supplyRequest.siteName,
+                reason: reason || 'No reason provided'
+            },
+            `${req.user.username} rejected supply request for ${supplyRequest.requestedQuantity} ${supplyRequest.unit} of "${supplyRequest.itemName}" from ${supplyRequest.siteName}`,
+            'Warehouse'
+        );
 
         // Add activity log to site (for rejection)
         const site = await Site.findById(supplyRequest.siteId);
@@ -551,6 +545,24 @@ router.post('/', validateUser, adminOnly, async (req, res) => {
         warehouse.managers.push(manager._id);
         await warehouse.save();
 
+
+        // Log warehouse creation
+        // Find full admin details for logging
+        const adminUser = await User.findById(req.user._id);
+
+        await ActivityLogger.logActivity(
+            warehouse._id,
+            'warehouse_created',
+            adminUser, // Pass full user object if possible, or ID
+            {
+                warehouseName: warehouse.warehouseName,
+                location: warehouse.location,
+                managerUsername: manager.username
+            },
+            `Warehouse "${warehouse.warehouseName}" created by ${adminUser.username} with manager ${manager.username}`,
+            'Warehouse'
+        );
+
         res.status(201).json({ success: true, warehouse, manager });
     } catch (e) {
         console.error('Error creating warehouse:', e);
@@ -577,6 +589,22 @@ router.post('/:warehouseId/supplies', validateUser, async (req, res) => {
             addedBy: req.user._id
         });
         await warehouse.save();
+
+        // Log activity
+        await ActivityLogger.logActivity(
+            warehouse._id,
+            'supply_added',
+            req.user,
+            {
+                itemName,
+                quantity,
+                unit,
+                entryPrice,
+                currency
+            },
+            `${req.user.username} added ${quantity} ${unit} of "${itemName}" to warehouse`,
+            'Warehouse'
+        );
 
         res.status(201).json({ success: true, supplies: warehouse.supplies });
     } catch (e) {
@@ -612,6 +640,19 @@ router.put('/:warehouseId/managers/:managerId/reset-password', validateUser, adm
 
         manager.password = newPassword;
         await manager.save();
+
+        // Log activity
+        await ActivityLogger.logActivity(
+            warehouseId,
+            'manager_password_reset',
+            req.user, // Admin
+            {
+                managerId: managerId,
+                managerUsername: manager.username
+            },
+            `Password reset for manager "${manager.username}" by ${req.user.username}`,
+            'Warehouse'
+        );
 
         res.json({ success: true, message: 'Password reset successfully' });
     } catch (e) {

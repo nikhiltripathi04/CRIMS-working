@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const sendEmail = require('../utils/email');
+const ActivityLogger = require('../utils/activityLogger');
+
 
 // ✅ LOGIN Route
 // LOGIN Route - with warehouse support
@@ -118,6 +120,23 @@ router.post('/create-supervisor', async (req, res) => {
     });
 
     await supervisor.save();
+
+    // Log activity
+    try {
+      await ActivityLogger.logActivity(
+        supervisor._id,
+        'supervisor_created',
+        req.user,
+        {
+          supervisorUsername: supervisor.username,
+          createdBy: adminId
+        },
+        `Supervisor "${supervisor.username}" created by admin`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log supervisor creation:', logErr);
+    }
 
     res.status(201).json({
       success: true,
@@ -310,6 +329,23 @@ router.post('/reset-password', async (req, res) => {
     admin.password = newPassword; // Will be hashed in pre-save
     await admin.save();
 
+    // Log activity
+    try {
+      // We might not have the "performer" ID easily available if this is an unauthenticated reset (which it seems to be based on the payload not having user ID). 
+      // BUT, looking at the code, it takes "username". 
+      // If this is an admin resetting THEIR OWN password via some forgotten password flow, we can use their ID.
+      await ActivityLogger.logActivity(
+        admin._id,
+        'password_reset',
+        admin, // Pass the admin user object directly
+        { username },
+        `Password reset for admin "${username}"`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log admin password reset:', logErr);
+    }
+
     res.json({
       success: true,
       message: 'Password reset successfully'
@@ -344,6 +380,23 @@ router.delete('/supervisors/:id', async (req, res) => {
 
     if (!supervisor) {
       return res.status(404).json({ success: false, message: 'Supervisor not found or unauthorized' });
+    }
+
+    // Log activity - Pass supervisor ID even though deleted (for the record)
+    try {
+      await ActivityLogger.logActivity(
+        id,
+        'supervisor_deleted',
+        req.user,
+        {
+          supervisorUsername: supervisor.username,
+          supervisorId: id
+        },
+        `Supervisor "${supervisor.username}" deleted by admin`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log supervisor deletion:', logErr);
     }
 
     res.json({ success: true, message: 'Supervisor deleted successfully' });
@@ -397,6 +450,23 @@ router.post('/create-admin', async (req, res) => {
     });
 
     await newAdmin.save();
+
+    // Log activity
+    try {
+      await ActivityLogger.logActivity(
+        newAdmin._id,
+        'admin_created',
+        req.user,
+        {
+          newAdminUsername: newAdmin.username,
+          role: 'admin'
+        },
+        `New admin "${newAdmin.username}" created by company owner`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log admin creation:', logErr);
+    }
 
     // Send welcome email
     const emailSubject = 'Welcome to CRIMS - Admin Account Created';
@@ -495,6 +565,20 @@ router.post('/change-password', async (req, res) => {
     // Update password
     user.password = newPassword; // Will be hashed by pre-save hook
     await user.save();
+
+    // Log activity
+    try {
+      await ActivityLogger.logActivity(
+        user._id,
+        'password_changed',
+        req.user,
+        {},
+        `Password changed for user "${user.username}"`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log password change:', logErr);
+    }
 
     res.json({
       success: true,

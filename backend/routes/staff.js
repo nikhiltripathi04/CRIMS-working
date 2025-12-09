@@ -3,6 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
+const ActivityLogger = require('../utils/activityLogger');
+
 const { auth, adminOnly } = require('../middleware/auth');
 
 // Create new staff member
@@ -37,6 +39,24 @@ router.post('/', auth, adminOnly, async (req, res) => {
         });
 
         await staff.save();
+
+        // Log activity
+        try {
+            await ActivityLogger.logActivity(
+                staff._id,
+                'staff_created',
+                req.user,
+                {
+                    staffName: staff.fullName,
+                    staffUsername: staff.username,
+                    role: 'staff'
+                },
+                `Staff member "${staff.fullName}" created by ${req.user.username}`,
+                'User'
+            );
+        } catch (logErr) {
+            console.error('Failed to log staff creation:', logErr);
+        }
 
         res.status(201).json({
             success: true,
@@ -110,6 +130,28 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
         await staff.save();
 
+        // Log activity
+        try {
+            const updates = {};
+            if (fullName) updates.fullName = fullName;
+            if (password) updates.passwordChanged = true;
+
+            await ActivityLogger.logActivity(
+                staff._id,
+                'staff_updated',
+                req.user._id,
+                {
+                    staffName: staff.fullName,
+                    staffUsername: staff.username,
+                    updates
+                },
+                `Staff member "${staff.fullName}" updated by ${req.user.username}`,
+                'User'
+            );
+        } catch (logErr) {
+            console.error('Failed to log staff update:', logErr);
+        }
+
         res.json({
             success: true,
             message: 'Staff member updated successfully',
@@ -147,6 +189,23 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
                 success: false,
                 message: 'Staff member not found'
             });
+        }
+
+        // Log activity
+        try {
+            await ActivityLogger.logActivity(
+                staffId,
+                'staff_deleted',
+                req.user._id,
+                {
+                    staffId: staffId,
+                    staffUsername: result.username
+                },
+                `Staff member "${result.username}" deleted by ${req.user.username}`,
+                'User'
+            );
+        } catch (logErr) {
+            console.error('Failed to log staff deletion:', logErr);
         }
 
         res.json({

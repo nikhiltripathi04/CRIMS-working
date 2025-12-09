@@ -101,8 +101,8 @@ router.get('/logs', auth, async (req, res) => {
     try {
         const { companyId } = req.user; // Assuming auth middleware attaches user with companyId
 
-        // If user is admin, they can see all logs for their company
-        if (req.user.role !== 'admin') {
+        // If user is admin or company owner, they can see all logs for their company
+        if (req.user.role !== 'admin' && req.user.role !== 'company_owner') {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
