@@ -25,9 +25,23 @@ const RegisterCompanyScreen = () => {
     };
 
     const handleRegister = async () => {
-        // Basic validation
-        if (!formData.name || !formData.companyName || !formData.mail || !formData.mobileNumber) {
-            Alert.alert('Error', 'Please fill in all required fields');
+        // Detailed Check for Missing Fields
+        const missingFields = [];
+        if (!formData.name) missingFields.push('Name');
+        if (!formData.mobileNumber) missingFields.push('Mobile Number');
+        if (!formData.mail) missingFields.push('Email');
+        if (!formData.companyName) missingFields.push('Company Name');
+        if (!formData.companyRole) missingFields.push('Role in Company');
+        if (!formData.gstin) missingFields.push('GSTIN');
+
+        if (missingFields.length > 0) {
+            const errorMessage = 'Please fill in the following required fields:\n- ' + missingFields.join('\n- ');
+
+            if (Platform.OS === 'web') {
+                window.alert(errorMessage);
+            } else {
+                Alert.alert('Missing Information', errorMessage);
+            }
             return;
         }
 
@@ -128,7 +142,7 @@ const RegisterCompanyScreen = () => {
 
                     <View style={styles.row}>
                         <View style={styles.halfInput}>
-                            <Text style={styles.label}>Role in Company</Text>
+                            <Text style={styles.label}>Role in Company *</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="e.g. CEO, Manager"
@@ -137,7 +151,7 @@ const RegisterCompanyScreen = () => {
                             />
                         </View>
                         <View style={styles.halfInput}>
-                            <Text style={styles.label}>GSTIN</Text>
+                            <Text style={styles.label}>GSTIN *</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="GSTIN"

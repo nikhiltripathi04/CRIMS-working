@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: false
     },
+    jobTitle: {
+        type: String,
+        required: function () { return this.role === 'company_owner'; }
+    },
     firstName: {
         type: String,
         required: function () { return this.role === 'admin' || this.role === 'company_owner'; }

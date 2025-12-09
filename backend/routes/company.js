@@ -64,7 +64,8 @@ router.post('/register', async (req, res) => {
             lastName: surname,
             role: 'company_owner',
             companyId: company._id,
-            firmName: companyName
+            firmName: companyName,
+            jobTitle: companyRole
         });
         await adminUser.save();
 
