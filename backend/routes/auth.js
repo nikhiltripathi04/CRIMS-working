@@ -407,6 +407,57 @@ router.delete('/supervisors/:id', async (req, res) => {
   }
 });
 
+// ✅ RESET Supervisor Password (Admin only)
+router.put('/supervisors/:id/password', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId, newPassword } = req.body;
+
+    if (!adminId || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Admin ID and new password are required' });
+    }
+
+    // Verify admin
+    const admin = await User.findOne({ _id: adminId, role: 'admin' });
+    if (!admin) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Only admins can reset passwords' });
+    }
+
+    const supervisor = await User.findOne({ _id: id, role: 'supervisor' });
+
+    // Check if supervisor exists and belongs to this admin's company (extra security)
+    if (!supervisor || (admin.companyId && supervisor.companyId.toString() !== admin.companyId.toString())) {
+      return res.status(404).json({ success: false, message: 'Supervisor not found or unauthorized' });
+    }
+
+    supervisor.password = newPassword; // Will be hashed via pre-save hook
+    await supervisor.save();
+
+    // Log activity
+    try {
+      await ActivityLogger.logActivity(
+        supervisor._id,
+        'supervisor_password_reset',
+        req.user,
+        {
+          supervisorUsername: supervisor.username,
+          adminId: adminId
+        },
+        `Supervisor "${supervisor.username}" password reset by admin`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log supervisor password reset:', logErr);
+    }
+
+    res.json({ success: true, message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Error resetting supervisor password:', error);
+    res.status(500).json({ success: false, message: 'Failed to reset password' });
+  }
+});
+
 // ✅ CREATE ADMIN (Company Owner only)
 router.post('/create-admin', async (req, res) => {
   try {

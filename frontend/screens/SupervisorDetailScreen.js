@@ -12,7 +12,10 @@ import {
     Image,
     Modal,
     StatusBar,
-    FlatList
+    FlatList,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -38,6 +41,8 @@ const SupervisorDetailScreen = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, attendance, messages
     const [selectedAttendance, setSelectedAttendance] = useState(null);
     const [selectedVideo, setSelectedVideo] = useState(null);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
 
     // Initial check
     useEffect(() => {
@@ -104,6 +109,28 @@ const SupervisorDetailScreen = () => {
         );
     };
 
+    const handlePasswordChange = async () => {
+        if (!newPassword.trim()) {
+            Alert.alert('Validation Error', 'Please enter a new password');
+            return;
+        }
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            await axios.put(`${API_BASE_URL}/api/auth/supervisors/${supervisor._id}/password`, {
+                adminId: user.id,
+                newPassword: newPassword
+            }, config);
+
+            Alert.alert('Success', 'Password changed successfully');
+            setIsPasswordModalOpen(false);
+            setNewPassword('');
+        } catch (error) {
+            console.error('Error changing password:', error);
+            Alert.alert('Error', 'Failed to change password');
+        }
+    };
+
     const handleSaveVideo = async (videoUrl) => {
         try {
             const { status } = await MediaLibrary.requestPermissionsAsync(true);
@@ -162,6 +189,13 @@ const SupervisorDetailScreen = () => {
                     <Text style={styles.label}>ID:</Text>
                     <Text style={[styles.value, { fontSize: 12, color: '#999' }]}>{supervisor._id}</Text>
                 </View>
+                <TouchableOpacity
+                    style={styles.changePasswordBtn}
+                    onPress={() => setIsPasswordModalOpen(true)}
+                >
+                    <Ionicons name="key-outline" size={16} color="#333" style={{ marginRight: 8 }} />
+                    <Text style={styles.changePasswordText}>Change Password</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Assigned Sites Card */}
@@ -353,6 +387,51 @@ const SupervisorDetailScreen = () => {
                         </View>
                     </View>
                 </View>
+            </Modal>
+
+            {/* Password Change Modal */}
+            <Modal visible={isPasswordModalOpen} transparent={true} animationType="slide">
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
+                    <TouchableOpacity style={styles.modalCloseArea} onPress={() => setIsPasswordModalOpen(false)} />
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Change Password</Text>
+                            <TouchableOpacity onPress={() => setIsPasswordModalOpen(false)}>
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.modalBody}>
+                            <Text style={{ marginBottom: 15, color: '#666' }}>
+                                Enter a new password for <Text style={{ fontWeight: 'bold' }}>{supervisor.username}</Text>.
+                            </Text>
+                            <TextInput
+                                placeholder="New Password"
+                                value={newPassword}
+                                onChangeText={setNewPassword}
+                                style={styles.input}
+                                autoCapitalize="none"
+                                secureTextEntry={false} // Optionally make it secure, but admin usually sees it
+                            />
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity
+                                    style={styles.cancelBtn}
+                                    onPress={() => setIsPasswordModalOpen(false)}
+                                >
+                                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.submitBtn}
+                                    onPress={handlePasswordChange}
+                                >
+                                    <Text style={styles.submitBtnText}>Update Password</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );
@@ -579,7 +658,60 @@ const styles = StyleSheet.create({
     modalImage: { width: '100%', height: 300, borderRadius: 8, marginBottom: 16, backgroundColor: '#f0f0f0' },
     modalMeta: {},
     modalLabel: { fontWeight: 'bold', color: '#555', marginBottom: 4 },
-    modalValue: { fontWeight: 'normal' }
+    modalValue: { fontWeight: 'normal' },
+
+    // New Styles for Password Change
+    changePasswordBtn: {
+        marginTop: 15,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        backgroundColor: '#f8f9fa',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+    },
+    changePasswordText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+    },
+    input: {
+        width: '100%',
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        fontSize: 16,
+        marginBottom: 20,
+        backgroundColor: '#fff',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+    },
+    cancelBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        backgroundColor: '#f5f5f5',
+    },
+    cancelBtnText: {
+        color: '#333',
+        fontWeight: '600',
+    },
+    submitBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        backgroundColor: '#007bff',
+    },
+    submitBtnText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
 });
 
 export default SupervisorDetailScreen;

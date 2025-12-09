@@ -30,6 +30,8 @@ const SupervisorDetailScreen = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, attendance, messages
     const [selectedAttendance, setSelectedAttendance] = useState(null);
     const [selectedVideo, setSelectedVideo] = useState(null);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
 
     // If no supervisor passed, go back
     useEffect(() => {
@@ -79,6 +81,28 @@ const SupervisorDetailScreen = () => {
         } catch (error) {
             console.error('Error deleting supervisor:', error);
             alert('Failed to delete supervisor');
+        }
+    };
+
+    const handlePasswordChange = async () => {
+        if (!newPassword.trim()) {
+            alert('Please enter a new password');
+            return;
+        }
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            await axios.put(`${API_BASE_URL}/api/auth/supervisors/${supervisor._id}/password`, {
+                adminId: user.id,
+                newPassword: newPassword
+            }, config);
+
+            alert('Password changed successfully');
+            setIsPasswordModalOpen(false);
+            setNewPassword('');
+        } catch (error) {
+            console.error('Error changing password:', error);
+            alert('Failed to change password');
         }
     };
 
@@ -149,6 +173,12 @@ const SupervisorDetailScreen = () => {
                                     <span style={styles.label}>ID:</span>
                                     <span style={styles.value}>{supervisor._id}</span>
                                 </div>
+                                <button
+                                    style={styles.changePasswordBtn}
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                >
+                                    <IoKeyOutline size={16} /> Change Password
+                                </button>
                             </div>
 
                             {/* Assigned Sites Card */}
@@ -309,6 +339,46 @@ const SupervisorDetailScreen = () => {
                         </div>
                         <div style={styles.modalBody}>
                             <video controls src={selectedVideo} style={{ width: '100%', borderRadius: '8px', maxHeight: '60vh' }} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Change Modal */}
+            {isPasswordModalOpen && (
+                <div style={styles.modalOverlay} onClick={() => setIsPasswordModalOpen(false)}>
+                    <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+                        <div style={styles.modalHeader}>
+                            <h3 style={styles.modalTitle}>Change Password</h3>
+                            <button style={styles.closeBtn} onClick={() => setIsPasswordModalOpen(false)}>
+                                <IoClose size={24} />
+                            </button>
+                        </div>
+                        <div style={styles.modalBody}>
+                            <p style={{ marginBottom: '15px', color: '#666' }}>
+                                Enter a new password for <strong>{supervisor.username}</strong>.
+                            </p>
+                            <input
+                                type="text"
+                                placeholder="New Password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                style={styles.input}
+                            />
+                            <div style={styles.modalActions}>
+                                <button
+                                    style={styles.cancelBtn}
+                                    onClick={() => setIsPasswordModalOpen(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    style={styles.submitBtn}
+                                    onClick={handlePasswordChange}
+                                >
+                                    Update Password
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -630,6 +700,55 @@ const styles = {
     modalMeta: {
         fontSize: '14px',
         color: '#555',
+    },
+    changePasswordBtn: {
+        marginTop: '15px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        width: '100%',
+        padding: '10px',
+        backgroundColor: '#fff',
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#333',
+        transition: 'background 0.2s',
+    },
+    input: {
+        width: '100%',
+        padding: '12px',
+        borderRadius: '8px',
+        border: '1px solid #ddd',
+        fontSize: '16px',
+        marginBottom: '20px',
+        boxSizing: 'border-box',
+    },
+    modalActions: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '10px',
+    },
+    cancelBtn: {
+        padding: '10px 20px',
+        borderRadius: '8px',
+        border: 'none',
+        backgroundColor: '#f5f5f5',
+        color: '#333',
+        cursor: 'pointer',
+        fontWeight: '600',
+    },
+    submitBtn: {
+        padding: '10px 20px',
+        borderRadius: '8px',
+        border: 'none',
+        backgroundColor: '#007bff',
+        color: '#fff',
+        cursor: 'pointer',
+        fontWeight: '600',
     },
 };
 
