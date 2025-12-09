@@ -473,7 +473,7 @@ const SupervisorDashboard = ({ navigation }) => {
         )}
 
         {/* --- SITE MANAGEMENT ACTIONS --- */}
-        <View style={styles.sectionContainer}>
+        {/* <View style={styles.sectionContainer}>
           <Text style={styles.sectionHeader}>Site Management</Text>
 
           <TouchableOpacity
@@ -520,7 +520,7 @@ const SupervisorDashboard = ({ navigation }) => {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* --- CAMERA MODAL (Unchanged) --- */}
