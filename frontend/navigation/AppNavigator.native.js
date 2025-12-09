@@ -13,6 +13,7 @@ import OnboardingScreen from '@/screens/Onboarding';
 import NextScreen from '@/screens/Next';
 
 // Admin
+import test from '../screens/test';
 import AdminDashboard from '../screens/AdminDashboard';
 import CreateSiteScreen from '../screens/CreateSiteScreen';
 import CreateWarehouseScreen from '../screens/CreateWarehouseScreen';
@@ -114,6 +115,7 @@ export default function AppNavigator() {
           </>
         ) : !user ? (
           <>
+            {/* <Stack.Screen name="test" component={test} options={{ headerShown: false }} /> */}
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false }} />

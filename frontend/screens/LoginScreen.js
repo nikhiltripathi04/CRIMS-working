@@ -12,10 +12,13 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   ScrollView,
+  ImageBackground,
+  StatusBar,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -26,7 +29,7 @@ const ROLES = [
   { key: 'admin', label: 'Admin', color: '#0088E0' },
   { key: 'supervisor', label: 'Supervisor', color: '#4CAF50' },
   { key: 'warehouse_manager', label: 'Warehouse Manager', color: '#E69138' },
-  { key: 'staff', label: 'Staff', color: '#9C27B0' }, // Added Staff role (Purple)
+  { key: 'staff', label: 'Staff', color: '#9C27B0' }, // Added Staff role
 ];
 
 function getRoleInfo(index) {
@@ -77,12 +80,11 @@ const LoginScreen = () => {
   };
 
   const handleForgotPassword = () => {
-    if (roleInfo.key === "admin") {
-      if (!username.trim()) {
-        Alert.alert('Username Required', 'Please enter your username to reset your password.');
-        return;
-      }
-      navigation.navigate('ResetPassword', { username });
+    if (roleInfo.key === 'admin') {
+      Alert.alert(
+        'Forgot Password',
+        'Please contact your Company to reset your password.'
+      );
     } else {
       Alert.alert(
         'Forgot Password',
@@ -91,218 +93,322 @@ const LoginScreen = () => {
     }
   };
 
+  // Helper helper to get an overlay color based on role with some opacity
+  // Assuming colors are hex 6 digits. adding 99 for ~60% opacity.
+  const overlayColor = roleInfo.color + '99';
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: roleInfo.color }]}>
-      <KeyboardAvoidingView behavior={isIOS ? 'padding' : 'height'} style={styles.keyboardAvoid}>
-        <View style={styles.topContainer}>
-          <Text style={styles.headerTitle}>We Say Hello!</Text>
-          <Text style={styles.headerSubtitle}>
-            Welcome back. Use your username and password to Log in.
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
 
-        <View style={styles.bottomContainer}>
+      {/* Background Image Section */}
+      <View style={styles.topSection}>
+        <ImageBackground
+          source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={[overlayColor, overlayColor]}
+            style={styles.overlay}
+          >
+            <SafeAreaView style={styles.headerContainer}>
+              <Text style={styles.greetingText}>Hello!</Text>
+              <View style={styles.pillContainer}>
+                <Text style={styles.pillText}>Welcome to ConERP</Text>
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </ImageBackground>
+      </View>
+
+      {/* Bottom Sheet Section */}
+      <View style={styles.bottomSheet}>
+        <KeyboardAvoidingView behavior={isIOS ? 'padding' : 'height'} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            <View>
-              {/* Toggle area for cycling roles */}
-              <TouchableOpacity style={styles.toggleRoleButton} onPress={handleToggleRole} activeOpacity={0.7}>
-                <Ionicons name="sync-circle" size={32} color={roleInfo.color} style={{ marginRight: 14 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.toggleRoleText, { color: roleInfo.color }]}>
-                    {roleInfo.label} Login
-                  </Text>
-                  <Text style={styles.toggleRoleHint}>
-                    Tap here to switch: {ROLE_OPTIONS_LABEL(roleInfo.key)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
 
-              <View style={styles.inputWrapper}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.loginHeader, { color: roleInfo.color }]}>Login</Text>
+
+              {/* Toggle Role Button - integrated into the flow */}
+              <TouchableOpacity onPress={handleToggleRole} style={styles.roleSwitcher}>
+                <Ionicons name="sync" size={20} color={roleInfo.color} />
+                <Text style={[styles.roleSwitcherText, { color: roleInfo.color }]}>
+                  {roleInfo.label}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
                   placeholder={`${roleInfo.label} Username`}
-                  placeholderTextColor="#000"
+                  placeholderTextColor="#A0A0A0"
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
                 />
               </View>
 
-              <View style={styles.passwordContainer}>
-                <View style={styles.inputWrapper}>
-                  <View style={styles.passwordInputContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      placeholder="Password"
-                      placeholderTextColor="#000"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
+              <View style={styles.inputContainer}>
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Password"
+                    placeholderTextColor="#A0A0A0"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.passwordIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={24}
+                      color="#A0A0A0"
                     />
-                    <TouchableOpacity
-                      style={styles.passwordVisibilityButton}
-                      onPress={() => setShowPassword(!showPassword)}
-                    >
-                      <Ionicons
-                        name={showPassword ? 'eye-off' : 'eye'}
-                        size={24}
-                        color="#666"
-                      />
-                    </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.forgotPasswordBtn}
-                  onPress={handleForgotPassword}
-                >
-                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                </TouchableOpacity>
               </View>
 
+              <TouchableOpacity style={styles.forgotPasswordContainer} onPress={handleForgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: roleInfo.color }]}
+                style={styles.loginButtonWrapper}
                 onPress={handleLogin}
                 disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.loginButtonText}>
-                    {roleInfo.label.toUpperCase()} LOGIN
-                  </Text>
-                )}
+                <LinearGradient
+                  colors={[roleInfo.color, roleInfo.color]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientButton}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>LOGIN</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
+
               {roleInfo.key === 'admin' ? (
-                <View style={styles.signupContainer}>
-                  <Text style={styles.noAccountText}>Don't have an account? </Text>
-                  <TouchableOpacity onPress={handleSignUp}>
-                    <Text style={styles.signupText}>Sign Up</Text>
-                  </TouchableOpacity>
+                <View style={[styles.signupContainer, { flexDirection: 'column', alignItems: 'center' }]}>
+                  <Text style={[styles.signupText, { marginBottom: 4 }]}>Admin accounts are created by Company.</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.signupText}>Don't have an account? </Text>
+                    <TouchableOpacity>
+                      <Text style={[styles.signupLink, { color: roleInfo.color }]}>Contact your Company</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <Text style={styles.supervisorNote}>
                   {roleInfo.label} accounts are created by admin users
                 </Text>
               )}
+
+              <Text style={styles.poweredBy}>Powered by FeathrTech</Text>
             </View>
-            <Text style={styles.poweredBy}>Powered by FeathrTech</Text>
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 };
 
-// Helper to show the label of the next role in the cycle
-function ROLE_OPTIONS_LABEL(currentKey) {
-  const currentIndex = ROLES.findIndex(r => r.key === currentKey);
-  const nextRole = ROLES[(currentIndex + 1) % ROLES.length];
-  return `Next: ${nextRole.label}`;
-}
+// Helper for Next Role Label if needed, though UI simplified
+// function ROLE_OPTIONS_LABEL(currentKey) { ... }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  keyboardAvoid: { flex: 1 },
-  topContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-  headerTitle: { fontSize: isIpad ? 46 : 28, fontWeight: '700', color: '#fff', fontFamily: 'Akatab', marginTop: isIpad ? 60 : undefined },
-  headerSubtitle: { fontSize: isIpad ? 30 : 16, color: '#fff', marginTop: 8, fontFamily: 'Akatab' },
-  bottomContainer: {
+  container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+    backgroundColor: '#fff',
+  },
+  topSection: {
+    height: height * 0.4, // Takes up top 40%
+    width: '100%',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+  },
+  overlay: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  headerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingBottom: 40,
+  },
+  greetingText: {
+    fontSize: isIpad ? 60 : 48,
+    fontWeight: 'bold',
+    color: '#fff',
+    fontFamily: 'Akatab',
+    marginTop: 20,
+  },
+  /* subGreetingText removed/replaced */
+  pillContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 30,
+    marginTop: 16,
+    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pillText: {
+    fontSize: isIpad ? 24 : 16,
+    color: '#000',
+    fontFamily: 'Akatab',
+    fontWeight: 'bold',
+  },
+  bottomSheet: {
+    flex: 1,
+    backgroundColor: '#F5F6FA',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -40, // Overlap the image
     paddingHorizontal: 24,
     paddingTop: 30,
-    marginTop: isIpad ? 120 : 20,
   },
-  scrollContainer: { flexGrow: 1, justifyContent: 'space-between' },
-  toggleRoleButton: {
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  loginHeader: {
+    fontSize: isIpad ? 40 : 32,
+    fontWeight: 'bold',
+    fontFamily: 'Akatab',
+  },
+  roleSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F1F1',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 26,
-    marginTop: isIpad ? 60 : 32,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5,
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  toggleRoleText: {
-    fontWeight: '700',
-    fontSize: isIpad ? 26 : 18,
+  roleSwitcherText: {
+    marginLeft: 6,
+    fontWeight: '600',
+    fontSize: 14,
     fontFamily: 'Akatab',
   },
-  toggleRoleHint: {
-    color: '#888',
-    fontFamily: 'Akatab',
-    fontSize: isIpad ? 18 : 13,
-    marginTop: 4,
+  formContainer: {
+    width: '100%',
   },
-  inputWrapper: {
-    backgroundColor: '#F1F1F1',
+  inputContainer: {
+    backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 16,
-    paddingHorizontal: 16,
+    elevation: 2, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   input: {
-    paddingVertical: 18,
-    fontSize: isIpad ? 20 : 16,
+    height: 50,
+    paddingHorizontal: 16,
+    fontSize: 16,
     color: '#333',
     fontFamily: 'Akatab',
   },
-  passwordContainer: { marginBottom: 24 },
-  passwordInputContainer: { flexDirection: 'row', alignItems: 'center' },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 18,
-    fontSize: isIpad ? 20 : 16,
-    color: '#333',
-    fontFamily: 'Akatab',
-  },
-  passwordVisibilityButton: { padding: isIpad ? 14 : 10 },
-  forgotPasswordBtn: { alignSelf: 'flex-end', marginTop: 8 },
-  forgotPasswordText: {
-    color: '#666',
-    fontSize: isIpad ? 24 : 14,
-    fontFamily: 'Akatab',
-  },
-  loginButton: {
-    borderRadius: 12,
-    paddingVertical: 18,
+  passwordRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  passwordIcon: {
+    padding: 10,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    color: '#333',
+    fontSize: 14,
+    fontFamily: 'Akatab',
+  },
+  loginButtonWrapper: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     marginBottom: 20,
   },
+  gradientButton: {
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 54, // Ensure clickable area
+  },
   loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: isIpad ? 20 : 16,
-    fontWeight: '700',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
     fontFamily: 'Akatab',
   },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 20,
   },
-  noAccountText: { color: '#666', fontSize: isIpad ? 24 : 15, fontFamily: 'Akatab' },
-  signupText: { color: '#0088E0', fontSize: isIpad ? 18 : 15, fontWeight: '600', fontFamily: 'Akatab' },
+  signupText: {
+    color: '#333',
+    fontSize: 14,
+    fontFamily: 'Akatab',
+  },
+  signupLink: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'Akatab',
+  },
   supervisorNote: {
     color: '#666',
-    fontSize: isIpad ? 26 : 14,
+    fontSize: 14,
     fontFamily: 'Akatab',
     textAlign: 'center',
+    marginBottom: 20,
     fontStyle: 'italic',
-    marginBottom: 10,
   },
   poweredBy: {
     textAlign: 'center',
-    fontSize: isIpad ? 26 : 16,
-    color: '#000',
-    fontStyle: 'bold',
-    marginBottom: 16,
+    color: '#999',
+    fontSize: 12,
     fontFamily: 'Akatab',
-  },
+    marginTop: 10,
+  }
 });
 
 export default LoginScreen;
