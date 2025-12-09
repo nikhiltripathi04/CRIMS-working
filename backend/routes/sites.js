@@ -19,7 +19,11 @@ router.use(auth);
 const getAdminUser = async (adminId) => {
     try {
         if (!adminId) return null;
-        const admin = await User.findOne({ _id: adminId, role: 'admin' });
+        // Allow both admin and company_owner
+        const admin = await User.findOne({
+            _id: adminId,
+            role: { $in: ['admin', 'company_owner'] }
+        });
         return admin;
     } catch (error) {
         console.error('Error finding admin user:', error);
@@ -109,7 +113,11 @@ const checkSiteOwnership = async (req, res, next) => {
 
         // Check for admin access first
         if (adminId) {
-            const admin = await User.findOne({ _id: adminId, role: 'admin' });
+            // Allow both admin and company_owner
+            const admin = await User.findOne({
+                _id: adminId,
+                role: { $in: ['admin', 'company_owner'] }
+            });
 
             if (admin) {
                 site = await Site.findById(siteId);
@@ -274,12 +282,15 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Verify that the admin user exists
-        const admin = await User.findOne({ _id: adminId, role: 'admin' });
+        // Verify that the admin user exists (allow company_owner too)
+        const admin = await User.findOne({
+            _id: adminId,
+            role: { $in: ['admin', 'company_owner'] }
+        });
         if (!admin) {
             return res.status(403).json({
                 success: false,
-                message: 'Invalid admin ID or user is not an admin'
+                message: 'Invalid admin ID or user is not an admin/owner'
             });
         }
 
@@ -1638,7 +1649,7 @@ router.post('/:siteId/workers/:workerId/attendance', checkSiteOwnership, async (
 // routes/sites.js - Update supervisor creation error handling
 router.post('/:id/supervisors', checkSiteOwnership, async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, fullName } = req.body;
         const adminId = req.user?.id;
         const siteId = req.params.id;
 
@@ -1675,12 +1686,23 @@ router.post('/:id/supervisors', checkSiteOwnership, async (req, res) => {
             });
         }
 
+        // Fetch admin to get companyId
+        const adminUserForCompany = await User.findById(adminId);
+        if (!adminUserForCompany || !adminUserForCompany.companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Could not determine company for supervisor creation.'
+            });
+        }
+
         // Create supervisor
         const supervisor = new User({
             username: cleanUsername,
             password,
+            fullName: fullName || '', // Save full name if provided
             role: 'supervisor',
-            assignedSites: [siteId]
+            assignedSites: [siteId],
+            companyId: adminUserForCompany.companyId
         });
 
         await supervisor.save();
@@ -1740,18 +1762,24 @@ router.post('/:id/supervisors', checkSiteOwnership, async (req, res) => {
 });
 
 
-// Remove supervisor
+// Remove supervisor (Unassign from site)
 router.delete('/:siteId/supervisors/:supervisorId', checkSiteOwnership, async (req, res) => {
     try {
         const adminId = req.user?.id;
         const { siteId, supervisorId } = req.params;
 
-        // Get supervisor info before deleting
+        // Get supervisor info
         const supervisor = await User.findById(supervisorId);
         const supervisorName = supervisor ? supervisor.username : 'Unknown';
 
-        // Delete supervisor user
-        await User.findByIdAndDelete(supervisorId);
+        // Remove site from supervisor's assignedSites if user exists
+        if (supervisor) {
+            if (supervisor.assignedSites) {
+                // Filter out the current site ID
+                supervisor.assignedSites = supervisor.assignedSites.filter(id => id.toString() !== siteId.toString());
+                await supervisor.save();
+            }
+        }
 
         // Remove supervisor from site
         await Site.findByIdAndUpdate(
@@ -1771,13 +1799,13 @@ router.delete('/:siteId/supervisors/:supervisorId', checkSiteOwnership, async (r
                     supervisorId,
                     supervisorUsername: supervisorName
                 },
-                `${adminUser.username} removed supervisor "${supervisorName}"`
+                `${adminUser.username} removed supervisor "${supervisorName}" from site`
             );
         }
 
         res.json({
             success: true,
-            message: 'Supervisor removed successfully'
+            message: 'Supervisor removed from site successfully'
         });
     } catch (error) {
         console.error('Remove supervisor error:', error);

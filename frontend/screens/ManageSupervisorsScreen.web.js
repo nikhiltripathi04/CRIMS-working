@@ -61,52 +61,78 @@ const ManageSupervisorsScreen = ({ route }) => {
     const [modalVisible, setModalVisible] = useState(false);
 
     const [formData, setFormData] = useState({
-
+        name: '',
         username: '',
-
         password: ''
-
     });
 
     const [showPassword, setShowPassword] = useState(false);
-
     const [selectedSupervisor, setSelectedSupervisor] = useState(null);
-
     const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
-
-    const { API_BASE_URL, user } = useAuth();
-
     const [loading, setLoading] = useState(false);
 
-
-
     // Add states for reset password functionality
-
     const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
-
     const [newPassword, setNewPassword] = useState('');
-
-    const [showNewPassword, setShowNewPassword] = useState(false);
-
     const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
-
+    // New State for Assigning Existing Supervisors
+    const [assignModalVisible, setAssignModalVisible] = useState(false);
+    const [availableSupervisors, setAvailableSupervisors] = useState([]);
 
     const resetForm = () => {
-
         setFormData({
-
+            name: '',
             username: '',
-
             password: ''
-
         });
-
         setShowPassword(false);
-
     };
 
+    // Fetch all supervisors for the company to show in the "Assign Existing" list
+    const fetchAvailableSupervisors = async () => {
+        if (!user || !user.id) return;
 
+        try {
+            setLoading(true);
+            // Assuming this endpoint returns all supervisors visible to the admin
+            const response = await axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`);
+
+            if (response.data.success) {
+                const allSupervisors = response.data.data || [];
+                // Filter out supervisors who are already assigned to this site
+                const currentSupervisorIds = supervisors.map(s => s._id);
+                const available = allSupervisors.filter(s => !currentSupervisorIds.includes(s._id));
+                setAvailableSupervisors(available);
+            }
+        } catch (error) {
+            console.error('Error fetching available supervisors:', error);
+            Alert.alert('Error', 'Failed to load available supervisors');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAssignSupervisor = async (supervisorId) => {
+        try {
+            setLoading(true);
+            const response = await axios.post(`${API_BASE_URL}/api/sites/${site._id}/assign-supervisor`, {
+                supervisorId,
+                adminId: user.id
+            });
+
+            if (response.data.success) {
+                Alert.alert('Success', 'Supervisor assigned successfully');
+                setAssignModalVisible(false);
+                fetchSupervisors(); // Refresh the main list
+            }
+        } catch (error) {
+            console.error('Error assigning supervisor:', error);
+            Alert.alert('Error', error.response?.data?.message || 'Failed to assign supervisor');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchSupervisors = async () => {
 
@@ -172,9 +198,9 @@ const ManageSupervisorsScreen = ({ route }) => {
 
     const createSupervisor = async () => {
 
-        if (!formData.username || !formData.password) {
+        if (!formData.username || !formData.password || !formData.name) {
 
-            Alert.alert('Error', 'Please enter username and password');
+            Alert.alert('Error', 'Please enter full name, username, and password');
 
             return;
 
@@ -201,13 +227,10 @@ const ManageSupervisorsScreen = ({ route }) => {
 
 
             const response = await axios.post(`${API_BASE_URL}/api/sites/${site._id}/supervisors`, {
-
                 username: formData.username,
-
                 password: formData.password,
-
+                fullName: formData.name, // Send Full Name
                 adminId: user.id
-
             });
 
 
@@ -219,15 +242,11 @@ const ManageSupervisorsScreen = ({ route }) => {
 
 
                 setSelectedSupervisor({
-
                     username: formData.username,
-
                     password: formData.password,
-
+                    fullName: formData.name,
                     _id: response.data.data.id,
-
                     isNew: true
-
                 });
 
 
@@ -245,8 +264,6 @@ const ManageSupervisorsScreen = ({ route }) => {
             console.error('Error creating supervisor:', error);
 
             console.error('Error response:', error.response?.data);
-
-
 
             Alert.alert('Error', error.response?.data?.message || 'Failed to create supervisor');
 
@@ -610,96 +627,147 @@ const ManageSupervisorsScreen = ({ route }) => {
 
                             </View>
 
-                            
+
 
                             {/* NEW LOCATION FOR ADD BUTTON */}
 
-                            <TouchableOpacity
+                            {/* NEW LOCATION FOR ADD BUTTON */}
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <TouchableOpacity
+                                    style={{
+                                        ...styles.headerAddButton,
+                                        backgroundColor: '#fff',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.3)',
+                                        backgroundColor: 'rgba(255,255,255,0.15)'
+                                    }}
+                                    onPress={() => {
+                                        fetchAvailableSupervisors();
+                                        setAssignModalVisible(true);
+                                    }}
+                                >
+                                    <Ionicons name="people" size={24} color="#fff" />
+                                    <Text style={styles.headerAddButtonText}>Assign Existing</Text>
+                                </TouchableOpacity>
 
-                                style={styles.headerAddButton}
-
-                                onPress={() => {
-
-                                    setModalVisible(true);
-
-                                    resetForm();
-
-                                }}
-
-                            >
-
-                                <Ionicons name="add-circle" size={32} color="#fff" />
-
-                                <Text style={styles.headerAddButtonText}>Add New</Text>
-
-                            </TouchableOpacity>
-
+                                <TouchableOpacity
+                                    style={styles.headerAddButton}
+                                    onPress={() => {
+                                        setModalVisible(true);
+                                        resetForm();
+                                    }}
+                                >
+                                    <Ionicons name="add-circle" size={32} color="#fff" />
+                                    <Text style={styles.headerAddButtonText}>Add New</Text>
+                                </TouchableOpacity>
+                            </div>
                         </View>
 
 
 
                         {/* Content Area */}
-
                         <View style={styles.contentArea}>
-
                             <FlatList
-
                                 data={supervisors}
-
                                 renderItem={renderSupervisorItem}
-
                                 keyExtractor={(item) => item._id?.toString() || Math.random().toString()}
-
                                 contentContainerStyle={styles.listContainer}
-
                                 refreshing={loading}
-
                                 onRefresh={fetchSupervisors}
-
                                 ListEmptyComponent={
-
                                     <View style={styles.emptyState}>
-
                                         <Ionicons
-
                                             name="person-outline"
-
                                             size={64}
-
                                             color="#9CA3AF"
-
                                         />
-
                                         <Text style={styles.emptyText}>No supervisors assigned</Text>
-
                                         <Text style={styles.emptySubtext}>
-
-                                            Use the 'Add New' button above to create a supervisor account.
-
+                                            Use the 'Assign Existing' or 'Add New' buttons above.
                                         </Text>
-
                                     </View>
-
                                 }
-
                             />
 
-
-
                             {/* REMOVED: Floating addButton */}
-
                         </View>
 
                     </View>
-
                 </View>
-
             </LinearGradient>
+
+            {/* Assign Supervisor Modal */}
+            <Modal
+                visible={assignModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setAssignModalVisible(false)}
+            >
+                <Pressable
+                    style={styles.modalOverlay}
+                    onPress={() => setAssignModalVisible(false)}
+                >
+                    <Pressable style={styles.modalContent} onPress={() => { }}>
+                        <Text style={styles.modalTitle}>Assign Existing Supervisor</Text>
+                        <Text style={{ textAlign: 'center', color: '#666', marginBottom: 20 }}>
+                            Select a supervisor to assign to {site.siteName}
+                        </Text>
+
+                        {availableSupervisors.length > 0 ? (
+                            <FlatList
+                                data={availableSupervisors}
+                                keyExtractor={(item) => item._id}
+                                style={{ maxHeight: 300, width: '100%' }}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={{
+                                            padding: 15,
+                                            borderBottomWidth: 1,
+                                            borderBottomColor: '#eee',
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between'
+                                        }}
+                                        onPress={() => handleAssignSupervisor(item._id)}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <View style={{
+                                                width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f2f5',
+                                                alignItems: 'center', justifyContent: 'center', marginRight: 12
+                                            }}>
+                                                <Ionicons name="person" size={20} color="#666" />
+                                            </View>
+                                            <View>
+                                                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.username}</Text>
+                                                {item.fullName && <Text style={{ fontSize: 13, color: '#888' }}>{item.fullName}</Text>}
+                                            </View>
+                                        </View>
+                                        <Ionicons name="add-circle-outline" size={24} color="#2094F3" />
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        ) : (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <Text style={{ color: '#888' }}>No available supervisors found.</Text>
+                                <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5 }}>
+                                    All supervisors might already be assigned.
+                                </Text>
+                            </View>
+                        )}
+
+                        <TouchableOpacity
+                            style={{ ...styles.button, backgroundColor: '#f1f3f5', marginTop: 20, width: '100%' }}
+                            onPress={() => setAssignModalVisible(false)}
+                        >
+                            <Text style={{ ...styles.cancelButtonText, color: '#555' }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
 
 
 
             {/* Create Supervisor Modal */}
-
             <Modal
 
                 visible={modalVisible}
@@ -738,38 +806,34 @@ const ManageSupervisorsScreen = ({ route }) => {
 
 
 
-                        <View style={styles.inputContainer}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Full Name</Text>
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="person-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter full name"
+                                    placeholderTextColor="#999"
+                                    value={formData.name}
+                                    onChangeText={(text) => setFormData({ ...formData, name: text })}
+                                    autoCapitalize="words"
+                                />
+                            </View>
+                        </View>
 
-                            <Ionicons
-
-                                name="person"
-
-                                size={20}
-
-                                color="#2094F3"
-
-                                style={styles.inputIcon}
-
-                            />
-
-                            <TextInput
-
-                                style={styles.input}
-
-                                placeholder="Username"
-
-                                value={formData.username}
-
-                                onChangeText={(text) => setFormData({ ...formData, username: text })}
-
-                                autoCapitalize="none"
-
-                                autoCorrect={false}
-
-                                placeholderTextColor="#9CA3AF"
-
-                            />
-
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Username</Text>
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="at-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter username"
+                                    placeholderTextColor="#999"
+                                    value={formData.username}
+                                    onChangeText={(text) => setFormData({ ...formData, username: text })}
+                                    autoCapitalize="none"
+                                />
+                            </View>
                         </View>
 
 
@@ -1530,7 +1594,7 @@ const styles = StyleSheet.create({
 
     // Floating button styles removed.
 
-    
+
 
     // --- Modal Styles ---
 
