@@ -12,13 +12,15 @@ import {
     SafeAreaView,
     StatusBar,
     ActivityIndicator,
-    Linking
+    Linking,
+    Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from "expo-linear-gradient";
+import { Video, ResizeMode } from 'expo-av';
 
 const AdminMessagesScreen = () => {
     const { user, API_BASE_URL, token } = useAuth();
@@ -32,6 +34,10 @@ const AdminMessagesScreen = () => {
 
     // For Chat View
     const [activeConversation, setActiveConversation] = useState(null);
+
+    // Playback State
+    const [playbackModalVisible, setPlaybackModalVisible] = useState(false);
+    const [playbackVideoUrl, setPlaybackVideoUrl] = useState(null);
 
     // Fetch all messages
     const fetchMessages = useCallback(async () => {
@@ -99,6 +105,15 @@ const AdminMessagesScreen = () => {
         setActiveConversation(null);
     };
 
+    const playVideo = (url) => {
+        setPlaybackVideoUrl(url);
+        setPlaybackModalVisible(true);
+    };
+
+    const downloadVideo = (url) => {
+        Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    };
+
     const renderConversationItem = ({ item }) => (
         <TouchableOpacity style={styles.conversationItem} onPress={() => handleSelectConversation(item)}>
             <View style={styles.avatar}>
@@ -120,25 +135,41 @@ const AdminMessagesScreen = () => {
     );
 
     const renderMessageItem = ({ item }) => (
-        <View style={styles.messageBubbleWrapper}>
+        <View style={styles.messageRow}>
             <View style={styles.messageBubble}>
                 {item.videoUrl && (
-                    <View style={styles.videoAttachment}>
-                        <View style={styles.videoIcon}>
-                            <Ionicons name="videocam" size={24} color="#fff" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Video Update</Text>
-                            <TouchableOpacity onPress={() => Linking.openURL(item.videoUrl)}>
-                                <Text style={styles.downloadLink}>Watch/Download Video</Text>
+                    <View style={styles.mediaContainer}>
+                        <TouchableOpacity
+                            style={styles.videoThumbnail}
+                            onPress={() => playVideo(item.videoUrl)}
+                        >
+                            <View style={styles.videoOverlay}>
+                                <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+                            </View>
+                        </TouchableOpacity>
+
+                        <View style={styles.mediaFooter}>
+                            <Text style={styles.mediaText}>Video Message</Text>
+                            <TouchableOpacity
+                                style={styles.downloadBtn}
+                                onPress={() => downloadVideo(item.videoUrl)}
+                            >
+                                <Ionicons name="download-outline" size={20} color="#007bff" />
                             </TouchableOpacity>
                         </View>
                     </View>
                 )}
-                {item.content && <Text style={styles.messageText}>{item.content}</Text>}
-                <Text style={styles.messageMeta}>
-                    {new Date(item.createdAt).toLocaleString()}
-                </Text>
+
+                {item.content ? (
+                    <Text style={styles.messageText}>{item.content}</Text>
+                ) : null}
+
+                <View style={styles.metaContainer}>
+                    <Text style={styles.messageTime}>
+                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    {item.videoUrl && <Ionicons name="videocam" size={12} color="#999" style={{ marginLeft: 4 }} />}
+                </View>
             </View>
         </View>
     );
@@ -167,7 +198,7 @@ const AdminMessagesScreen = () => {
                         </View>
                     </View>
 
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#e5ddd5' }}>
                         <FlatList
                             data={[...activeConversation.messages].reverse()} // Reverse for FlatList inverted-like behavior if we used inverted, but here we just map normal
                             renderItem={renderMessageItem}
@@ -177,6 +208,34 @@ const AdminMessagesScreen = () => {
                         />
                     </KeyboardAvoidingView>
                 </SafeAreaView>
+
+                {/* PLAYBACK MODAL */}
+                <Modal visible={playbackModalVisible} animationType="fade" transparent={true}>
+                    <View style={styles.playbackModalContainer}>
+                        <View style={styles.playbackModalContent}>
+                            <TouchableOpacity
+                                style={styles.closePlaybackButton}
+                                onPress={() => {
+                                    setPlaybackModalVisible(false);
+                                    setPlaybackVideoUrl(null);
+                                }}
+                            >
+                                <Ionicons name="close" size={30} color="#fff" />
+                            </TouchableOpacity>
+
+                            {playbackVideoUrl && (
+                                <Video
+                                    style={styles.playbackVideo}
+                                    source={{ uri: playbackVideoUrl }}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.CONTAIN}
+                                    shouldPlay
+                                    isLooping={false}
+                                />
+                            )}
+                        </View>
+                    </View>
+                </Modal>
             </View>
         );
     }
@@ -234,14 +293,15 @@ const AdminMessagesScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f0f2f5' },
+    chatSafeArea: { flex: 1, backgroundColor: '#fff' },
     gradient: { flex: 1 },
     safeArea: { flex: 1 },
     mainContainer: { flex: 1, width: '100%', alignSelf: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15 },
     backButton: { padding: 8 },
-    title: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
-    contentArea: { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 0, paddingTop: 20 }, // zero padding horizontal for list items to touch edge if desired, but adding padding in items
-    listContainer: { paddingBottom: 100 },
+    title: { color: '#FFFFFF', fontSize: 22, fontWeight: '700', letterSpacing: 0.5 },
+    contentArea: { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
+    listContainer: { paddingVertical: 10 },
 
     searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 12, marginBottom: 10, height: 48 },
     searchIcon: { marginRight: 8 },
@@ -258,23 +318,56 @@ const styles = StyleSheet.create({
     convPreview: { fontSize: 14, color: '#666' },
 
     // Chat View Styles
-    chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
-    backBtn: { marginRight: 15 },
+    chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', elevation: 2 },
+    backBtn: { marginRight: 10, padding: 4 },
     headerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6610f2', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     headerAvatarText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-    chatTitle: { fontSize: 16, fontWeight: 'bold' },
+    chatTitle: { fontSize: 16, fontWeight: 'bold', color: '#111' },
     chatSubtitle: { fontSize: 12, color: '#666' },
-    messagesList: { padding: 15 },
-    messageBubbleWrapper: { marginBottom: 10, alignItems: 'flex-start' },
-    messageBubble: { backgroundColor: '#fff', padding: 12, borderRadius: 12, maxWidth: '80%', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1 },
-    messageText: { fontSize: 16, color: '#333', lineHeight: 22 },
-    messageMeta: { fontSize: 10, color: '#999', alignSelf: 'flex-end', marginTop: 4 },
-    videoAttachment: { backgroundColor: '#f0f2f5', padding: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    videoIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ff4757', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    downloadLink: { color: '#007bff', fontWeight: '600' },
+    messagesList: { paddingHorizontal: 16, paddingVertical: 20 },
+
+    // Message Bubbles
+    messageRow: { marginBottom: 16, flexDirection: 'row', justifyContent: 'flex-start' },
+    messageBubble: { backgroundColor: '#fff', borderRadius: 16, borderTopLeftRadius: 4, maxWidth: '80%', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1 },
+
+    mediaContainer: { width: 240, backgroundColor: '#f8f9fa', borderRadius: 12, overflow: 'hidden', margin: 4 },
+    videoThumbnail: { height: 130, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    videoOverlay: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+    mediaFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 8, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+    mediaText: { fontSize: 13, fontWeight: '600', color: '#333' },
+    downloadBtn: { padding: 4, backgroundColor: '#e6f0ff', borderRadius: 16 },
+
+    messageText: { fontSize: 16, color: '#333', lineHeight: 22, paddingHorizontal: 12, paddingVertical: 8 },
+    metaContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingRight: 10, paddingBottom: 6 },
+    messageTime: { fontSize: 11, color: '#999' },
 
     emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
     emptyText: { color: '#888', marginTop: 10 },
+
+    // Playback Modal
+    playbackModalContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    playbackModalContent: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center'
+    },
+    playbackVideo: {
+        alignSelf: 'center',
+        width: '100%',
+        height: '80%',
+    },
+    closePlaybackButton: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        padding: 10
+    }
 });
 
 export default AdminMessagesScreen;
