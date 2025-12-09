@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const sendEmail = require('../utils/email');
 
 // ✅ LOGIN Route
 // LOGIN Route - with warehouse support
@@ -395,6 +396,21 @@ router.post('/create-admin', async (req, res) => {
     });
 
     await newAdmin.save();
+
+    // Send welcome email
+    const emailSubject = 'Welcome to CRIMS - Admin Account Created';
+    const emailHtml = `
+      <h1>Welcome to CRIMS, ${firstName || 'Admin'}!</h1>
+      <p>Your admin account has been successfully created.</p>
+      <p><strong>Username:</strong> ${username}</p>
+      <p><strong>Password:</strong> ${password}</p>
+      <p>Please login and change your password immediately.</p>
+      <br>
+      <p>Best regards,<br>CRIMS Team</p>
+    `;
+
+    // Don't await email to prevent blocking response, but log error if fails
+    sendEmail(email, emailSubject, emailHtml).catch(err => console.error('Failed to send admin welcome email:', err));
 
     res.status(201).json({
       success: true,
