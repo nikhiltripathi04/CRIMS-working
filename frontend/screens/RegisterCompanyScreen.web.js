@@ -60,7 +60,12 @@ const RegisterCompanyScreen = () => {
                 console.error('Server Status:', error.response.status);
             }
             const errorMessage = error.response?.data?.message || 'Registration failed';
-            Alert.alert('Error', errorMessage);
+
+            if (Platform.OS === 'web') {
+                window.alert(errorMessage);
+            } else {
+                Alert.alert('Error', errorMessage);
+            }
         } finally {
             setLoading(false);
         }

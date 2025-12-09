@@ -18,10 +18,26 @@ router.post('/register', async (req, res) => {
         } = req.body;
 
         // Check if company exists
-        const existingCompany = await Company.findOne({ $or: [{ email: mail }, { name: companyName }] });
+        const orConditions = [
+            { email: mail },
+            { name: companyName },
+            { phoneNumber: mobileNumber }
+        ];
+        if (gstin) {
+            orConditions.push({ gstin: gstin });
+        }
+
+        const existingCompany = await Company.findOne({ $or: orConditions });
+
         if (existingCompany) {
-            console.log(`⚠️ Blocked duplicate registration attempt for: ${mail} or ${companyName}`);
-            return res.status(400).json({ success: false, message: 'Company already registered with this email or name' });
+            let duplicateField = 'Details';
+            if (existingCompany.email === mail) duplicateField = 'Email';
+            else if (existingCompany.name === companyName) duplicateField = 'Company Name';
+            else if (existingCompany.phoneNumber === mobileNumber) duplicateField = 'Mobile Number';
+            else if (existingCompany.gstin === gstin) duplicateField = 'GSTIN';
+
+            console.log(`⚠️ Blocked duplicate registration attempt for: ${duplicateField}`);
+            return res.status(400).json({ success: false, message: `${duplicateField} is already registered.` });
         }
 
         // Create Company

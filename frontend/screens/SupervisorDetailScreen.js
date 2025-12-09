@@ -18,6 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { Video, ResizeMode } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -34,6 +37,7 @@ const SupervisorDetailScreen = () => {
     const [messages, setMessages] = useState([]);
     const [activeTab, setActiveTab] = useState('overview'); // overview, attendance, messages
     const [selectedAttendance, setSelectedAttendance] = useState(null);
+    const [selectedVideo, setSelectedVideo] = useState(null);
 
     // Initial check
     useEffect(() => {
@@ -98,6 +102,32 @@ const SupervisorDetailScreen = () => {
                 }
             ]
         );
+    };
+
+    const handleSaveVideo = async (videoUrl) => {
+        try {
+            const { status } = await MediaLibrary.requestPermissionsAsync(true);
+            if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Please grant permission to save videos to your gallery.');
+                return;
+            }
+
+            const filename = videoUrl.split('/').pop() || `video_${Date.now()}.mp4`;
+            const fileUri = FileSystem.documentDirectory + filename;
+
+            const downloadRes = await FileSystem.downloadAsync(videoUrl, fileUri);
+
+            if (downloadRes.status === 200) {
+                await MediaLibrary.saveToLibraryAsync(downloadRes.uri);
+                Alert.alert('Success', 'Video saved to gallery!');
+            } else {
+                Alert.alert('Error', 'Failed to download video.');
+            }
+
+        } catch (error) {
+            console.error('Save video error:', error);
+            Alert.alert('Error', 'An error occurred while saving the video.');
+        }
     };
 
     // Render Helpers
@@ -209,8 +239,22 @@ const SupervisorDetailScreen = () => {
                         </View>
                         <Text style={styles.messageContent}>{item.content}</Text>
                         {item.videoUrl && (
-                            <View style={styles.videoBadge}>
-                                <Text style={styles.videoBadgeText}>📹 Video Attached</Text>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <TouchableOpacity
+                                    style={styles.viewVideoBtn}
+                                    onPress={() => setSelectedVideo(item.videoUrl)}
+                                >
+                                    <Ionicons name="play-circle-outline" size={16} color="#007bff" style={{ marginRight: 6 }} />
+                                    <Text style={styles.viewVideoText}>View</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.viewVideoBtn}
+                                    onPress={() => handleSaveVideo(item.videoUrl)}
+                                >
+                                    <Ionicons name="download-outline" size={16} color="#007bff" style={{ marginRight: 6 }} />
+                                    <Text style={styles.viewVideoText}>Save</Text>
+                                </TouchableOpacity>
                             </View>
                         )}
                     </View>
@@ -283,6 +327,30 @@ const SupervisorDetailScreen = () => {
                                 </View>
                             </View>
                         )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Video Modal */}
+            <Modal visible={!!selectedVideo} transparent={true} animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={styles.modalCloseArea} onPress={() => setSelectedVideo(null)} />
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Video Message</Text>
+                            <TouchableOpacity onPress={() => setSelectedVideo(null)}>
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.modalBody}>
+                            <Video
+                                style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8 }}
+                                source={{ uri: selectedVideo }}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                                isLooping={false}
+                            />
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -468,15 +536,17 @@ const styles = StyleSheet.create({
     messageSite: { fontWeight: 'bold', color: '#333', fontSize: 14 },
     messageTime: { color: '#888', fontSize: 11 },
     messageContent: { color: '#555', fontSize: 14, lineHeight: 20 },
-    videoBadge: {
-        backgroundColor: '#e2e6ea',
+    viewVideoBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#e3f2fd',
         alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
         marginTop: 8
     },
-    videoBadgeText: { fontSize: 11, color: '#333' },
+    viewVideoText: { fontSize: 13, color: '#007bff', fontWeight: '600' },
 
     // Modal
     modalOverlay: {

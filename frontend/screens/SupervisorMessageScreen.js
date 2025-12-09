@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -33,6 +33,7 @@ const SupervisorMessageScreen = () => {
 
     // Recording State
     const [permission, requestPermission] = useCameraPermissions();
+    const [micPermission, requestMicPermission] = useMicrophonePermissions();
     const [cameraVisible, setCameraVisible] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const cameraRef = useRef(null);
@@ -63,7 +64,8 @@ const SupervisorMessageScreen = () => {
     };
 
     const handleRecordVideo = async () => {
-        if (!permission) return;
+        if (!permission || !micPermission) return; // Wait for hooks to load
+
         if (!permission.granted) {
             const result = await requestPermission();
             if (!result.granted) {
@@ -71,6 +73,15 @@ const SupervisorMessageScreen = () => {
                 return;
             }
         }
+
+        if (!micPermission.granted) {
+            const result = await requestMicPermission();
+            if (!result.granted) {
+                Alert.alert("Permission required", "Microphone permission is required to record video.");
+                return;
+            }
+        }
+
         setCameraVisible(true);
     };
 

@@ -12,7 +12,9 @@ import {
     IoLocationOutline,
     IoKeyOutline,
     IoImageOutline,
-    IoClose
+    IoClose,
+    IoPlayCircleOutline,
+    IoCloudDownloadOutline
 } from 'react-icons/io5';
 import AttendanceCalendar from '../components/AttendanceCalendar';
 
@@ -27,6 +29,7 @@ const SupervisorDetailScreen = () => {
     const [messages, setMessages] = useState([]);
     const [activeTab, setActiveTab] = useState('overview'); // overview, attendance, messages
     const [selectedAttendance, setSelectedAttendance] = useState(null);
+    const [selectedVideo, setSelectedVideo] = useState(null);
 
     // If no supervisor passed, go back
     useEffect(() => {
@@ -246,7 +249,20 @@ const SupervisorDetailScreen = () => {
                                             </div>
                                             <p style={styles.msgContent}>{msg.content}</p>
                                             {msg.videoUrl && (
-                                                <div style={styles.videoBadge}>📹 Video Attached</div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        style={styles.videoBtn}
+                                                        onClick={() => setSelectedVideo(msg.videoUrl)}
+                                                    >
+                                                        <IoPlayCircleOutline size={16} /> View
+                                                    </button>
+                                                    <button
+                                                        style={styles.videoBtn}
+                                                        onClick={() => window.open(msg.videoUrl, '_blank')}
+                                                    >
+                                                        <IoCloudDownloadOutline size={16} /> Save
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
@@ -276,6 +292,23 @@ const SupervisorDetailScreen = () => {
                                 <p><strong>Time:</strong> {new Date(selectedAttendance.timestamp).toLocaleString()}</p>
                                 <p><strong>Location:</strong> {selectedAttendance.location?.displayText || 'N/A'}</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Video Modal */}
+            {selectedVideo && (
+                <div style={styles.modalOverlay} onClick={() => setSelectedVideo(null)}>
+                    <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+                        <div style={styles.modalHeader}>
+                            <h3 style={styles.modalTitle}>Video Message</h3>
+                            <button style={styles.closeBtn} onClick={() => setSelectedVideo(null)}>
+                                <IoClose size={24} />
+                            </button>
+                        </div>
+                        <div style={styles.modalBody}>
+                            <video controls src={selectedVideo} style={{ width: '100%', borderRadius: '8px', maxHeight: '60vh' }} />
                         </div>
                     </div>
                 </div>
@@ -535,6 +568,21 @@ const styles = {
         color: '#007bff',
         cursor: 'pointer',
         fontSize: '12px',
+    },
+    videoBtn: {
+        marginTop: '8px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        backgroundColor: '#e3f2fd',
+        color: '#007bff',
+        border: 'none',
+        padding: '6px 12px',
+        borderRadius: '6px',
+        fontSize: '13px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        transition: 'background 0.2s',
     },
     modalOverlay: {
         position: 'fixed',
