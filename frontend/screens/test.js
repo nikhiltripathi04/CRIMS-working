@@ -1,96 +1,87 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     StyleSheet,
     Text,
     View,
-    TextInput,
+    ScrollView,
     TouchableOpacity,
-    ImageBackground,
-    SafeAreaView,
-    Dimensions,
-    Platform,
     StatusBar,
+    Dimensions,
+    SafeAreaView,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
 const TestScreen = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
 
-            {/* Background Image Section */}
-            <View style={styles.topSection}>
-                <ImageBackground
-                    source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
-                    style={styles.backgroundImage}
-                    resizeMode="cover"
-                >
-                    <LinearGradient
-                        colors={['rgba(6, 121, 214, 0.6)', 'rgba(6, 121, 214, 0.6)']}
-                        style={styles.overlay}
-                    >
-                        <SafeAreaView style={styles.headerContainer}>
-                            <Text style={styles.greetingText}>Hello!</Text>
-                        </SafeAreaView>
-                    </LinearGradient>
-                </ImageBackground>
+            {/* Header Section */}
+            <View style={styles.headerBackground}>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.headerContent}>
+                        <Text style={styles.headerTitle}>Admin 1</Text>
+                    </View>
+                </SafeAreaView>
             </View>
 
-            {/* Bottom Sheet Section */}
-            <View style={styles.bottomSheet}>
-                <Text style={styles.loginHeader}>Login</Text>
+            {/* Main Content Section */}
+            <View style={styles.contentContainer}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
+                    {/* Overview Section */}
+                    <Text style={styles.sectionTitle}>Overview</Text>
 
-                <View style={styles.formContainer}>
-                    <View style={styles.inputContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email"
-                            placeholderTextColor="#A0A0A0"
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Password"
-                            placeholderTextColor="#A0A0A0"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                        />
-                    </View>
-
-                    <TouchableOpacity style={styles.forgotPasswordContainer}>
-                        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.loginButton}>
-                        <LinearGradient
-                            colors={['#0679D6', '#0679D6']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.gradientButton}
-                        >
-                            <Text style={styles.loginButtonText}>LOGIN</Text>
-                        </LinearGradient>
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
                     </TouchableOpacity>
 
-                    <View style={styles.signupContainer}>
-                        <Text style={styles.signupText}>Don't have an account? </Text>
-                        <TouchableOpacity>
-                            <Text style={styles.signupLink}>Sign Up</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Communication & Logs Section */}
+                    <Text style={styles.sectionTitle}>Communication & Logs</Text>
+
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.card}>
+                        <View style={styles.cardContent}>
+                            <Text style={styles.cardTitle}>Sites</Text>
+                            <Text style={styles.cardSubtitle}>2 Sites</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
             </View>
         </View>
     );
@@ -99,112 +90,69 @@ const TestScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#007ADC', // Primary Blue color from screenshot
     },
-    topSection: {
-        height: height * 0.4, // Takes up top 40% roughly
-        width: '100%',
-    },
-    backgroundImage: {
-        flex: 1,
-        width: '100%',
-    },
-    overlay: {
-        flex: 1,
-        paddingHorizontal: 20,
-        justifyContent: 'center',
-    },
-    headerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'flex-start', // Left align "Hello!"
-        paddingBottom: 40,
-    },
-
-    greetingText: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginTop: 40,
-        marginLeft: 10,
-    },
-    bottomSheet: {
-        flex: 1,
-        backgroundColor: '#F5F6FA',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        marginTop: -40, // Overlap the image
+    headerBackground: {
+        height: height * 0.22, // Occupies top part of screen
+        backgroundColor: '#007ADC',
         paddingHorizontal: 24,
-        paddingTop: 40,
     },
-    loginHeader: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: '#000',
-        marginBottom: 30,
-        textAlign: 'center',
+    safeArea: {
+        flex: 1,
     },
-    formContainer: {
-        width: '100%',
-    },
-    inputContainer: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        marginBottom: 16,
-        elevation: 2, // Android shadow
-        shadowColor: '#000', // iOS shadow
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    input: {
-        height: 50,
-        paddingHorizontal: 16,
-        fontSize: 16,
-        color: '#333',
-    },
-    forgotPasswordContainer: {
-        alignItems: 'flex-end',
-        marginBottom: 24,
-    },
-    forgotPasswordText: {
-        color: '#333',
-        fontSize: 14,
-    },
-    loginButton: {
-        borderRadius: 25,
-        overflow: 'hidden',
-        elevation: 3,
-        shadowColor: '#007BFF', // Blue shadow for button
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        marginBottom: 20,
-    },
-    gradientButton: {
-        paddingVertical: 15,
-        alignItems: 'center',
+    headerContent: {
+        marginTop: 20, // Space directly under status bar/safe area
         justifyContent: 'center',
     },
-    loginButtonText: {
+    headerTitle: {
+        fontSize: 28, // Matches large "Admin 1"
+        fontWeight: '700',
         color: '#fff',
+    },
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8', // Very light lavender/grey background
+        borderTopLeftRadius: 30, // Large rounded corners
+        borderTopRightRadius: 30,
+        marginTop: -30, // Negative margin to overlap the blue header
+        overflow: 'hidden',
+    },
+    scrollContent: {
+        paddingHorizontal: 24,
+        paddingTop: 32,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 16,
+        marginTop: 8,
+    },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 16, // Smooth rounded corners
+        paddingVertical: 20,
+        paddingHorizontal: 24,
+        marginBottom: 16,
+        // Soft Shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    cardContent: {
+        alignItems: 'flex-start', // Left aligned
+    },
+    cardTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
-        letterSpacing: 1,
+        fontWeight: '500', // Medium weight
+        color: '#000',
+        marginBottom: 6,
     },
-    signupContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 20,
-    },
-    signupText: {
-        color: '#333',
-        fontSize: 14,
-    },
-    signupLink: {
-        color: '#007BFF',
-        fontSize: 14,
-        fontWeight: 'normal',
+    cardSubtitle: {
+        fontSize: 13,
+        color: '#8A8A8E', // Subtler grey for subtitle
     },
 });
 

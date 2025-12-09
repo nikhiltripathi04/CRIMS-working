@@ -11,17 +11,16 @@ import {
     SafeAreaView,
     ScrollView,
     RefreshControl,
-    Alert
+    Alert,
+    Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from "expo-linear-gradient";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
-const isIpad = isIOS && Platform.isPad;
 
 const AdminDashboard = () => {
     const [counts, setCounts] = useState({
@@ -38,8 +37,6 @@ const AdminDashboard = () => {
     const fetchCounts = useCallback(async () => {
         if (!user || !user.id) return;
         try {
-            // We can optimize this by creating a dedicated stats endpoint in backend later.
-            // For now, parallel fetch is fine for small scale.
             const [sitesRes, warehousesRes, staffRes, supervisorsRes] = await Promise.all([
                 axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`),
                 axios.get(`${API_BASE_URL}/api/warehouses?adminId=${user.id}`),
@@ -76,159 +73,241 @@ const AdminDashboard = () => {
         logout();
     };
 
-    const DashboardCard = ({ title, count, icon, color, route, secondaryIcon, onPress }) => (
+    const DashboardCard = ({ title, count, subtitle, onPress, route, iconName, iconColor, iconBgColor }) => (
         <TouchableOpacity
             style={styles.card}
             onPress={onPress || (() => navigation.navigate(route))}
-            activeOpacity={0.9}
+            activeOpacity={0.7}
         >
-            <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
-                <Ionicons name={icon} size={28} color={color} />
-            </View>
             <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{title}</Text>
-                {count !== undefined && (
-                    <Text style={styles.cardCount}>{count} {count === 1 ? title.slice(0, -1) : title}</Text> // Very rough singularization
-                )}
+                <View style={[styles.iconContainer, { backgroundColor: iconBgColor || '#F0F8FF' }]}>
+                    <Ionicons name={iconName} size={24} color={iconColor || '#007ADC'} />
+                </View>
+                <View style={styles.textContainer}>
+                    <Text style={styles.cardTitle}>{title}</Text>
+                    {/* Simplified subtitle to just show count if available, or subtitle otherwise, prevents redundancy like "Sites 5 Sites" */}
+                    <Text style={styles.cardSubtitle}>
+                        {count !== undefined ? count : subtitle}
+                    </Text>
+                </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
     );
 
     if (!user) {
         return (
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-                <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                </View>
-            </LinearGradient>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#007ADC' }]}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+            </View>
         );
     }
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
+            <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
+
+            {/* Header Section */}
+            <View style={styles.headerBackground}>
                 <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.mainContainer}>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <View>
-                                <Text style={styles.greeting}>Welcome back,</Text>
-                                <Text style={styles.username}>{user.username}</Text>
-                            </View>
-                            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                                <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-                            </TouchableOpacity>
+                    <View style={styles.headerContent}>
+                        <View style={styles.headerTextContainer}>
+                            <Text style={styles.welcomeText}>Welcome back,</Text>
+                            <Text style={styles.headerTitle}>{user.username}</Text>
                         </View>
-
-                        {/* Content */}
-                        <View style={styles.contentArea}>
-                            <ScrollView
-                                contentContainerStyle={styles.scrollContent}
-                                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCounts(); }} />}
-                                showsVerticalScrollIndicator={false}
-                            >
-                                <Text style={styles.sectionTitle}>Overview</Text>
-
-                                <View style={styles.grid}>
-                                    <DashboardCard
-                                        title="Sites"
-                                        count={counts.sites}
-                                        icon="business"
-                                        color="#2094F3"
-                                        route="GlobalSites"
-                                    />
-                                    <DashboardCard
-                                        title="Warehouses"
-                                        count={counts.warehouses}
-                                        icon="storefront"
-                                        color="#E69138"
-                                        route="GlobalWarehouses"
-                                        onPress={() => Alert.alert("Coming Soon", "This feature is currently under development.")}
-                                    />
-                                    <DashboardCard
-                                        title="Staff"
-                                        count={counts.staff}
-                                        icon="people"
-                                        color="#10B981"
-                                        route="GlobalStaff"
-                                    />
-                                    <DashboardCard
-                                        title="Supervisors"
-                                        count={counts.supervisors}
-                                        icon="briefcase"
-                                        color="#6610f2"
-                                        route="GlobalSupervisors"
-                                    />
-                                </View>
-
-                                <Text style={styles.sectionTitle}>Communication & Logs</Text>
-                                <View style={styles.grid}>
-                                    <DashboardCard
-                                        title="Messages"
-                                        // count={5} // Placeholder
-                                        icon="chatbubbles"
-                                        color="#F59E0B" // Amber
-                                        route="AdminMessages"
-                                    />
-                                    <DashboardCard
-                                        title="Activity Log"
-                                        // count={null}
-                                        icon="list"
-                                        color="#607D8B" // Blue Grey
-                                        route="ActivityLogs"
-                                    />
-                                </View>
-
-                            </ScrollView>
-                        </View>
+                        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                        </TouchableOpacity>
                     </View>
                 </SafeAreaView>
-            </LinearGradient>
+            </View>
+
+            {/* Main Content Section */}
+            <View style={styles.contentContainer}>
+                <View style={styles.gridContainer}>
+                    {/* Overview Section */}
+                    <Text style={styles.sectionTitle}>Overview</Text>
+
+                    <View style={styles.row}>
+                        <DashboardCard
+                            title="Sites"
+                            count={counts.sites}
+                            route="GlobalSites"
+                            iconName="business"
+                            iconColor="#007ADC"
+                            iconBgColor="#E6F2FF"
+                        />
+                        <DashboardCard
+                            title="Warehouses"
+                            count={counts.warehouses}
+                            route="GlobalWarehouses"
+                            onPress={() => Alert.alert("Coming Soon", "This feature is currently under development.")}
+                            iconName="cube"
+                            iconColor="#FF9500"
+                            iconBgColor="#FFF5E6"
+                        />
+                    </View>
+
+                    <View style={styles.row}>
+                        <DashboardCard
+                            title="Staff"
+                            count={counts.staff}
+                            route="GlobalStaff"
+                            iconName="people"
+                            iconColor="#AF52DE"
+                            iconBgColor="#F6E6FF"
+                        />
+                        <DashboardCard
+                            title="Supervisors"
+                            count={counts.supervisors}
+                            route="GlobalSupervisors"
+                            iconName="person-circle"
+                            iconColor="#34C759"
+                            iconBgColor="#E6F9E9"
+                        />
+                    </View>
+
+                    {/* Communication & Logs Section */}
+                    <Text style={styles.sectionTitle}>Communication & Logs</Text>
+
+                    <View style={styles.row}>
+                        <DashboardCard
+                            title="Messages"
+                            subtitle="View"
+                            route="AdminMessages"
+                            iconName="chatbubbles"
+                            iconColor="#FF2D55"
+                            iconBgColor="#FFE6EA"
+                        />
+                        <DashboardCard
+                            title="Activity"
+                            subtitle="View"
+                            route="ActivityLogs"
+                            iconName="time"
+                            iconColor="#5856D6"
+                            iconBgColor="#EFEEFA"
+                        />
+                    </View>
+                </View>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    gradient: { flex: 1 },
-    safeArea: { flex: 1 },
-    mainContainer: { flex: 1, width: isIpad ? '85%' : '100%', alignSelf: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30 },
-    greeting: { color: 'rgba(255,255,255,0.8)', fontSize: 16 },
-    username: { color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' },
-    logoutButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-    contentArea: { flex: 1, backgroundColor: '#F3F4F6', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 20 },
-    scrollContent: { paddingBottom: 40 },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 15, marginTop: 10 },
-    grid: { gap: 15 },
-
-    // Card Styles
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 20,
+    container: {
+        flex: 1,
+        backgroundColor: '#007ADC', // Primary Blue matches test.js
+    },
+    headerBackground: {
+        height: height * 0.22, // Occupies top part of screen matches test.js
+        backgroundColor: '#007ADC',
+        paddingHorizontal: 24,
+    },
+    safeArea: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    headerContent: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    headerTextContainer: {
+        alignItems: 'flex-start',
+    },
+    welcomeText: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        marginBottom: 4,
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    logoutButton: {
+        padding: 10,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 20,
+    },
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8', // Very light lavender/grey matches test.js
+        borderTopLeftRadius: 30, // Large rounded corners matches test.js
+        borderTopRightRadius: 30,
+        marginTop: -30, // Negative margin to overlap matches test.js
+        overflow: 'hidden',
+    },
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -30,
+        overflow: 'hidden',
+    },
+    gridContainer: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 12,
+        marginTop: 4,
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        width: '48%',
+        // Soft Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-        marginBottom: 4
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    cardContent: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        marginBottom: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16
+        marginRight: 0,
     },
-    cardContent: { flex: 1 },
-    cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2937', marginBottom: 4 },
-    cardCount: { fontSize: 13, color: '#6B7280' },
+    textContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardTitle: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#666',
+        marginTop: 4,
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    cardSubtitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#000',
+        textAlign: 'center',
+    },
 });
 
 export default AdminDashboard;
