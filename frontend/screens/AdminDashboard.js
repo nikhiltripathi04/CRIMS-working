@@ -10,7 +10,8 @@ import {
     StatusBar,
     SafeAreaView,
     ScrollView,
-    RefreshControl
+    RefreshControl,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -75,10 +76,10 @@ const AdminDashboard = () => {
         logout();
     };
 
-    const DashboardCard = ({ title, count, icon, color, route, secondaryIcon }) => (
+    const DashboardCard = ({ title, count, icon, color, route, secondaryIcon, onPress }) => (
         <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate(route)}
+            onPress={onPress || (() => navigation.navigate(route))}
             activeOpacity={0.9}
         >
             <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
@@ -144,6 +145,7 @@ const AdminDashboard = () => {
                                         icon="storefront"
                                         color="#E69138"
                                         route="GlobalWarehouses"
+                                        onPress={() => Alert.alert("Coming Soon", "This feature is currently under development.")}
                                     />
                                     <DashboardCard
                                         title="Staff"
