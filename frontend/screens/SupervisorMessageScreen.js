@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,14 +9,15 @@ import {
     ActivityIndicator,
     Image,
     SafeAreaView,
-    ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Modal
+    Modal,
+    FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { Video, ResizeMode } from 'expo-av';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -28,8 +29,10 @@ const SupervisorMessageScreen = () => {
     const { API_BASE_URL, token } = useAuth();
 
     const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
     const [video, setVideo] = useState(null);
     const [sending, setSending] = useState(false);
+    const [loadingMessages, setLoadingMessages] = useState(true);
 
     // Recording State
     const [permission, requestPermission] = useCameraPermissions();
@@ -38,8 +41,32 @@ const SupervisorMessageScreen = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [facing, setFacing] = useState('back');
     const [timer, setTimer] = useState(0);
+
+    // Playback State
+    const [playbackModalVisible, setPlaybackModalVisible] = useState(false);
+    const [playbackVideoUrl, setPlaybackVideoUrl] = useState(null);
+
     const timerRef = useRef(null);
     const cameraRef = useRef(null);
+
+    useEffect(() => {
+        if (site && site._id) {
+            fetchMessages();
+        }
+    }, [site]);
+
+    const fetchMessages = async () => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/api/messages/site/${site._id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMessages(response.data.data);
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        } finally {
+            setLoadingMessages(false);
+        }
+    };
 
     const toggleCameraFacing = () => {
         setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -175,9 +202,10 @@ const SupervisorMessageScreen = () => {
                 },
             });
 
-            Alert.alert('Success', 'Message sent to Admin!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            // Reset inputs and refresh list
+            setMessage('');
+            setVideo(null);
+            fetchMessages();
 
         } catch (error) {
             console.error('Send message error:', error);
@@ -194,6 +222,45 @@ const SupervisorMessageScreen = () => {
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
+    const playVideo = (url) => {
+        setPlaybackVideoUrl(url);
+        setPlaybackModalVisible(true);
+    };
+
+    const renderMessageItem = ({ item }) => {
+        const isSupervisor = item.senderRole === 'supervisor';
+        // In this screen, we are the supervisor, so 'supervisor' messages are OUR messages (Right aligned)
+        // If there were responses (future feature), they would be 'admin' (Left aligned)
+
+        return (
+            <View style={[
+                styles.messageBubble,
+                isSupervisor ? styles.myMessage : styles.theirMessage
+            ]}>
+                {item.videoUrl && (
+                    <TouchableOpacity
+                        style={styles.videoThumbnail}
+                        onPress={() => playVideo(item.videoUrl)}
+                    >
+                        <View style={styles.playIconContainer}>
+                            <Ionicons name="play" size={24} color="#fff" />
+                        </View>
+                        <Text style={styles.videoLabel}>Video Message</Text>
+                    </TouchableOpacity>
+                )}
+                {item.content ? (
+                    <Text style={[styles.messageText, isSupervisor ? styles.myMessageText : styles.theirMessageText]}>
+                        {item.content}
+                    </Text>
+                ) : null}
+                <Text style={styles.messageTime}>
+                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {' · '}{new Date(item.createdAt).toLocaleDateString()}
+                </Text>
+            </View>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
@@ -204,73 +271,73 @@ const SupervisorMessageScreen = () => {
                 <View style={{ width: 24 }} />
             </View>
 
+            <View style={{ flex: 1, backgroundColor: '#e5ddd5' }}>
+                <FlatList
+                    data={messages}
+                    renderItem={renderMessageItem}
+                    keyExtractor={item => item._id}
+                    inverted
+                    contentContainerStyle={{ padding: 15 }}
+                    ListEmptyComponent={
+                        !loadingMessages && (
+                            <Text style={styles.emptyText}>No messages yet. Send a report or video.</Text>
+                        )
+                    }
+                />
+            </View>
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
             >
-                <ScrollView contentContainerStyle={styles.content}>
-
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Message / Report</Text>
+                <View style={styles.inputContainer}>
+                    <View style={styles.inputRow}>
                         <TextInput
-                            style={styles.inputArea}
-                            placeholder="Type your message here..."
+                            style={styles.textInput}
+                            placeholder="Type a message"
                             multiline
-                            numberOfLines={6}
+                            maxHeight={100}
                             value={message}
                             onChangeText={setMessage}
-                            textAlignVertical="top"
                         />
+                        <TouchableOpacity onPress={pickVideo} style={styles.attachButton}>
+                            <Ionicons name="images-outline" size={24} color="#555" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleRecordVideo} style={styles.attachButton}>
+                            <Ionicons name="videocam-outline" size={24} color="#555" />
+                        </TouchableOpacity>
+                    </View>
 
-                        <Text style={styles.label}>Attach Video</Text>
-
-                        <View style={styles.mediaButtonsRow}>
-                            <TouchableOpacity style={styles.uploadButton} onPress={pickVideo}>
-                                <Ionicons name="images-outline" size={24} color="#007bff" />
-                                <Text style={styles.uploadText}>Gallery</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.uploadButton} onPress={handleRecordVideo}>
-                                <Ionicons name="videocam-outline" size={24} color="#dc3545" />
-                                <Text style={[styles.uploadText, { color: '#dc3545' }]}>Record</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {video && (
-                            <View style={styles.fileInfo}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                    <Ionicons name="videocam" size={20} color="#555" style={{ marginRight: 8 }} />
-                                    <Text style={styles.fileName} numberOfLines={1}>
-                                        {video.fileName || 'Recorded Video'}
-                                    </Text>
-                                </View>
+                    {video && (
+                        <View style={styles.previewContainer}>
+                            <View style={styles.previewFile}>
+                                <Ionicons name="videocam" size={20} color="#007bff" />
+                                <Text style={styles.previewName} numberOfLines={1}>
+                                    {video.fileName || 'Recorded Video'}
+                                </Text>
                                 <TouchableOpacity onPress={() => setVideo(null)}>
-                                    <Ionicons name="close-circle" size={24} color="#dc3545" />
+                                    <Ionicons name="close-circle" size={22} color="#dc3545" />
                                 </TouchableOpacity>
                             </View>
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={[styles.chatSendButton, (!message.trim() && !video) && styles.chatSendButtonDisabled]}
+                        onPress={handleSend}
+                        disabled={!message.trim() && !video || sending}
+                    >
+                        {sending ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Ionicons name="send" size={20} color="#fff" />
                         )}
-                        {video && <Text style={styles.helperText}>Video selected ready to send.</Text>}
-
-                        <TouchableOpacity
-                            style={[styles.sendButton, sending && styles.sendButtonDisabled]}
-                            onPress={handleSend}
-                            disabled={sending}
-                        >
-                            {sending ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <>
-                                    <Ionicons name="send" size={20} color="#fff" style={{ marginRight: 8 }} />
-                                    <Text style={styles.sendButtonText}>Send Message</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-
-                    </View>
-                </ScrollView>
+                    </TouchableOpacity>
+                </View>
             </KeyboardAvoidingView>
 
-            {/* CAMERA MODAL */}
+
+            {/* RECORDING MODAL */}
             <Modal visible={cameraVisible} animationType="slide" presentationStyle="fullScreen">
                 <View style={styles.cameraContainer}>
                     <CameraView
@@ -321,6 +388,34 @@ const SupervisorMessageScreen = () => {
                 </View>
             </Modal>
 
+            {/* PLAYBACK MODAL */}
+            <Modal visible={playbackModalVisible} animationType="fade" transparent={true}>
+                <View style={styles.playbackModalContainer}>
+                    <View style={styles.playbackModalContent}>
+                        <TouchableOpacity
+                            style={styles.closePlaybackButton}
+                            onPress={() => {
+                                setPlaybackModalVisible(false);
+                                setPlaybackVideoUrl(null);
+                            }}
+                        >
+                            <Ionicons name="close" size={30} color="#fff" />
+                        </TouchableOpacity>
+
+                        {playbackVideoUrl && (
+                            <Video
+                                style={styles.playbackVideo}
+                                source={{ uri: playbackVideoUrl }}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                                shouldPlay
+                                isLooping={false}
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
         </SafeAreaView>
     );
 };
@@ -337,7 +432,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        zIndex: 10
     },
     backButton: {
         padding: 4
@@ -347,97 +443,131 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#333'
     },
-    content: {
-        padding: 20,
+
+    // Chat Styles
+    messageBubble: {
+        maxWidth: '80%',
+        padding: 10,
+        borderRadius: 10,
+        marginBottom: 10,
+        elevation: 1,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
     },
-    card: {
+    myMessage: {
+        alignSelf: 'flex-end',
+        backgroundColor: '#dcf8c6', // WhatsApp green
+        borderTopRightRadius: 0,
+    },
+    theirMessage: {
+        alignSelf: 'flex-start',
         backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderTopLeftRadius: 0,
     },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#555',
-        marginBottom: 8,
-        marginTop: 12,
+    messageText: {
+        fontSize: 15,
+        color: '#303030',
+        marginBottom: 4
     },
-    inputArea: {
-        backgroundColor: '#f8f9fa',
-        borderWidth: 1,
-        borderColor: '#ddd',
+    myMessageText: {
+        color: '#303030'
+    },
+    theirMessageText: {
+        color: '#303030'
+    },
+    messageTime: {
+        fontSize: 10,
+        color: '#777',
+        alignSelf: 'flex-end',
+        marginTop: 2
+    },
+    videoThumbnail: {
+        width: 200,
+        height: 120,
+        backgroundColor: '#000',
         borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        minHeight: 120,
-        color: '#333'
-    },
-    mediaButtonsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8
-    },
-    uploadButton: {
-        flex: 0.48,
-        flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 14,
-        backgroundColor: '#f8f9fa',
-    },
-    uploadText: {
-        marginLeft: 8,
-        color: '#007bff',
-        fontWeight: '600',
-        fontSize: 14
-    },
-    fileInfo: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#e9ecef',
-        padding: 12,
-        borderRadius: 8,
-        marginTop: 15,
-        borderWidth: 1,
-        borderColor: '#dee2e6'
+        marginBottom: 5,
+        position: 'relative'
     },
-    fileName: {
-        fontSize: 13,
-        color: '#333',
+    playIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 5
+    },
+    videoLabel: {
+        color: '#fff',
+        fontSize: 12,
         fontWeight: '500'
     },
-    helperText: {
-        fontSize: 12,
-        color: '#28a745',
-        marginTop: 5,
-        marginLeft: 2
+    emptyText: {
+        textAlign: 'center',
+        color: '#999',
+        marginTop: 20,
+        fontSize: 14
     },
-    sendButton: {
-        backgroundColor: '#007bff',
+
+    // Input Area Styles
+    inputContainer: {
+        backgroundColor: '#f0f0f0',
+        padding: 8,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+    },
+    inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        borderRadius: 8,
-        marginTop: 30,
-        elevation: 2
+        backgroundColor: '#fff',
+        borderRadius: 25,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
     },
-    sendButtonDisabled: {
-        backgroundColor: '#a0c4ff'
-    },
-    sendButtonText: {
-        color: '#fff',
+    textInput: {
+        flex: 1,
         fontSize: 16,
-        fontWeight: 'bold'
+        maxHeight: 100,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        color: '#333'
+    },
+    attachButton: {
+        padding: 8,
+    },
+    chatSendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#007bff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8
+    },
+    chatSendButtonDisabled: {
+        backgroundColor: '#ccc'
+    },
+    previewContainer: {
+        backgroundColor: '#e9ecef',
+        padding: 10,
+        borderRadius: 8,
+        marginVertical: 5,
+        marginHorizontal: 5
+    },
+    previewFile: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    previewName: {
+        flex: 1,
+        marginHorizontal: 10,
+        fontSize: 12,
+        color: '#333'
     },
 
     // Camera Styles
@@ -514,6 +644,31 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(0,0,0,0.5)',
         textShadowRadius: 2,
         marginTop: 5
+    },
+
+    // Playback Modal
+    playbackModalContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    playbackModalContent: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center'
+    },
+    playbackVideo: {
+        alignSelf: 'center',
+        width: '100%',
+        height: '80%',
+    },
+    closePlaybackButton: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        padding: 10
     }
 });
 
