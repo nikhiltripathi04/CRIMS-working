@@ -405,7 +405,7 @@ const SupervisorDashboard = ({ navigation }) => {
         <View style={styles.sectionContainer}>
           <TouchableOpacity
             style={styles.featureCard}
-            onPress={() => navigation.navigate('SupervisorSupplies', { site })}
+            onPress={() => Alert.alert('Notice', 'Currently under development')}
           >
             <View style={[styles.featureIconBox, { backgroundColor: '#007bff' }]}>
               <Ionicons name="cube-outline" size={28} color="#fff" />
@@ -435,7 +435,7 @@ const SupervisorDashboard = ({ navigation }) => {
         </View>
 
         {/* Today's Attendance Summary */}
-        {site && (
+        {/* {site && (
           <View style={styles.attendanceSummaryCard}>
             <Text style={styles.attendanceSummaryTitle}>Today's Worker Attendance</Text>
             <View style={styles.attendanceProgressContainer}>
@@ -470,7 +470,7 @@ const SupervisorDashboard = ({ navigation }) => {
               </View>
             )}
           </View>
-        )}
+        )} */}
 
         {/* --- SITE MANAGEMENT ACTIONS --- */}
         {/* <View style={styles.sectionContainer}>

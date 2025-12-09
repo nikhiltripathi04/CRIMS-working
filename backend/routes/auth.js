@@ -376,13 +376,23 @@ router.delete('/supervisors/:id', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
-    const supervisor = await User.findOneAndDelete({ _id: id, role: 'supervisor', createdBy: adminId });
-
+    // Find supervisor first
+    const supervisor = await User.findOne({ _id: id, role: 'supervisor' });
     if (!supervisor) {
-      return res.status(404).json({ success: false, message: 'Supervisor not found or unauthorized' });
+      return res.status(404).json({ success: false, message: 'Supervisor not found' });
     }
 
-    // Log activity - Pass supervisor ID even though deleted (for the record)
+    // Check authorization: Either created by this admin OR belongs to same company
+    const isCreator = supervisor.createdBy && supervisor.createdBy.toString() === adminId;
+    const isSameCompany = admin.companyId && supervisor.companyId && admin.companyId.toString() === supervisor.companyId.toString();
+
+    if (!isCreator && !isSameCompany) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: You can only delete supervisors from your company' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    // Log activity
     try {
       await ActivityLogger.logActivity(
         id,
@@ -390,7 +400,8 @@ router.delete('/supervisors/:id', async (req, res) => {
         req.user,
         {
           supervisorUsername: supervisor.username,
-          supervisorId: id
+          supervisorId: id,
+          deletedBy: adminId
         },
         `Supervisor "${supervisor.username}" deleted by admin`,
         'User'
