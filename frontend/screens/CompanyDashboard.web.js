@@ -7,7 +7,8 @@ import {
     IoPersonAddOutline,
     IoRefresh,
     IoTrashOutline,
-    IoShieldCheckmarkOutline
+    IoShieldCheckmarkOutline,
+    IoKeyOutline
 } from 'react-icons/io5';
 
 export default function CompanyDashboardWeb() {
@@ -27,7 +28,17 @@ export default function CompanyDashboardWeb() {
         lastName: '',
         phoneNumber: ''
     });
+
     const [creating, setCreating] = useState(false);
+
+    // Change Password State
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [changingPassword, setChangingPassword] = useState(false);
 
     useEffect(() => {
         fetchAdmins();
@@ -82,6 +93,44 @@ export default function CompanyDashboardWeb() {
         }
     };
 
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+            window.alert('Please fill in all fields');
+            return;
+        }
+
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            window.alert('New passwords do not match');
+            return;
+        }
+
+        if (passwordForm.newPassword.length < 6) {
+            window.alert('New password must be at least 6 characters long');
+            return;
+        }
+
+        try {
+            setChangingPassword(true);
+            const response = await axios.post(`${API_BASE_URL}/api/auth/change-password`, {
+                userId: user.id,
+                oldPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword
+            });
+
+            if (response.data.success) {
+                window.alert('Password changed successfully!');
+                setShowPasswordModal(false);
+                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            }
+        } catch (error) {
+            console.error('Change password error:', error);
+            window.alert(error.response?.data?.message || 'Failed to change password');
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
     const handleLogout = () => {
         if (window.confirm('Are you sure you want to logout?')) logout();
     };
@@ -102,6 +151,13 @@ export default function CompanyDashboardWeb() {
 
                 <div style={styles.headerRight}>
                     <span style={{ marginRight: '15px' }}>Welcome, {user?.firstName}</span>
+                    <button
+                        onClick={() => setShowPasswordModal(true)}
+                        style={{ ...styles.logoutButton, marginRight: '10px', backgroundColor: '#4a5568' }}
+                        title="Change Password"
+                    >
+                        <IoKeyOutline size={22} color="#fff" />
+                    </button>
                     <button onClick={handleLogout} style={styles.logoutButton} title="Logout">
                         <IoLogOutOutline size={22} color="#fff" />
                     </button>
@@ -223,6 +279,54 @@ export default function CompanyDashboardWeb() {
                                     <button type="button" style={styles.cancelBtn} onClick={() => setShowCreateModal(false)}>Cancel</button>
                                     <button type="submit" style={styles.submitBtn} disabled={creating}>
                                         {creating ? 'Creating...' : 'Create Admin'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Change Password Modal */}
+                {showPasswordModal && (
+                    <div style={styles.modalOverlay}>
+                        <div style={styles.modalContent}>
+                            <h2 style={{ marginBottom: '20px' }}>Change Password</h2>
+                            <form onSubmit={handleChangePassword}>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.label}>Current Password *</label>
+                                    <input
+                                        style={styles.input}
+                                        type="password"
+                                        value={passwordForm.currentPassword}
+                                        onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.label}>New Password *</label>
+                                    <input
+                                        style={styles.input}
+                                        type="password"
+                                        value={passwordForm.newPassword}
+                                        onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.label}>Confirm New Password *</label>
+                                    <input
+                                        style={styles.input}
+                                        type="password"
+                                        value={passwordForm.confirmPassword}
+                                        onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div style={styles.modalActions}>
+                                    <button type="button" style={styles.cancelBtn} onClick={() => setShowPasswordModal(false)}>Cancel</button>
+                                    <button type="submit" style={styles.submitBtn} disabled={changingPassword}>
+                                        {changingPassword ? 'Changing...' : 'Change Password'}
                                     </button>
                                 </div>
                             </form>

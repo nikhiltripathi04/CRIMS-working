@@ -445,4 +445,52 @@ router.get('/company-admins', async (req, res) => {
   }
 });
 
+// ✅ CHANGE Password (Authenticated User)
+router.post('/change-password', async (req, res) => {
+  try {
+    const { userId, oldPassword, newPassword } = req.body;
+
+    if (!userId || !oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID, old password, and new password are required'
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Verify old password
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect current password'
+      });
+    }
+
+    // Update password
+    user.password = newPassword; // Will be hashed by pre-save hook
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while changing password'
+    });
+  }
+});
+
 module.exports = router;
