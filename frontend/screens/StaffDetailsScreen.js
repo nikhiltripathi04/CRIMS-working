@@ -16,6 +16,7 @@ import {
   TextInput,
   KeyboardAvoidingView
 } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -36,11 +37,12 @@ const StaffDetailsScreen = () => {
   const [staff, setStaff] = useState(initialStaff);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Modal States
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null); // For photo modal
+  const [selectedDate, setSelectedDate] = useState(null);
 
   // Form States
   const [newName, setNewName] = useState('');
@@ -180,7 +182,7 @@ const StaffDetailsScreen = () => {
         <Text style={styles.profileName}>{staff.fullName}</Text>
         <Text style={styles.profileUsername}>@{staff.username}</Text>
         <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{staff.role || 'STAFF'}</Text>
+          <Text style={styles.roleText}>{staff.role || 'STAFF'}</Text>
         </View>
       </View>
 
@@ -245,73 +247,119 @@ const StaffDetailsScreen = () => {
           style={styles.deleteButton}
           onPress={handleDeleteStaff}
         >
-          <Ionicons name="trash-outline" size={20} color="#dc3545" style={{marginRight: 8}} />
+          <Ionicons name="trash-outline" size={20} color="#dc3545" style={{ marginRight: 8 }} />
           <Text style={styles.deleteButtonText}>Delete Staff Member</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderAttendanceCard = () => (
-    <View style={styles.card}>
-      <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitle}>Attendance History</Text>
-        <TouchableOpacity onPress={fetchAttendance} style={styles.refreshBtn}>
-            <Ionicons name="refresh" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
+  const renderAttendanceCard = () => {
+    // Prepare marked dates for calendar
+    const markedDates = {};
+    attendanceLogs.forEach(log => {
+      // safely extract date part (YYYY-MM-DD)
+      const dateStr = new Date(log.timestamp).toISOString().split('T')[0];
+      markedDates[dateStr] = { marked: true, dotColor: '#10B981' };
+    });
 
-      {attendanceLogs.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="time-outline" size={40} color="#ccc" />
-          <Text style={styles.emptyText}>No attendance records found.</Text>
+    if (selectedDate) {
+      markedDates[selectedDate] = {
+        ...(markedDates[selectedDate] || {}),
+        selected: true,
+        selectedColor: '#2094f3'
+      };
+    }
+
+    // Filter logs based on selection
+    const filteredLogs = selectedDate
+      ? attendanceLogs.filter(log => new Date(log.timestamp).toISOString().split('T')[0] === selectedDate)
+      : attendanceLogs;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>Attendance History</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {selectedDate && (
+              <TouchableOpacity onPress={() => setSelectedDate(null)} style={{ marginRight: 8 }}>
+                <Text style={{ color: '#2094f3', fontWeight: '600' }}>Show All</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => { setSelectedDate(null); fetchAttendance(); }} style={styles.refreshBtn}>
+              <Ionicons name="refresh" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : (
-        <View style={styles.attendanceList}>
-          {attendanceLogs.map((log) => (
-            <View key={log._id} style={styles.attendanceItem}>
-              <View style={[
-                  styles.attendanceIcon, 
+
+        <Calendar
+          markedDates={markedDates}
+          onDayPress={day => {
+            setSelectedDate(current => current === day.dateString ? null : day.dateString);
+          }}
+          theme={{
+            selectedDayBackgroundColor: '#2094f3',
+            todayTextColor: '#2094f3',
+            arrowColor: '#2094f3',
+            dotColor: '#10B981',
+          }}
+          style={{ marginBottom: 16, borderRadius: 12, borderColor: '#eee', borderWidth: 1 }}
+        />
+
+        {filteredLogs.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="time-outline" size={40} color="#ccc" />
+            <Text style={styles.emptyText}>
+              {selectedDate ? `No records for ${selectedDate}` : 'No attendance records found.'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.attendanceList}>
+            {filteredLogs.map((log) => (
+              <View key={log._id} style={styles.attendanceItem}>
+                <View style={[
+                  styles.attendanceIcon,
                   { backgroundColor: log.type === 'login' ? '#D1FAE5' : '#FEE2E2' }
-              ]}>
-                <Ionicons 
-                    name={log.type === 'login' ? "enter" : "exit"} 
-                    size={20} 
-                    color={log.type === 'login' ? '#10B981' : '#EF4444'} 
-                />
-              </View>
-              
-              <View style={styles.attendanceContent}>
-                <Text style={styles.attendanceTitle}>
-                  {log.type === 'login' ? 'Checked In' : 'Checked Out'}
-                </Text>
-                <Text style={styles.attendanceTime}>
-                  {new Date(log.timestamp).toLocaleDateString()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <View style={styles.attendanceLocation}>
-                  <Ionicons name="location-sharp" size={12} color="#6B7280" />
-                  <Text style={styles.locationText} numberOfLines={1}>
-                    {log.location ? 
-                      (log.location.displayText || `${log.location.latitude?.toFixed(4)}, ${log.location.longitude?.toFixed(4)}`) 
-                      : 'Location unknown'}
-                  </Text>
+                ]}>
+                  <Ionicons
+                    name={log.type === 'login' ? "enter" : "exit"}
+                    size={20}
+                    color={log.type === 'login' ? '#10B981' : '#EF4444'}
+                  />
                 </View>
-              </View>
 
-              {log.photo && (
-                <TouchableOpacity
-                  style={styles.viewPhotoButton}
-                  onPress={() => setSelectedAttendance(log)}
-                >
-                  <Ionicons name="image-outline" size={20} color="#007bff" />
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+                <View style={styles.attendanceContent}>
+                  <Text style={styles.attendanceTitle}>
+                    {log.type === 'login' ? 'Checked In' : 'Checked Out'}
+                  </Text>
+                  <Text style={styles.attendanceTime}>
+                    {new Date(log.timestamp).toLocaleDateString()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  <View style={styles.attendanceLocation}>
+                    <Ionicons name="location-sharp" size={12} color="#6B7280" />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      {log.location ?
+                        (log.location.displayText || `${log.location.latitude?.toFixed(4)}, ${log.location.longitude?.toFixed(4)}`)
+                        : 'Location unknown'}
+                    </Text>
+                  </View>
+                </View>
+
+                {log.photo && (
+                  <TouchableOpacity
+                    style={styles.viewPhotoButton}
+                    onPress={() => setSelectedAttendance(log)}
+                  >
+                    <Ionicons name="image-outline" size={20} color="#007bff" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // --- Modal Content Renderers ---
 
@@ -322,11 +370,11 @@ const StaffDetailsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View>
-            <Text style={styles.headerTitle}>{staff.fullName}</Text>
-            <Text style={styles.headerSubtitle}>Staff Details</Text>
+          <Text style={styles.headerTitle}>{staff.fullName}</Text>
+          <Text style={styles.headerSubtitle}>Staff Details</Text>
         </View>
       </View>
 
@@ -351,9 +399,9 @@ const StaffDetailsScreen = () => {
         animationType="fade"
         onRequestClose={() => setIsEditNameModalVisible(false)}
       >
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalOverlay}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -391,9 +439,9 @@ const StaffDetailsScreen = () => {
         animationType="fade"
         onRequestClose={() => setIsPasswordModalVisible(false)}
       >
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalOverlay}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -410,7 +458,7 @@ const StaffDetailsScreen = () => {
               <Text style={styles.label}>New Password</Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
-                  style={[styles.input, {flex: 1}]}
+                  style={[styles.input, { flex: 1 }]}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Enter new password"
@@ -441,48 +489,48 @@ const StaffDetailsScreen = () => {
         onRequestClose={() => setSelectedAttendance(null)}
       >
         <View style={styles.modalOverlay}>
-            {selectedAttendance && (
-                <View style={[styles.modalContainer, { maxWidth: 500 }]}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Attendance Photo</Text>
-                        <TouchableOpacity onPress={() => setSelectedAttendance(null)}>
-                            <Ionicons name="close" size={24} color="#333" />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.modalBody}>
-                        <View style={styles.photoWrapper}>
-                            <Image 
-                                source={{ uri: selectedAttendance.photo }} 
-                                style={styles.attendancePhoto}
-                                resizeMode="contain"
-                            />
-                        </View>
-                        <View style={styles.photoMeta}>
-                            <View style={styles.metaRow}>
-                                <Text style={styles.metaLabel}>Type:</Text>
-                                <Text style={[
-                                    styles.metaValue, 
-                                    { color: selectedAttendance.type === 'login' ? '#10B981' : '#EF4444' }
-                                ]}>
-                                    {selectedAttendance.type === 'login' ? 'Check In' : 'Check Out'}
-                                </Text>
-                            </View>
-                            <View style={styles.metaRow}>
-                                <Text style={styles.metaLabel}>Time:</Text>
-                                <Text style={styles.metaValue}>{new Date(selectedAttendance.timestamp).toLocaleString()}</Text>
-                            </View>
-                            <View style={styles.metaRow}>
-                                <Text style={styles.metaLabel}>Location:</Text>
-                                <Text style={[styles.metaValue, {maxWidth: '70%'}]} numberOfLines={2}>
-                                    {selectedAttendance.location ? 
-                                      (selectedAttendance.location.displayText || `${selectedAttendance.location.latitude?.toFixed(5)}, ${selectedAttendance.location.longitude?.toFixed(5)}`) 
-                                      : 'N/A'}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
+          {selectedAttendance && (
+            <View style={[styles.modalContainer, { maxWidth: 500 }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Attendance Photo</Text>
+                <TouchableOpacity onPress={() => setSelectedAttendance(null)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalBody}>
+                <View style={styles.photoWrapper}>
+                  <Image
+                    source={{ uri: selectedAttendance.photo }}
+                    style={styles.attendancePhoto}
+                    resizeMode="contain"
+                  />
                 </View>
-            )}
+                <View style={styles.photoMeta}>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Type:</Text>
+                    <Text style={[
+                      styles.metaValue,
+                      { color: selectedAttendance.type === 'login' ? '#10B981' : '#EF4444' }
+                    ]}>
+                      {selectedAttendance.type === 'login' ? 'Check In' : 'Check Out'}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Time:</Text>
+                    <Text style={styles.metaValue}>{new Date(selectedAttendance.timestamp).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Location:</Text>
+                    <Text style={[styles.metaValue, { maxWidth: '70%' }]} numberOfLines={2}>
+                      {selectedAttendance.location ?
+                        (selectedAttendance.location.displayText || `${selectedAttendance.location.latitude?.toFixed(5)}, ${selectedAttendance.location.longitude?.toFixed(5)}`)
+                        : 'N/A'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -501,7 +549,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f4f6f9',
   },
-  
+
   // Header
   header: {
     backgroundColor: '#2094f3',
@@ -844,7 +892,7 @@ const styles = StyleSheet.create({
   // Photo Modal Specific
   photoWrapper: {
     width: '100%',
-    aspectRatio: 4/3,
+    aspectRatio: 4 / 3,
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
     marginBottom: 20,

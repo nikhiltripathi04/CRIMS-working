@@ -25,6 +25,7 @@ import { Video, ResizeMode } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { LinearGradient } from "expo-linear-gradient";
+import { Calendar } from 'react-native-calendars';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isIpad = screenWidth >= 768;
@@ -41,6 +42,7 @@ const SupervisorDetailScreen = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, attendance, messages
     const [selectedAttendance, setSelectedAttendance] = useState(null);
     const [selectedVideo, setSelectedVideo] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(null);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
 
@@ -225,12 +227,56 @@ const SupervisorDetailScreen = () => {
             return <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#2094f3" />;
         }
 
+        const markedDates = {};
+        attendance.forEach(item => {
+            const dateStr = new Date(item.timestamp).toISOString().split('T')[0];
+            markedDates[dateStr] = { marked: true, dotColor: '#10B981' };
+        });
+
+        if (selectedDate) {
+            markedDates[selectedDate] = {
+                ...(markedDates[selectedDate] || {}),
+                selected: true,
+                selectedColor: '#2094f3'
+            };
+        }
+
+        const filteredAttendance = selectedDate
+            ? attendance.filter(item => new Date(item.timestamp).toISOString().split('T')[0] === selectedDate)
+            : attendance;
+
         return (
             <FlatList
-                data={attendance}
+                data={filteredAttendance}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContent}
-                ListEmptyComponent={<Text style={styles.emptyListText}>No attendance records found.</Text>}
+                ListHeaderComponent={
+                    <View style={{ marginBottom: 16 }}>
+                        <Calendar
+                            markedDates={markedDates}
+                            onDayPress={day => {
+                                setSelectedDate(curr => curr === day.dateString ? null : day.dateString);
+                            }}
+                            theme={{
+                                selectedDayBackgroundColor: '#2094f3',
+                                todayTextColor: '#2094f3',
+                                arrowColor: '#2094f3',
+                                dotColor: '#10B981',
+                            }}
+                            style={{ borderRadius: 12, elevation: 2 }}
+                        />
+                        {selectedDate && (
+                            <TouchableOpacity onPress={() => setSelectedDate(null)} style={{ alignSelf: 'center', marginTop: 10 }}>
+                                <Text style={{ color: '#2094f3', fontWeight: 'bold' }}>Show All Records</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                }
+                ListEmptyComponent={
+                    <Text style={styles.emptyListText}>
+                        {selectedDate ? `No attendance on ${selectedDate}` : 'No attendance records found.'}
+                    </Text>
+                }
                 renderItem={({ item }) => (
                     <View style={styles.logItem}>
                         <View style={styles.logHeader}>
