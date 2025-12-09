@@ -503,7 +503,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation.navigate('ManageSupplies', { site, canEdit: true, adminId: user.id, currencyUnit })}
+                    onPress={() => Alert.alert("Coming Soon", "This feature is currently under development.")}
                 >
                     <Text style={styles.actionButtonText}>Manage Supplies</Text>
                     <Ionicons name="chevron-forward" size={16} color="#007bff" />
@@ -778,10 +778,10 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                 {renderPricingStatusBar()}
 
                 <View style={styles.gridContainer}>
-                    {renderAttendanceCard()}
-                    {renderSuppliesCard()}
                     {renderSupervisorsCard()}
-                    {renderAnnouncementsCard()}
+                    {renderSuppliesCard()}
+                    
+
                     {renderActivityLogsCard()}
                 </View>
             </ScrollView>
