@@ -34,6 +34,7 @@ const GlobalManageSupervisorsScreen = () => {
 
     // Form States
     const [formData, setFormData] = useState({
+        name: '',
         username: '',
         password: ''
     });
@@ -68,7 +69,7 @@ const GlobalManageSupervisorsScreen = () => {
 
     // --- Action Logic ---
     const resetForm = () => {
-        setFormData({ username: '', password: '' });
+        setFormData({ name: '', username: '', password: '' });
         setShowPassword(false);
     };
 
@@ -88,6 +89,7 @@ const GlobalManageSupervisorsScreen = () => {
             const response = await axios.post(`${API_BASE_URL}/api/auth/create-supervisor`, {
                 username: formData.username,
                 password: formData.password,
+                fullName: formData.name,
                 adminId: user.id
             });
 
@@ -224,6 +226,19 @@ const GlobalManageSupervisorsScreen = () => {
                         </div>
 
                         <div style={styles.modalBody}>
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>Name</label>
+                                <div style={styles.inputWrapper}>
+                                    <IoPersonOutline style={styles.inputIcon} />
+                                    <input
+                                        type="text"
+                                        style={styles.input}
+                                        placeholder="Enter full name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>Username</label>
                                 <div style={styles.inputWrapper}>

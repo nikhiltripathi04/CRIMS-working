@@ -80,7 +80,7 @@ router.post('/login', async (req, res) => {
 // ✅ CREATE SUPERVISOR Route (Admin only)
 router.post('/create-supervisor', async (req, res) => {
   try {
-    const { username, password, adminId } = req.body;
+    const { username, password, adminId, fullName } = req.body;
 
     if (!username || !password || !adminId) {
       return res.status(400).json({
@@ -111,6 +111,7 @@ router.post('/create-supervisor', async (req, res) => {
       username: username.toLowerCase().trim(),
       password,
       role: 'supervisor',
+      fullName: fullName || '',
       createdBy: adminId,
       companyId: admin.companyId, // Link to company
       assignedSites: [] // Initially empty

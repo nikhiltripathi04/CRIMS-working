@@ -27,6 +27,7 @@ const CreateSupervisorScreen = () => {
     const navigation = useNavigation();
     const { API_BASE_URL, token, user } = useAuth();
 
+    const [name, setName] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -34,6 +35,10 @@ const CreateSupervisorScreen = () => {
 
     const handleCreateSupervisor = async () => {
         // 1. Validation
+        if (!name.trim()) {
+            Alert.alert('Error', 'Please enter a name');
+            return;
+        }
         if (!username.trim()) {
             Alert.alert('Error', 'Please enter a username');
             return;
@@ -55,6 +60,7 @@ const CreateSupervisorScreen = () => {
             const supervisorData = {
                 username: username.trim(),
                 password: password.trim(),
+                fullName: name.trim(),
                 adminId: user.id
             };
 
@@ -123,6 +129,23 @@ const CreateSupervisorScreen = () => {
                         </View>
 
                         <View style={styles.divider} />
+
+                        {/* Name Input */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Name <Text style={styles.requiredStar}>*</Text></Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="Enter full name"
+                                    placeholderTextColor="#999"
+                                    autoCapitalize="words"
+                                    autoCorrect={false}
+                                />
+                            </View>
+                        </View>
 
                         {/* Username Input */}
                         <View style={styles.inputGroup}>
