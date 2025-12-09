@@ -36,7 +36,44 @@ const SupervisorMessageScreen = () => {
     const [micPermission, requestMicPermission] = useMicrophonePermissions();
     const [cameraVisible, setCameraVisible] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+    const [facing, setFacing] = useState('back');
+    const [timer, setTimer] = useState(0);
+    const timerRef = useRef(null);
     const cameraRef = useRef(null);
+
+    const toggleCameraFacing = () => {
+        setFacing(current => (current === 'back' ? 'front' : 'back'));
+    };
+
+    const startRecording = async () => {
+        if (cameraRef.current && !isRecording) {
+            setIsRecording(true);
+            setTimer(0);
+            timerRef.current = setInterval(() => {
+                setTimer(t => t + 1);
+            }, 1000);
+
+            try {
+                const videoRecordPromise = cameraRef.current.recordAsync({
+                    maxDuration: 60,
+                    mute: false
+                });
+
+                if (videoRecordPromise) {
+                    const data = await videoRecordPromise;
+                    setVideo(data);
+                    setCameraVisible(false);
+                }
+            } catch (error) {
+                console.error("Recording error:", error);
+                Alert.alert("Error", `Failed to record video: ${error.message}`);
+            } finally {
+                setIsRecording(false);
+                clearInterval(timerRef.current);
+                setTimer(0);
+            }
+        }
+    };
 
     const pickVideo = async () => {
         // Ask for permission
@@ -85,35 +122,11 @@ const SupervisorMessageScreen = () => {
         setCameraVisible(true);
     };
 
-    const startRecording = async () => {
-        if (cameraRef.current) {
-            setIsRecording(true);
-            try {
-                // recordAsync returns a promise that resolves when recording stops
-                const videoRecordPromise = cameraRef.current.recordAsync({
-                    maxDuration: 60, // Limit to 60 seconds
-                    quality: '720p',
-                    mute: false
-                });
-
-                if (videoRecordPromise) {
-                    const data = await videoRecordPromise;
-                    setVideo(data); // data has { uri }
-                    setCameraVisible(false);
-                }
-            } catch (error) {
-                console.error("Recording error:", error);
-                Alert.alert("Error", "Failed to record video.");
-            } finally {
-                setIsRecording(false);
-            }
-        }
-    };
-
     const stopRecording = () => {
         if (cameraRef.current && isRecording) {
             cameraRef.current.stopRecording();
             setIsRecording(false);
+            clearInterval(timerRef.current);
         }
     };
 
@@ -122,6 +135,7 @@ const SupervisorMessageScreen = () => {
             stopRecording();
         }
         setCameraVisible(false);
+        setTimer(0);
     };
 
     const handleSend = async () => {
@@ -172,6 +186,12 @@ const SupervisorMessageScreen = () => {
         } finally {
             setSending(false);
         }
+    };
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
     return (
@@ -257,27 +277,45 @@ const SupervisorMessageScreen = () => {
                         style={styles.camera}
                         ref={cameraRef}
                         mode="video"
+                        facing={facing}
                         videoQuality="720p"
                     >
                         <View style={styles.cameraOverlay}>
-                            <TouchableOpacity onPress={closeCamera} style={styles.closeCameraBtn}>
-                                <Ionicons name="close" size={30} color="#fff" />
-                            </TouchableOpacity>
 
-                            <View style={styles.cameraControls}>
-                                {!isRecording ? (
-                                    <TouchableOpacity onPress={startRecording} style={styles.recordBtn}>
-                                        <View style={styles.recordBtnInner} />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
-                                        <View style={styles.stopBtnInner} />
-                                    </TouchableOpacity>
+                            {/* Top Controls */}
+                            <View style={styles.cameraTopBar}>
+                                <TouchableOpacity onPress={closeCamera} style={styles.iconButton}>
+                                    <Ionicons name="close" size={28} color="#fff" />
+                                </TouchableOpacity>
+                                {isRecording && (
+                                    <View style={styles.timerBadge}>
+                                        <View style={styles.recordingDot} />
+                                        <Text style={styles.timerText}>{formatTime(timer)}</Text>
+                                    </View>
                                 )}
-                                <Text style={styles.recordingText}>
-                                    {isRecording ? "Recording..." : "Tap to Record"}
-                                </Text>
+                                <TouchableOpacity onPress={toggleCameraFacing} style={styles.iconButton}>
+                                    <Ionicons name="camera-reverse-outline" size={28} color="#fff" />
+                                </TouchableOpacity>
                             </View>
+
+                            {/* Bottom Controls */}
+                            <View style={styles.cameraBottomBar}>
+                                <View style={styles.cameraControls}>
+                                    {!isRecording ? (
+                                        <TouchableOpacity onPress={startRecording} style={styles.recordBtn}>
+                                            <View style={styles.recordBtnInner} />
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
+                                            <View style={styles.stopBtnInner} />
+                                        </TouchableOpacity>
+                                    )}
+                                    <Text style={styles.instructionText}>
+                                        {isRecording ? "Tap square to stop" : "Tap circle to record"}
+                                    </Text>
+                                </View>
+                            </View>
+
                         </View>
                     </CameraView>
                 </View>
@@ -408,44 +446,74 @@ const styles = StyleSheet.create({
     cameraOverlay: {
         flex: 1,
         justifyContent: 'space-between',
-        padding: 20,
-        paddingTop: 50,
-        paddingBottom: 40
     },
-    closeCameraBtn: {
-        alignSelf: 'flex-end',
+    cameraTopBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        paddingHorizontal: 20,
+    },
+    iconButton: {
         padding: 10,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        borderRadius: 20
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: 25,
+    },
+    timerBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 0, 0, 0.6)',
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    recordingDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#fff',
+        marginRight: 8,
+    },
+    timerText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    cameraBottomBar: {
+        paddingBottom: 50,
+        alignItems: 'center',
+        backgroundColor: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)', // Just placeholder for logic, RN doesn't support css gradients string.
     },
     cameraControls: {
         alignItems: 'center',
     },
     recordBtn: {
-        width: 70, height: 70, borderRadius: 35,
-        borderWidth: 4, borderColor: '#fff',
-        justifyContent: 'center', alignItems: 'center'
+        width: 80, height: 80, borderRadius: 40,
+        borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)',
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 10
     },
     recordBtnInner: {
-        width: 56, height: 56, borderRadius: 28,
+        width: 60, height: 60, borderRadius: 30,
         backgroundColor: '#dc3545'
     },
     stopBtn: {
-        width: 70, height: 70, borderRadius: 35,
-        borderWidth: 4, borderColor: '#fff',
-        justifyContent: 'center', alignItems: 'center'
+        width: 80, height: 80, borderRadius: 40,
+        borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)',
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 10
     },
     stopBtnInner: {
-        width: 30, height: 30, borderRadius: 4,
+        width: 36, height: 36, borderRadius: 6,
         backgroundColor: '#dc3545'
     },
-    recordingText: {
+    instructionText: {
         color: '#fff',
-        marginTop: 15,
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
         textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowRadius: 4
+        textShadowRadius: 2,
+        marginTop: 5
     }
 });
 
