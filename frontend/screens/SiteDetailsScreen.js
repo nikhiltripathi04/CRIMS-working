@@ -14,9 +14,11 @@ import {
     Platform,
     StatusBar,
     SafeAreaView,
-    ActivityIndicator
+    ActivityIndicator,
+    ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-av';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
@@ -25,7 +27,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get screen dimensions for responsive design
-const { width: screenWidth } = Dimensions.get("window");
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isIpad = screenWidth >= 768;
 
 const SiteDetailsScreen = ({ route, navigation }) => {
@@ -474,7 +476,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                         onPress={() => navigation.navigate('ManageWorkers', { site, adminId: user.id })}
                     >
                         <Text style={styles.actionButtonText}>Check Workers & Attendance</Text>
-                        <Ionicons name="chevron-forward" size={16} color="#007bff" />
+                        <Ionicons name="chevron-forward" size={16} color="#fff" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -506,7 +508,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                     onPress={() => Alert.alert("Coming Soon", "This feature is currently under development.")}
                 >
                     <Text style={styles.actionButtonText}>Manage Supplies</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#007bff" />
+                    <Ionicons name="chevron-forward" size={16} color="#fff" />
                 </TouchableOpacity>
             </View>
         </View>
@@ -538,7 +540,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                         onPress={() => navigation.navigate('ManageSupervisors', { site, adminId: user.id })}
                     >
                         <Text style={styles.actionButtonText}>Manage Supervisors</Text>
-                        <Ionicons name="chevron-forward" size={16} color="#007bff" />
+                        <Ionicons name="chevron-forward" size={16} color="#fff" />
                     </TouchableOpacity>
                 )}
             </View>
@@ -594,7 +596,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                         onPress={() => setShowAnnouncementsModal(true)}
                     >
                         <Text style={styles.actionButtonText}>View All ({announcements.length})</Text>
-                        <Ionicons name="chevron-forward" size={16} color="#007bff" />
+                        <Ionicons name="chevron-forward" size={16} color="#fff" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -639,7 +641,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
                         }}
                     >
                         <Text style={styles.actionButtonText}>View All ({activityLogs.length})</Text>
-                        <Ionicons name="chevron-forward" size={16} color="#007bff" />
+                        <Ionicons name="chevron-forward" size={16} color="#fff" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -755,64 +757,135 @@ const SiteDetailsScreen = ({ route, navigation }) => {
     );
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <View style={styles.headerTitleBlock}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Text style={styles.headerTitle}>{site.siteName}</Text>
-                        <View style={styles.roleBadge}><Text style={styles.roleText}>SITE</Text></View>
-                    </View>
-                    <Text style={styles.headerSubtitle}>📍 {site.location}</Text>
-                </View>
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
+
+            {/* Header Section */}
+            <View style={styles.headerWrapper}>
+                <ImageBackground
+                    source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+                    style={styles.headerBackground}
+                    imageStyle={{ transform: [{ translateY: -50 }] }}
+                    resizeMode="cover"
+                >
+                    <LinearGradient
+                        colors={['#007ADC99', '#007ADC99']}
+                        style={styles.headerGradient}
+                    >
+                        <SafeAreaView style={styles.safeArea}>
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <View style={styles.headerTitleBlock}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        <Text style={styles.headerTitle}>{site.siteName}</Text>
+                                        <View style={styles.roleBadge}><Text style={styles.roleText}>SITE</Text></View>
+                                    </View>
+                                    <Text style={styles.headerSubtitle}>📍 {site.location}</Text>
+                                </View>
+                            </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                </ImageBackground>
             </View>
 
-            <ScrollView
-                contentContainerStyle={styles.contentContainer}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchSiteDetails(); fetchAnnouncements(); }} />}
-            >
-                {renderStatsContainer()}
-                {renderPricingStatusBar()}
+            <View style={styles.contentContainer}>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { fetchSiteDetails(); fetchAnnouncements(); }} />}
+                >
+                    {renderStatsContainer()}
+                    {renderPricingStatusBar()}
 
-                <View style={styles.gridContainer}>
-                    {renderSupervisorsCard()}
-                    {renderSuppliesCard()}
-                    
+                    <View style={styles.gridContainer}>
+                        {renderSupervisorsCard()}
+                        {renderSuppliesCard()}
 
-                    {renderActivityLogsCard()}
-                </View>
-            </ScrollView>
+                        {renderActivityLogsCard()}
+                    </View>
+                </ScrollView>
+            </View>
 
             {renderAnnouncementDetailsModal()}
             {renderAnnouncementsModal()}
             {renderLogsModal()}
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#f4f6f9' },
-    header: {
-        backgroundColor: '#fff',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
-        elevation: 2,
+    container: {
+        flex: 1,
+        backgroundColor: '#007ADC',
     },
-    backButton: { marginRight: 15 },
-    headerTitleBlock: { flex: 1 },
-    headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#1f2937' },
-    headerSubtitle: { fontSize: 13, color: '#6b7280', marginTop: 2 },
-    roleBadge: { backgroundColor: '#007bff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    roleText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+    safeArea: {
+        flex: 1,
+    },
+    headerWrapper: {
+        height: screenHeight * 0.28,
+        width: '100%',
+    },
+    headerBackground: {
+        flex: 1,
+        width: '100%',
+    },
+    headerGradient: {
+        flex: 1,
+    },
+    headerContent: {
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10,
+        height: '100%',
+    },
+    backButton: {
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+        alignSelf: 'flex-start',
+        marginBottom: 20
+    },
+    headerTitleBlock: {
+        marginLeft: 4,
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '500',
+    },
+    roleBadge: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    roleText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '700',
+    },
 
-    contentContainer: { padding: 20 },
+    // Content Container
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -40,
+        overflow: 'hidden',
+    },
+    scrollContent: {
+        paddingTop: 24,
+        paddingBottom: 40,
+        paddingHorizontal: 20,
+    },
 
     // Stats
     statsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
@@ -823,9 +896,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         elevation: 2,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8
     },
-    statNumber: { fontSize: 18, fontWeight: 'bold', color: '#333', marginTop: 5 },
+    statNumber: { fontSize: 18, fontWeight: '700', color: '#333', marginTop: 5 },
     statLabel: { fontSize: 12, color: '#666' },
 
     // Pricing Bar
@@ -844,20 +917,30 @@ const styles = StyleSheet.create({
 
     // Cards
     gridContainer: { gap: 20 },
-    card: { backgroundColor: '#fff', borderRadius: 12, padding: 15, elevation: 2, marginBottom: 5 },
-    cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 20,
+        elevation: 3,
+        marginBottom: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12
+    },
+    cardTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 15 },
     cardContent: {},
     emptyText: { color: '#999', fontStyle: 'italic', textAlign: 'center', marginVertical: 10 },
 
     // Attendance
     attendanceProgressContainer: { marginBottom: 15 },
     attendanceProgressBar: { height: 10, backgroundColor: '#e5e7eb', borderRadius: 5, overflow: 'hidden', marginBottom: 5 },
-    attendanceProgress: { height: '100%', backgroundColor: '#007bff' },
+    attendanceProgress: { height: '100%', backgroundColor: '#007ADC' },
     attendancePercentageText: { textAlign: 'center', fontSize: 12, color: '#666', fontWeight: '600' },
     attendanceSummaryStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
     attendanceStat: { alignItems: 'center' },
     attendanceStatDot: { width: 10, height: 10, borderRadius: 5, marginBottom: 5 },
-    attendanceStatNumber: { fontWeight: 'bold', color: '#333' },
+    attendanceStatNumber: { fontWeight: '700', color: '#333' },
     attendanceStatLabel: { fontSize: 10, color: '#666' },
     attendanceAlert: { flexDirection: 'row', backgroundColor: '#fff3cd', padding: 10, borderRadius: 8, marginBottom: 10, alignItems: 'center' },
     attendanceAlertText: { marginLeft: 8, color: '#856404', fontSize: 12, flex: 1 },
@@ -865,40 +948,41 @@ const styles = StyleSheet.create({
     // Action Button
     actionButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: '#f0f4f8', padding: 12, borderRadius: 8, marginTop: 10
+        backgroundColor: '#007ADC', padding: 12, borderRadius: 12, marginTop: 10,
+        shadowColor: '#007ADC', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2
     },
-    actionButtonText: { color: '#007bff', fontWeight: '600', marginRight: 5 },
+    actionButtonText: { color: '#fff', fontWeight: 'bold', marginRight: 5 },
 
     // Supply items
-    supplyItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    supplyName: { fontSize: 16, color: '#333', fontWeight: '500' },
-    supplyMeta: { fontSize: 12, color: '#666', marginTop: 2 },
+    supplyItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    supplyName: { fontSize: 16, color: '#333', fontWeight: '600' },
+    supplyMeta: { fontSize: 12, color: '#666', marginTop: 4 },
 
     // Supervisors
-    supervisorItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    supervisorIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-    supervisorName: { fontSize: 16, color: '#333' },
+    supervisorItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    supervisorIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f0f4f8', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    supervisorName: { fontSize: 16, color: '#333', fontWeight: '500' },
 
     // Announcement
-    announcementPreview: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    announcementPreviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    announcementPreview: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    announcementPreviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
     announcementIconTitle: { flexDirection: 'row', alignItems: 'center', flex: 1 },
     announcementPreviewTitle: { fontWeight: '600', color: '#333', flex: 1 },
-    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#007bff', marginLeft: 5 },
-    announcementPreviewContent: { fontSize: 13, color: '#555', marginBottom: 4 },
-    announcementPreviewMeta: { fontSize: 11, color: '#999' },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#007ADC', marginLeft: 8 },
+    announcementPreviewContent: { fontSize: 14, color: '#555', marginBottom: 6, lineHeight: 20 },
+    announcementPreviewMeta: { fontSize: 12, color: '#999' },
 
     // Logs
-    logItem: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    logIconContainer: { marginRight: 10, marginTop: 2 },
+    logItem: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    logIconContainer: { marginRight: 12, marginTop: 2 },
     logContent: { flex: 1 },
-    logDescription: { color: '#333', fontSize: 14, marginBottom: 2 },
-    logTimestamp: { color: '#999', fontSize: 11 },
+    logDescription: { color: '#333', fontSize: 14, marginBottom: 4, lineHeight: 20 },
+    logTimestamp: { color: '#999', fontSize: 12 },
 
     // Full Screen Modal
     fullScreenModal: { flex: 1, backgroundColor: '#fff' },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
+    modalTitle: { fontSize: 18, fontWeight: '700' },
 
     // Modal Items
     logItemModal: { flexDirection: 'row', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
@@ -909,21 +993,21 @@ const styles = StyleSheet.create({
 
     // Details Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
-    detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    detailsModalTitle: { fontSize: 18, fontWeight: 'bold' },
-    detailsContainer: { padding: 20 },
-    detailsTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+    modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '90%' },
+    detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    detailsModalTitle: { fontSize: 20, fontWeight: '700' },
+    detailsContainer: { padding: 24 },
+    detailsTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, color: '#333' },
     urgentText: { color: '#ff4444' },
-    detailsMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    detailsMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
     detailsAuthor: { fontWeight: '600', color: '#555' },
     detailsDate: { color: '#888' },
-    detailsContent: { fontSize: 16, lineHeight: 24, color: '#333', marginBottom: 20 },
-    detailsImage: { width: '100%', height: 200, borderRadius: 8 },
-    detailsVideoPlayer: { width: '100%', height: 250, backgroundColor: '#000', borderRadius: 8 },
-    mediaActionContainer: { marginTop: 15, alignItems: 'center' },
-    saveToGalleryButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0f2fe', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20 },
-    saveToGalleryText: { color: '#007bff', fontWeight: '600', marginLeft: 8 },
+    detailsContent: { fontSize: 16, lineHeight: 26, color: '#333', marginBottom: 24 },
+    detailsImage: { width: '100%', height: 240, borderRadius: 12 },
+    detailsVideoPlayer: { width: '100%', height: 250, backgroundColor: '#000', borderRadius: 12 },
+    mediaActionContainer: { marginTop: 20, alignItems: 'center' },
+    saveToGalleryButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0f2fe', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 24 },
+    saveToGalleryText: { color: '#007ADC', fontWeight: '600', marginLeft: 8 },
 });
 
 export default SiteDetailsScreen;
