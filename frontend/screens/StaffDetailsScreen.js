@@ -207,7 +207,7 @@ const StaffDetailsScreen = () => {
       </View>
       <View style={styles.statCard}>
         <Ionicons name="calendar-outline" size={24} color="#28a745" />
-        <Text style={styles.statNumber}>{stats.lastSeen}</Text>
+        <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>{stats.lastSeen}</Text>
         <Text style={styles.statLabel}>Last Seen</Text>
       </View>
       <View style={styles.statCard}>
