@@ -24,11 +24,11 @@ import axios from 'axios';
 import { Video, ResizeMode } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { LinearGradient } from "expo-linear-gradient";
 import { Calendar } from 'react-native-calendars';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isIpad = screenWidth >= 768;
+const isIOS = Platform.OS === 'ios';
 
 const SupervisorDetailScreen = () => {
     const navigation = useNavigation();
@@ -94,9 +94,6 @@ const SupervisorDetailScreen = () => {
                     onPress: async () => {
                         try {
                             const config = { headers: { Authorization: `Bearer ${token}` } };
-                            // Note: Web used query param adminId, verify if needed. 
-                            // Usually DELETE /api/auth/supervisors/:id checks auth header.
-                            // Adding adminId just in case backend expects it.
                             await axios.delete(`${API_BASE_URL}/api/auth/supervisors/${supervisor._id}?adminId=${user.id}`, config);
                             Alert.alert('Success', 'Supervisor deleted successfully', [
                                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -171,47 +168,47 @@ const SupervisorDetailScreen = () => {
 
     const renderOverview = () => (
         <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-            {/* Credentials Card */}
-            <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <Ionicons name="key-outline" size={20} color="#2094f3" />
-                    <Text style={styles.cardTitle}>Credentials</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.label}>Username:</Text>
-                    <Text style={styles.value}>{supervisor.username}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.label}>Role:</Text>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>Supervisor</Text>
+
+            {/* Password Button Section - Prominent at top or middle as per image */}
+            <TouchableOpacity
+                style={styles.mainActionButton} // Blue button as requested
+                onPress={() => setIsPasswordModalOpen(true)}
+            >
+                <Text style={styles.mainActionText}>Change password</Text>
+            </TouchableOpacity>
+
+            {/* Info Cards */}
+            <View style={styles.infoSection}>
+                {/* Credentials */}
+                <View style={styles.detailRow}>
+                    <View style={styles.detailIconBox}>
+                        <Ionicons name="person-outline" size={20} color="#4CAF50" />
+                    </View>
+                    <View style={styles.detailTextBox}>
+                        <Text style={styles.detailLabel}>Username</Text>
+                        <Text style={styles.detailValue}>{supervisor.username}</Text>
                     </View>
                 </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.label}>ID:</Text>
-                    <Text style={[styles.value, { fontSize: 12, color: '#999' }]}>{supervisor._id}</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.changePasswordBtn}
-                    onPress={() => setIsPasswordModalOpen(true)}
-                >
-                    <Ionicons name="key-outline" size={16} color="#333" style={{ marginRight: 8 }} />
-                    <Text style={styles.changePasswordText}>Change Password</Text>
-                </TouchableOpacity>
-            </View>
 
-            {/* Assigned Sites Card */}
-            <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <Ionicons name="briefcase-outline" size={20} color="#2094f3" />
-                    <Text style={styles.cardTitle}>Assigned Sites</Text>
+                <View style={styles.detailRow}>
+                    <View style={styles.detailIconBox}>
+                        <Ionicons name="briefcase-outline" size={20} color="#4CAF50" />
+                    </View>
+                    <View style={styles.detailTextBox}>
+                        <Text style={styles.detailLabel}>Role</Text>
+                        <Text style={styles.detailValue}>Supervisor</Text>
+                    </View>
                 </View>
+
+                {/* Assigned Sites */}
+                <View style={styles.divider} />
+                <Text style={styles.sectionTitle}>Assigned Sites</Text>
                 {supervisor.assignedSites && supervisor.assignedSites.length > 0 ? (
-                    <View>
+                    <View style={styles.sitesContainer}>
                         {supervisor.assignedSites.map((site, index) => (
-                            <View key={index} style={styles.siteItem}>
-                                <Ionicons name="location-outline" size={16} color="#007bff" style={{ marginRight: 8 }} />
-                                <Text style={styles.siteName}>{site.siteName || site.name || 'Unknown Site'}</Text>
+                            <View key={index} style={styles.siteChip}>
+                                <Ionicons name="location" size={14} color="#fff" style={{ marginRight: 4 }} />
+                                <Text style={styles.siteChipText}>{site.siteName || site.name || 'Unknown Site'}</Text>
                             </View>
                         ))}
                     </View>
@@ -219,25 +216,33 @@ const SupervisorDetailScreen = () => {
                     <Text style={styles.emptyText}>No sites assigned.</Text>
                 )}
             </View>
+
+            <View style={styles.infoSection}>
+                <TouchableOpacity style={styles.deleteButtonOutline} onPress={handleDelete}>
+                    <Ionicons name="trash-outline" size={18} color="#FF5252" style={{ marginRight: 8 }} />
+                    <Text style={styles.deleteButtonText}>Delete Supervisor</Text>
+                </TouchableOpacity>
+            </View>
+
         </ScrollView>
     );
 
     const renderAttendance = () => {
         if (loading && attendance.length === 0) {
-            return <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#2094f3" />;
+            return <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#4CAF50" />;
         }
 
         const markedDates = {};
         attendance.forEach(item => {
             const dateStr = new Date(item.timestamp).toISOString().split('T')[0];
-            markedDates[dateStr] = { marked: true, dotColor: '#10B981' };
+            markedDates[dateStr] = { marked: true, dotColor: '#4CAF50' };
         });
 
         if (selectedDate) {
             markedDates[selectedDate] = {
                 ...(markedDates[selectedDate] || {}),
                 selected: true,
-                selectedColor: '#2094f3'
+                selectedColor: '#4CAF50'
             };
         }
 
@@ -258,16 +263,41 @@ const SupervisorDetailScreen = () => {
                                 setSelectedDate(curr => curr === day.dateString ? null : day.dateString);
                             }}
                             theme={{
-                                selectedDayBackgroundColor: '#2094f3',
-                                todayTextColor: '#2094f3',
-                                arrowColor: '#2094f3',
-                                dotColor: '#10B981',
+                                backgroundColor: '#ffffff',
+                                calendarBackground: '#ffffff',
+                                textSectionTitleColor: '#b6c1cd',
+                                selectedDayBackgroundColor: '#4CAF50',
+                                selectedDayTextColor: '#ffffff',
+                                todayTextColor: '#4CAF50',
+                                dayTextColor: '#2d4150',
+                                textDisabledColor: '#d9e1e8',
+                                dotColor: '#4CAF50',
+                                selectedDotColor: '#ffffff',
+                                arrowColor: '#4CAF50',
+                                disabledArrowColor: '#d9e1e8',
+                                monthTextColor: '#2d4150',
+                                indicatorColor: '#4CAF50',
+                                textDayFontFamily: isIOS ? 'System' : 'Roboto',
+                                textMonthFontFamily: isIOS ? 'System' : 'Roboto',
+                                textDayHeaderFontFamily: isIOS ? 'System' : 'Roboto',
+                                textDayFontWeight: '300',
+                                textMonthFontWeight: 'bold',
+                                textDayHeaderFontWeight: '300',
+                                textDayFontSize: 14,
+                                textMonthFontSize: 16,
+                                textDayHeaderFontSize: 13
                             }}
-                            style={{ borderRadius: 12, elevation: 2 }}
+                            style={{
+                                borderRadius: 16,
+                                borderColor: '#f0f0f0',
+                                borderWidth: 1,
+                                marginBottom: 16,
+                                overflow: 'hidden'
+                            }}
                         />
                         {selectedDate && (
                             <TouchableOpacity onPress={() => setSelectedDate(null)} style={{ alignSelf: 'center', marginTop: 10 }}>
-                                <Text style={{ color: '#2094f3', fontWeight: 'bold' }}>Show All Records</Text>
+                                <Text style={{ color: '#4CAF50', fontWeight: 'bold' }}>Show All Records</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -280,8 +310,8 @@ const SupervisorDetailScreen = () => {
                 renderItem={({ item }) => (
                     <View style={styles.logItem}>
                         <View style={styles.logHeader}>
-                            <View style={[styles.logBadge, { backgroundColor: item.type === 'login' ? '#d4edda' : '#f8d7da' }]}>
-                                <Text style={[styles.logBadgeText, { color: item.type === 'login' ? '#155724' : '#721c24' }]}>
+                            <View style={[styles.logBadge, { backgroundColor: item.type === 'login' ? '#E8F5E9' : '#FFEBEE' }]}>
+                                <Text style={[styles.logBadgeText, { color: item.type === 'login' ? '#2E7D32' : '#C62828' }]}>
                                     {item.type === 'login' ? 'IN' : 'OUT'}
                                 </Text>
                             </View>
@@ -290,7 +320,7 @@ const SupervisorDetailScreen = () => {
                         <Text style={styles.logLocation}>📍 {item.location?.displayText || 'Unknown Location'}</Text>
                         {item.photo && (
                             <TouchableOpacity style={styles.viewPhotoBtn} onPress={() => setSelectedAttendance(item)}>
-                                <Ionicons name="image-outline" size={16} color="#007bff" style={{ marginRight: 5 }} />
+                                <Ionicons name="image-outline" size={16} color="#4CAF50" style={{ marginRight: 5 }} />
                                 <Text style={styles.viewPhotoText}>View Photo</Text>
                             </TouchableOpacity>
                         )}
@@ -302,7 +332,7 @@ const SupervisorDetailScreen = () => {
 
     const renderMessages = () => {
         if (loading && messages.length === 0) {
-            return <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#2094f3" />;
+            return <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#4CAF50" />;
         }
 
         return (
@@ -324,7 +354,7 @@ const SupervisorDetailScreen = () => {
                                     style={styles.viewVideoBtn}
                                     onPress={() => setSelectedVideo(item.videoUrl)}
                                 >
-                                    <Ionicons name="play-circle-outline" size={16} color="#007bff" style={{ marginRight: 6 }} />
+                                    <Ionicons name="play-circle-outline" size={16} color="#4CAF50" style={{ marginRight: 6 }} />
                                     <Text style={styles.viewVideoText}>View</Text>
                                 </TouchableOpacity>
 
@@ -332,7 +362,7 @@ const SupervisorDetailScreen = () => {
                                     style={styles.viewVideoBtn}
                                     onPress={() => handleSaveVideo(item.videoUrl)}
                                 >
-                                    <Ionicons name="download-outline" size={16} color="#007bff" style={{ marginRight: 6 }} />
+                                    <Ionicons name="download-outline" size={16} color="#4CAF50" style={{ marginRight: 6 }} />
                                     <Text style={styles.viewVideoText}>Save</Text>
                                 </TouchableOpacity>
                             </View>
@@ -347,41 +377,37 @@ const SupervisorDetailScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-                <SafeAreaView style={styles.safeArea}>
-                    {/* Header */}
+            <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
+
+            {/* Header / Background */}
+            <View style={styles.headerBackground}>
+                <SafeAreaView>
                     <View style={styles.header}>
                         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                             <Ionicons name="arrow-back" size={24} color="#fff" />
                         </TouchableOpacity>
-                        <View style={styles.headerTitleContainer}>
-                            <Text style={styles.headerTitle}>{supervisor.username}</Text>
-                            <Text style={styles.headerSubtitle}>Supervisor Details</Text>
-                        </View>
-                        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                            <Ionicons name="trash-outline" size={22} color="#ffcccc" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Content Container */}
-                    <View style={styles.contentContainer}>
-                        {/* Tabs */}
-                        <View style={styles.tabBar}>
-                            {renderTabButton('overview', 'Overview')}
-                            {renderTabButton('attendance', 'Attendance')}
-                            {renderTabButton('messages', 'Messages')}
-                        </View>
-
-                        {/* Active Tab Content */}
-                        <View style={styles.tabBody}>
-                            {activeTab === 'overview' && renderOverview()}
-                            {activeTab === 'attendance' && renderAttendance()}
-                            {activeTab === 'messages' && renderMessages()}
-                        </View>
+                        <Text style={styles.headerTitle}>Supervisor Details</Text>
+                        <View style={{ width: 40 }} />
                     </View>
                 </SafeAreaView>
-            </LinearGradient>
+            </View>
+
+            {/* Main Content Card Wrapper */}
+            <View style={styles.mainCardWrapper}>
+                {/* Tabs */}
+                <View style={styles.tabBar}>
+                    {renderTabButton('overview', 'Overview')}
+                    {renderTabButton('attendance', 'Attendance')}
+                    {renderTabButton('messages', 'Messages')}
+                </View>
+
+                {/* Tab Content */}
+                <View style={styles.contentArea}>
+                    {activeTab === 'overview' && renderOverview()}
+                    {activeTab === 'attendance' && renderAttendance()}
+                    {activeTab === 'messages' && renderMessages()}
+                </View>
+            </View>
 
             {/* Photo Modal */}
             <Modal visible={!!selectedAttendance} transparent={true} animationType="fade">
@@ -399,7 +425,7 @@ const SupervisorDetailScreen = () => {
                                 <Image
                                     source={{ uri: selectedAttendance.photo }}
                                     style={styles.modalImage}
-                                    resizeMode="contain" // or cover
+                                    resizeMode="contain"
                                 />
                                 <View style={styles.modalMeta}>
                                     <Text style={styles.modalLabel}>Time: <Text style={styles.modalValue}>{new Date(selectedAttendance.timestamp).toLocaleString()}</Text></Text>
@@ -459,7 +485,7 @@ const SupervisorDetailScreen = () => {
                                 onChangeText={setNewPassword}
                                 style={styles.input}
                                 autoCapitalize="none"
-                                secureTextEntry={false} // Optionally make it secure, but admin usually sees it
+                                secureTextEntry={false}
                             />
                             <View style={styles.modalActions}>
                                 <TouchableOpacity
@@ -484,148 +510,218 @@ const SupervisorDetailScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    gradient: { flex: 1 },
-    safeArea: { flex: 1 },
+    container: { flex: 1, backgroundColor: '#4CAF50' }, // Green theme
 
     // Header
+    headerBackground: {
+        backgroundColor: '#4CAF50', // Main Green Color
+        paddingBottom: 25,
+        paddingTop: isIpad ? 10 : (Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 0)
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: isIpad ? 20 : 10,
-        paddingBottom: 20,
-        justifyContent: 'space-between'
+        paddingTop: 10,
+        justifyContent: 'space-between',
     },
-    backButton: { padding: 5 },
-    headerTitleContainer: { alignItems: 'center' },
-    headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
-    deleteButton: { padding: 5 },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    backButton: {
+        padding: 5,
+    },
+
+    // Main Card Wrapper - The white card look
+    mainCardWrapper: {
+        flex: 1,
+        backgroundColor: '#f2f4f8',
+        marginHorizontal: 20,
+        marginBottom: 30, // space at bottom
+        marginTop: 5,
+        borderRadius: 24,
+        overflow: 'hidden',
+        // elevation: 5, // Optional shadow
+    },
 
     // Tabs
     tabBar: {
         flexDirection: 'row',
-        backgroundColor: '#fff',
-        marginHorizontal: 20,
-        marginTop: 10,
-        borderRadius: 12,
+        backgroundColor: '#f1f3f5', // Light grey container
         padding: 4,
-        elevation: 2,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4
+        margin: 20,
+        borderRadius: 16,
+        marginBottom: 10,
     },
     tabButton: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        borderRadius: 8
+        borderRadius: 12,
     },
     activeTabButton: {
-        backgroundColor: '#e3f2fd'
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     tabText: {
-        color: '#666',
+        color: '#888',
         fontWeight: '600',
-        fontSize: 13
+        fontSize: 14,
     },
     activeTabText: {
-        color: '#2094f3',
-        fontWeight: 'bold'
+        color: '#4CAF50', // Active Green
+        fontWeight: 'bold',
     },
 
-    // Content
-    contentContainer: {
+    // Content Area
+    contentArea: {
         flex: 1,
-        backgroundColor: '#f4f6f9',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        marginTop: 10,
-        overflow: 'hidden'
-    },
-    tabBody: {
-        flex: 1,
-        paddingTop: 10
     },
     tabContent: {
-        padding: 20
-    },
-    listContent: {
-        padding: 20,
-        paddingBottom: 40
+        flex: 1,
+        paddingHorizontal: 20,
     },
 
-    // Card Styles
-    card: {
-        backgroundColor: '#fff',
+    // Overview Styles
+    mainActionButton: {
+        backgroundColor: '#4CAF50', // Green button color
         borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 20,
+        elevation: 3,
+        shadowColor: '#4CAF50', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5,
     },
-    cardHeader: {
+    mainActionText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+
+    // Info Cards
+    infoSection: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 20,
+        elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4,
+    },
+    detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        paddingBottom: 8
+        marginBottom: 16,
     },
-    cardTitle: {
+    detailIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#E8F5E9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    detailTextBox: {
+        flex: 1,
+    },
+    detailLabel: {
+        fontSize: 13,
+        color: '#888',
+        marginBottom: 3,
+    },
+    detailValue: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#333',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginVertical: 16,
+    },
+    sectionTitle: {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#333',
-        marginLeft: 8
+        marginBottom: 12,
     },
-    infoRow: {
+    sitesContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    siteChip: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f9f9f9'
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
     },
-    label: { color: '#666', fontSize: 14 },
-    value: { color: '#333', fontWeight: '600', fontSize: 14 },
-    badge: {
-        backgroundColor: '#e3f2fd',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4
+    siteChipText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '500',
     },
-    badgeText: { color: '#007bff', fontSize: 12, fontWeight: 'bold' },
-    emptyText: { color: '#999', fontStyle: 'italic', textAlign: 'center', marginTop: 10 },
+    emptyText: {
+        color: '#999',
+        fontStyle: 'italic',
+        fontSize: 13,
+    },
+    deleteButtonOutline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FF5252',
+        backgroundColor: '#FFEBEE',
+        marginTop: 5,
+    },
+    deleteButtonText: {
+        color: '#D32F2F',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
 
-    // Site Item
-    siteItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        marginBottom: 8
+    // Attendance & Messages Common
+    listContent: {
+        padding: 20,
+        paddingBottom: 40,
     },
-    siteName: { color: '#333', fontWeight: '500' },
+    emptyListText: {
+        textAlign: 'center',
+        color: '#999',
+        marginTop: 40,
+    },
 
     // Attendance Log Styles
     logItem: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         marginBottom: 12,
-        elevation: 1
+        elevation: 1,
     },
     logHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8
+        marginBottom: 8,
     },
     logBadge: {
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 4
+        borderRadius: 4,
     },
     logBadgeText: { fontSize: 12, fontWeight: 'bold' },
     logTime: { color: '#666', fontSize: 12 },
@@ -635,28 +731,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         alignSelf: 'flex-start',
         borderWidth: 1,
-        borderColor: '#007bff',
+        borderColor: '#4CAF50',
         borderRadius: 6,
         paddingHorizontal: 10,
-        paddingVertical: 4
+        paddingVertical: 4,
     },
-    viewPhotoText: { color: '#007bff', fontSize: 12 },
-    emptyListText: { textAlign: 'center', color: '#999', marginTop: 40 },
+    viewPhotoText: { color: '#4CAF50', fontSize: 12 },
 
     // Message Item Styles
     messageItem: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         marginBottom: 12,
-        borderLeftWidth: 4,
-        borderLeftColor: '#007bff',
-        elevation: 1
+        elevation: 1,
     },
     messageHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 6
+        marginBottom: 6,
     },
     messageSite: { fontWeight: 'bold', color: '#333', fontSize: 14 },
     messageTime: { color: '#888', fontSize: 11 },
@@ -664,14 +757,14 @@ const styles = StyleSheet.create({
     viewVideoBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#e3f2fd',
+        backgroundColor: '#E8F5E9',
         alignSelf: 'flex-start',
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 6,
-        marginTop: 8
+        marginTop: 8,
     },
-    viewVideoText: { fontSize: 13, color: '#007bff', fontWeight: '600' },
+    viewVideoText: { fontSize: 13, color: '#2E7D32', fontWeight: '600' },
 
     // Modal
     modalOverlay: {
@@ -679,17 +772,17 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20
+        padding: 20,
     },
     modalCloseArea: {
-        position: 'absolute', top: 0, bottom: 0, left: 0, right: 0
+        position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
     },
     modalContent: {
         width: '100%',
         backgroundColor: '#fff',
         borderRadius: 12,
         overflow: 'hidden',
-        maxHeight: '80%'
+        maxHeight: '80%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -697,7 +790,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee'
+        borderBottomColor: '#eee',
     },
     modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
     modalBody: { padding: 16 },
@@ -706,23 +799,7 @@ const styles = StyleSheet.create({
     modalLabel: { fontWeight: 'bold', color: '#555', marginBottom: 4 },
     modalValue: { fontWeight: 'normal' },
 
-    // New Styles for Password Change
-    changePasswordBtn: {
-        marginTop: 15,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        backgroundColor: '#f8f9fa',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-    },
-    changePasswordText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-    },
+    // Password Change Modal
     input: {
         width: '100%',
         padding: 12,
@@ -752,7 +829,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 8,
-        backgroundColor: '#007bff',
+        backgroundColor: '#4CAF50',
     },
     submitBtnText: {
         color: '#fff',
