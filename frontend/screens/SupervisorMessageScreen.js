@@ -12,8 +12,10 @@ import {
     KeyboardAvoidingView,
     Platform,
     Modal,
-    FlatList
+    FlatList,
+    StatusBar
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -25,7 +27,7 @@ import axios from 'axios';
 const SupervisorMessageScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { site } = route.params || {}; // Pass site object
+    const { site } = route.params || {};
     const { API_BASE_URL, token } = useAuth();
 
     const [message, setMessage] = useState('');
@@ -103,7 +105,6 @@ const SupervisorMessageScreen = () => {
     };
 
     const pickVideo = async () => {
-        // Ask for permission
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission needed', 'Please grant permission to access your media library.');
@@ -118,7 +119,6 @@ const SupervisorMessageScreen = () => {
 
         if (!result.canceled) {
             const asset = result.assets[0];
-            // Check size if possible (expo-image-picker gives fileSize in bytes usually)
             if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024) {
                 Alert.alert('Error', 'Video size too large. Max 50MB.');
                 return;
@@ -128,7 +128,7 @@ const SupervisorMessageScreen = () => {
     };
 
     const handleRecordVideo = async () => {
-        if (!permission || !micPermission) return; // Wait for hooks to load
+        if (!permission || !micPermission) return;
 
         if (!permission.granted) {
             const result = await requestPermission();
@@ -184,17 +184,13 @@ const SupervisorMessageScreen = () => {
             if (message.trim()) formData.append('content', message.trim());
 
             if (video) {
-                // Append video file
                 const localUri = video.uri;
                 const filename = localUri.split('/').pop() || 'video.mp4';
-                // Guess mime type roughly or just use video/mp4
                 const match = /\.(\w+)$/.exec(filename);
                 const type = match ? `video/${match[1]}` : `video/mp4`;
-
                 formData.append('video', { uri: localUri, name: filename, type });
             }
 
-            // Note: Axios on React Native with FormData needs proper config
             await axios.post(`${API_BASE_URL}/api/messages/send`, formData, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -202,7 +198,6 @@ const SupervisorMessageScreen = () => {
                 },
             });
 
-            // Reset inputs and refresh list
             setMessage('');
             setVideo(null);
             fetchMessages();
@@ -229,8 +224,6 @@ const SupervisorMessageScreen = () => {
 
     const renderMessageItem = ({ item }) => {
         const isSupervisor = item.senderRole === 'supervisor';
-        // In this screen, we are the supervisor, so 'supervisor' messages are OUR messages (Right aligned)
-        // If there were responses (future feature), they would be 'admin' (Left aligned)
 
         return (
             <View style={[
@@ -262,80 +255,100 @@ const SupervisorMessageScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Message Admin</Text>
-                <View style={{ width: 24 }} />
-            </View>
-
-            <View style={{ flex: 1, backgroundColor: '#e5ddd5' }}>
-                <FlatList
-                    data={messages}
-                    renderItem={renderMessageItem}
-                    keyExtractor={item => item._id}
-                    inverted
-                    contentContainerStyle={{ padding: 15 }}
-                    ListEmptyComponent={
-                        !loadingMessages && (
-                            <Text style={styles.emptyText}>No messages yet. Send a report or video.</Text>
-                        )
-                    }
-                />
-            </View>
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#34C759" />
+            <LinearGradient
+                colors={['#34C759', '#2E9F4A']} // Green gradient
+                style={styles.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
             >
-                <View style={styles.inputContainer}>
-                    <View style={styles.inputRow}>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Type a message"
-                            multiline
-                            maxHeight={100}
-                            value={message}
-                            onChangeText={setMessage}
-                        />
-                        <TouchableOpacity onPress={pickVideo} style={styles.attachButton}>
-                            <Ionicons name="images-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleRecordVideo} style={styles.attachButton}>
-                            <Ionicons name="videocam-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {video && (
-                        <View style={styles.previewContainer}>
-                            <View style={styles.previewFile}>
-                                <Ionicons name="videocam" size={20} color="#007bff" />
-                                <Text style={styles.previewName} numberOfLines={1}>
-                                    {video.fileName || 'Recorded Video'}
-                                </Text>
-                                <TouchableOpacity onPress={() => setVideo(null)}>
-                                    <Ionicons name="close-circle" size={22} color="#dc3545" />
-                                </TouchableOpacity>
-                            </View>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.mainContainer}>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                <Ionicons name="arrow-back" size={24} color="#fff" />
+                            </TouchableOpacity>
+                            <Text style={styles.headerTitle}>Message Admin</Text>
+                            <View style={{ width: 40 }} />
                         </View>
-                    )}
 
-                    <TouchableOpacity
-                        style={[styles.chatSendButton, (!message.trim() && !video) && styles.chatSendButtonDisabled]}
-                        onPress={handleSend}
-                        disabled={!message.trim() && !video || sending}
-                    >
-                        {sending ? (
-                            <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                            <Ionicons name="send" size={20} color="#fff" />
-                        )}
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
+                        {/* Content Area */}
+                        <KeyboardAvoidingView
+                            style={styles.contentArea}
+                            behavior={Platform.OS === "ios" ? "padding" : "height"}
+                            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <FlatList
+                                    data={messages}
+                                    renderItem={renderMessageItem}
+                                    keyExtractor={item => item._id}
+                                    inverted
+                                    contentContainerStyle={{ padding: 15 }}
+                                    ListEmptyComponent={
+                                        !loadingMessages && (
+                                            <View style={styles.emptyContainer}>
+                                                <View style={styles.emptyIconBox}>
+                                                    <Ionicons name="chatbubbles-outline" size={32} color="#ccc" />
+                                                </View>
+                                                <Text style={styles.emptyText}>No messages yet.</Text>
+                                                <Text style={styles.emptySubText}>Send a report or video to the admin.</Text>
+                                            </View>
+                                        )
+                                    }
+                                />
 
+                                <View style={styles.inputContainer}>
+                                    {video && (
+                                        <View style={styles.previewContainer}>
+                                            <View style={styles.previewFile}>
+                                                <Ionicons name="videocam" size={20} color="#34C759" />
+                                                <Text style={styles.previewName} numberOfLines={1}>
+                                                    {video.fileName || 'Recorded Video'}
+                                                </Text>
+                                                <TouchableOpacity onPress={() => setVideo(null)}>
+                                                    <Ionicons name="close-circle" size={22} color="#dc3545" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    )}
+
+                                    <View style={styles.inputRow}>
+                                        <TouchableOpacity onPress={pickVideo} style={styles.attachButton}>
+                                            <Ionicons name="images-outline" size={24} color="#34C759" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={handleRecordVideo} style={styles.attachButton}>
+                                            <Ionicons name="videocam-outline" size={24} color="#34C759" />
+                                        </TouchableOpacity>
+                                        <TextInput
+                                            style={styles.textInput}
+                                            placeholder="Type a message..."
+                                            placeholderTextColor="#999"
+                                            multiline
+                                            maxHeight={100}
+                                            value={message}
+                                            onChangeText={setMessage}
+                                        />
+                                        <TouchableOpacity
+                                            style={[styles.chatSendButton, (!message.trim() && !video) && styles.chatSendButtonDisabled]}
+                                            onPress={handleSend}
+                                            disabled={!message.trim() && !video || sending}
+                                        >
+                                            {sending ? (
+                                                <ActivityIndicator size="small" color="#fff" />
+                                            ) : (
+                                                <Ionicons name="send" size={20} color="#fff" />
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </View>
+                        </KeyboardAvoidingView>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
 
             {/* RECORDING MODAL */}
             <Modal visible={cameraVisible} animationType="slide" presentationStyle="fullScreen">
@@ -348,8 +361,6 @@ const SupervisorMessageScreen = () => {
                         videoQuality="720p"
                     >
                         <View style={styles.cameraOverlay}>
-
-                            {/* Top Controls */}
                             <View style={styles.cameraTopBar}>
                                 <TouchableOpacity onPress={closeCamera} style={styles.iconButton}>
                                     <Ionicons name="close" size={28} color="#fff" />
@@ -364,8 +375,6 @@ const SupervisorMessageScreen = () => {
                                     <Ionicons name="camera-reverse-outline" size={28} color="#fff" />
                                 </TouchableOpacity>
                             </View>
-
-                            {/* Bottom Controls */}
                             <View style={styles.cameraBottomBar}>
                                 <View style={styles.cameraControls}>
                                     {!isRecording ? (
@@ -382,7 +391,6 @@ const SupervisorMessageScreen = () => {
                                     </Text>
                                 </View>
                             </View>
-
                         </View>
                     </CameraView>
                 </View>
@@ -416,70 +424,89 @@ const SupervisorMessageScreen = () => {
                 </View>
             </Modal>
 
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#f4f6f9',
-    },
+    container: { flex: 1, backgroundColor: '#34C759' },
+    gradient: { flex: 1 },
+    safeArea: { flex: 1 },
+    mainContainer: { flex: 1, width: '100%' },
+
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
         justifyContent: 'space-between',
-        zIndex: 10
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'android' ? 40 : 10, // Fixed padding for Android
+        paddingBottom: 20
     },
     backButton: {
-        padding: 4
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
     },
     headerTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: '#333'
+        color: '#fff',
+        letterSpacing: 0.5
     },
 
-    // Chat Styles
+    contentArea: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden',
+    },
+
+    //Chat
+    emptyContainer: {
+        alignItems: 'center',
+        marginTop: 50,
+        opacity: 0.6
+    },
+    emptyIconBox: {
+        width: 60, height: 60, borderRadius: 30, backgroundColor: '#e0e0e0',
+        justifyContent: 'center', alignItems: 'center', marginBottom: 10
+    },
+    emptyText: { textAlign: 'center', color: '#666', fontSize: 16, fontWeight: '600' },
+    emptySubText: { textAlign: 'center', color: '#999', fontSize: 14, marginTop: 4 },
+
     messageBubble: {
         maxWidth: '80%',
-        padding: 10,
-        borderRadius: 10,
+        padding: 12,
+        borderRadius: 16,
         marginBottom: 10,
         elevation: 1,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.05,
         shadowRadius: 1,
     },
     myMessage: {
         alignSelf: 'flex-end',
-        backgroundColor: '#dcf8c6', // WhatsApp green
-        borderTopRightRadius: 0,
+        backgroundColor: '#E6F9E9', // Light Green
+        borderBottomRightRadius: 2,
     },
     theirMessage: {
         alignSelf: 'flex-start',
         backgroundColor: '#fff',
-        borderTopLeftRadius: 0,
+        borderBottomLeftRadius: 2,
     },
     messageText: {
         fontSize: 15,
-        color: '#303030',
-        marginBottom: 4
+        color: '#333',
+        marginBottom: 4,
+        lineHeight: 20
     },
-    myMessageText: {
-        color: '#303030'
-    },
-    theirMessageText: {
-        color: '#303030'
-    },
+    myMessageText: { color: '#004d00' },
+    theirMessageText: { color: '#333' },
     messageTime: {
         fontSize: 10,
-        color: '#777',
+        color: 'rgba(0,0,0,0.5)',
         alignSelf: 'flex-end',
         marginTop: 2
     },
@@ -507,34 +534,31 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '500'
     },
-    emptyText: {
-        textAlign: 'center',
-        color: '#999',
-        marginTop: 20,
-        fontSize: 14
-    },
 
-    // Input Area Styles
+    // Input Area
     inputContainer: {
-        backgroundColor: '#f0f0f0',
-        padding: 8,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+        backgroundColor: '#fff',
+        padding: 10,
+        paddingBottom: Platform.OS === 'ios' ? 10 : 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee'
     },
     inputRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
+        alignItems: 'flex-end', // Align bottom so text area grows up
+        backgroundColor: '#F2F4F8',
         borderRadius: 25,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        paddingHorizontal: 8,
+        paddingVertical: 8,
     },
     textInput: {
         flex: 1,
         fontSize: 16,
-        maxHeight: 100,
+        maxHeight: 120,
         paddingHorizontal: 10,
-        paddingVertical: 8,
-        color: '#333'
+        paddingVertical: 8, // Center vertically roughly
+        color: '#333',
+        marginHorizontal: 5
     },
     attachButton: {
         padding: 8,
@@ -543,10 +567,11 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#007bff',
+        backgroundColor: '#34C759',
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 8
+        marginLeft: 4,
+        marginBottom: 2 // Tiny tweak for alignment
     },
     chatSendButtonDisabled: {
         backgroundColor: '#ccc'
@@ -556,7 +581,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 8,
         marginVertical: 5,
-        marginHorizontal: 5
+        marginBottom: 10
     },
     previewFile: {
         flexDirection: 'row',
@@ -573,103 +598,25 @@ const styles = StyleSheet.create({
     // Camera Styles
     cameraContainer: { flex: 1, backgroundColor: 'black' },
     camera: { flex: 1 },
-    cameraOverlay: {
-        flex: 1,
-        justifyContent: 'space-between',
-    },
-    cameraTopBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingHorizontal: 20,
-    },
-    iconButton: {
-        padding: 10,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderRadius: 25,
-    },
-    timerBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 0, 0, 0.6)',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    recordingDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#fff',
-        marginRight: 8,
-    },
-    timerText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    cameraBottomBar: {
-        paddingBottom: 50,
-        alignItems: 'center',
-        backgroundColor: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)', // Just placeholder for logic, RN doesn't support css gradients string.
-    },
-    cameraControls: {
-        alignItems: 'center',
-    },
-    recordBtn: {
-        width: 80, height: 80, borderRadius: 40,
-        borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)',
-        justifyContent: 'center', alignItems: 'center',
-        marginBottom: 10
-    },
-    recordBtnInner: {
-        width: 60, height: 60, borderRadius: 30,
-        backgroundColor: '#dc3545'
-    },
-    stopBtn: {
-        width: 80, height: 80, borderRadius: 40,
-        borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)',
-        justifyContent: 'center', alignItems: 'center',
-        marginBottom: 10
-    },
-    stopBtnInner: {
-        width: 36, height: 36, borderRadius: 6,
-        backgroundColor: '#dc3545'
-    },
-    instructionText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '500',
-        textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowRadius: 2,
-        marginTop: 5
-    },
+    cameraOverlay: { flex: 1, justifyContent: 'space-between' },
+    cameraTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 20 },
+    iconButton: { padding: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 25 },
+    timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 0, 0, 0.6)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
+    recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff', marginRight: 8 },
+    timerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    cameraBottomBar: { paddingBottom: 50, alignItems: 'center' },
+    cameraControls: { alignItems: 'center' },
+    recordBtn: { width: 80, height: 80, borderRadius: 40, borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+    recordBtnInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#dc3545' },
+    stopBtn: { width: 80, height: 80, borderRadius: 40, borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+    stopBtnInner: { width: 36, height: 36, borderRadius: 6, backgroundColor: '#dc3545' },
+    instructionText: { color: '#fff', fontSize: 14, fontWeight: '500', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 2, marginTop: 5 },
 
     // Playback Modal
-    playbackModalContainer: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    playbackModalContent: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center'
-    },
-    playbackVideo: {
-        alignSelf: 'center',
-        width: '100%',
-        height: '80%',
-    },
-    closePlaybackButton: {
-        position: 'absolute',
-        top: 50,
-        right: 20,
-        zIndex: 10,
-        padding: 10
-    }
+    playbackModalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+    playbackModalContent: { width: '100%', height: '100%', justifyContent: 'center' },
+    playbackVideo: { alignSelf: 'center', width: '100%', height: '80%' },
+    closePlaybackButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }
 });
 
 export default SupervisorMessageScreen;

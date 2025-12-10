@@ -12,16 +12,19 @@ import {
   ActivityIndicator,
   Modal,
   SafeAreaView,
-  Platform
+  Platform,
+  StatusBar,
+  ImageBackground
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 
-const { width: screenWidth } = Dimensions.get("window");
-const isIpad = screenWidth >= 768;
+const { width, height } = Dimensions.get('window');
+const isIOS = Platform.OS === 'ios';
 
 const SupervisorDashboard = ({ navigation }) => {
   const { user, logout, API_BASE_URL, token } = useAuth();
@@ -54,7 +57,6 @@ const SupervisorDashboard = ({ navigation }) => {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            // Reset state
             setSite(null);
             await logout();
           }
@@ -105,7 +107,6 @@ const SupervisorDashboard = ({ navigation }) => {
   };
 
   const fetchData = async () => {
-    // Always check attendance status (independent of site)
     checkMyAttendance();
 
     if (selectedSiteId) {
@@ -120,7 +121,6 @@ const SupervisorDashboard = ({ navigation }) => {
         }
       } catch (error) {
         console.error('Fetch site details error:', error);
-        // Alert.alert('Error', 'Failed to fetch site details');
       } finally {
         setLoading(false);
       }
@@ -166,11 +166,10 @@ const SupervisorDashboard = ({ navigation }) => {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         accuracy: location.coords.accuracy,
-        displayText: address, // Unified field for backend
-        address: address // Fallback
+        displayText: address,
+        address: address
       });
 
-      // No longer need immediate location check here as we await it differently or just rely on state
     } catch (error) {
       Alert.alert('Error', 'Could not fetch location');
       console.error(error);
@@ -180,25 +179,18 @@ const SupervisorDashboard = ({ navigation }) => {
   };
 
   const startAttendance = async (type) => {
-    if (!permission) {
-      // Camera permissions are still loading
-      return;
-    }
-    if (!permission.granted) {
-      requestPermission();
-    }
+    if (!permission) return;
+    if (!permission.granted) requestPermission();
     setAttendanceType(type);
     setCapturedImage(null);
     setLocationData(null);
     setCameraVisible(true);
-    // Fetch location concurrently
     getLocation();
   };
 
   const takePicture = async () => {
     if (cameraRef.current) {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, base64: true });
-      // Use base64 for data URI
       setCapturedImage(`data:image/jpeg;base64,${photo.base64}`);
     }
   };
@@ -242,7 +234,7 @@ const SupervisorDashboard = ({ navigation }) => {
         Alert.alert('Success', `Successfully Marked: ${attendanceType === 'login' ? 'Check In' : 'Check Out'}`);
         setCameraVisible(false);
         setCapturedImage(null);
-        fetchData(); // Refresh stats AND attendance buttons
+        fetchData();
       } else {
         throw new Error(response.data.message || 'Failed');
       }
@@ -283,247 +275,173 @@ const SupervisorDashboard = ({ navigation }) => {
     return { items: site.supplies.length };
   };
 
-  const getUnreadAnnouncementsCount = () => {
-    if (!site || !site.announcements) return 0;
-    return site.announcements.filter(announcement => !announcement.readBy.some(read => read.user === user?.id)).length;
-  };
+  const siteName = site?.siteName || 'No Site Assigned';
+  const siteLocation = site?.location || null;
 
-  const getAttendancePercentage = () => {
-    const att = getTodayAttendance();
-    if (att.total === 0) return 0;
-    return Math.round((att.present / att.total) * 100);
-  };
+  const attendance = getTodayAttendance();
+  const suppliesStats = getSuppliesStats();
 
-  if (!user) return null;
+  const DashboardCard = ({ title, count, subtitle, onPress, route, iconName, iconColor, iconBgColor }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress || (() => navigation.navigate(route, { site }))}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardContent}>
+        <View style={[styles.iconContainer, { backgroundColor: iconBgColor || '#F0F8FF' }]}>
+          <Ionicons name={iconName} size={24} color={iconColor || '#34C759'} />
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSubtitle}>
+            {count !== undefined ? count : subtitle}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
-  if (loading && !site) {
+  const AttendanceButton = ({ type, isActive, disabled, onPress }) => {
+    const isLogin = type === 'login';
+    const label = isLogin ? (isActive ? 'Checked In' : 'Check In') : (isActive ? 'Checked Out' : 'Check Out');
+    const icon = isLogin ? (isActive ? "checkmark-circle" : "time") : (isActive ? "checkmark-circle" : "log-out");
+    const color = isLogin ? '#34C759' : '#AF52DE'; // Green for In, Purple for Out to differentiate
+    const bgColor = isLogin ? '#E6F9E9' : '#F6E6FF';
+
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2094f3" />
-        <Text style={styles.loadingText}>Loading site details...</Text>
+      <TouchableOpacity
+        style={[styles.attendanceBtn, disabled && styles.disabledBtnOpacity]}
+        onPress={onPress}
+        disabled={disabled}
+      >
+        <View style={[styles.attIconBox, { backgroundColor: bgColor }]}>
+          <Ionicons name={icon} size={24} color={color} />
+        </View>
+        <Text style={styles.attBtnText}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#34C759' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
 
-  // Fallback if site load failed but not loading
-  // REMOVED BLOCKING CHECK to allow other features to work
-
-  const siteName = site?.siteName || 'No Site Assigned';
-  const siteLocation = site?.location || null;
-  const siteDescription = site?.description || null;
-
-  const attendance = getTodayAttendance();
-  const suppliesStats = getSuppliesStats();
-  const attendancePercentage = getAttendancePercentage();
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>Supervisor Dashboard</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={isIpad ? 28 : 24} color="#FFFFFF" />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#34C759" />
+
+      {/* Header Section */}
+      <View style={styles.headerWrapper}>
+        <ImageBackground
+          source={{ uri: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop' }}
+          style={styles.headerBackground}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['#34C759CC', '#34C759CC']} // Increased opacity for better green tint visibility
+            style={styles.headerGradient}
+          >
+            <SafeAreaView style={styles.safeArea}>
+              <View style={styles.headerContent}>
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.welcomeText}>Welcome back,</Text>
+                  <Text style={styles.headerTitle}>{user.username}</Text>
+                  <Text style={styles.siteText}>
+                    {siteName} {siteLocation ? `• ${siteLocation}` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                  <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </ImageBackground>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchData} />}
-      >
-        {/* --- SELF ATTENDANCE ACTIONS (FIRST FEATURE) --- */}
-        <View style={styles.topAttendanceSection}>
-          <Text style={styles.sectionTitle}>My Attendance</Text>
-          <View style={styles.attendanceActionsContainer}>
-            <TouchableOpacity
-              style={[styles.attBtn, styles.checkInBtn, hasCheckedIn && styles.disabledAttBtn]}
-              onPress={() => startAttendance('login')}
-              disabled={hasCheckedIn}
-            >
-              <Ionicons name={hasCheckedIn ? "checkmark-circle" : "time"} size={20} color="#fff" />
-              <Text style={styles.attBtnText}>{hasCheckedIn ? 'Checked In' : 'Check In'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.attBtn, styles.checkOutBtn, hasCheckedOut && styles.disabledAttBtn]}
-              onPress={() => startAttendance('logout')}
-              disabled={hasCheckedOut}
-            >
-              <Ionicons name={hasCheckedOut ? "checkmark-circle" : "log-out"} size={20} color="#fff" />
-              <Text style={styles.attBtnText}>{hasCheckedOut ? 'Checked Out' : 'Check Out'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      {/* Main Content Section */}
+      <View style={styles.contentContainer}>
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchData} />}
+        >
+          <View style={styles.gridContainer}>
 
-        {/* --- MESSAGE ADMIN (SECOND FEATURE) --- */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={styles.featureCard}
-            onPress={() => navigation.navigate('SupervisorMessage', { site })}
-          >
-            <View style={[styles.featureIconBox, { backgroundColor: '#6f42c1' }]}>
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#fff" />
-            </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Message Admin</Text>
-              <Text style={styles.featureSubtitle}>Send text, video, or reports</Text>
-            </View>
-            <View style={styles.arrowBox}>
-              <Ionicons name="chevron-forward" size={20} color="#ccc" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.welcomeContainer}>
-          {/* Site Selection Bubbles */}
-          {sites.length > 1 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteSelector}>
-              {sites.map(s => (
-                <TouchableOpacity
-                  key={s._id}
-                  style={[styles.siteBubble, selectedSiteId === s._id && styles.siteBubbleActive]}
-                  onPress={() => setSelectedSiteId(s._id)}
-                >
-                  <Text style={[styles.siteBubbleText, selectedSiteId === s._id && styles.siteBubbleTextActive]}>
-                    {s.siteName}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-          <View style={styles.siteInfoCard}>
-            <Text style={styles.siteName}>{siteName}</Text>
-            {siteLocation ? (
-              <Text style={styles.siteLocation}>📍 {siteLocation}</Text>
-            ) : (
-              <Text style={styles.siteLocation}>Please contact admin to assign a site.</Text>
-            )}
-            {siteDescription && <Text style={styles.siteDescription}>{siteDescription}</Text>}
-          </View>
-        </View>
-
-        {/* --- SUPPLIES HUB (FOURTH FEATURE) --- */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={styles.featureCard}
-            onPress={() => Alert.alert('Notice', 'Currently under development')}
-          >
-            <View style={[styles.featureIconBox, { backgroundColor: '#007bff' }]}>
-              <Ionicons name="cube-outline" size={28} color="#fff" />
-            </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Supplies Hub</Text>
-              <Text style={styles.featureSubtitle}>Request, Status & Stock</Text>
-            </View>
-            <View style={styles.arrowBox}>
-              <Ionicons name="chevron-forward" size={20} color="#ccc" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Container */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="cube-outline" size={isIpad ? 32 : 24} color="#007bff" />
-            <Text style={styles.statNumber}>{suppliesStats.items}</Text>
-            <Text style={styles.statLabel}>Items</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="people-outline" size={isIpad ? 32 : 24} color="#ffc107" />
-            <Text style={styles.statNumber}>{attendance.present}/{attendance.total}</Text>
-            <Text style={styles.statLabel}>Present</Text>
-          </View>
-        </View>
-
-        {/* Today's Attendance Summary */}
-        {/* {site && (
-          <View style={styles.attendanceSummaryCard}>
-            <Text style={styles.attendanceSummaryTitle}>Today's Worker Attendance</Text>
-            <View style={styles.attendanceProgressContainer}>
-              <View style={styles.attendanceProgressBar}>
-                <View style={[styles.attendanceProgress, { width: `${attendancePercentage}%` }]} />
-              </View>
-              <Text style={styles.attendancePercentageText}>{attendancePercentage}% Present</Text>
-            </View>
-            <View style={styles.attendanceSummaryStats}>
-              <View style={styles.attendanceStat}>
-                <View style={[styles.attendanceStatDot, { backgroundColor: '#28a745' }]} />
-                <Text style={styles.attendanceStatNumber}>{attendance.present}</Text>
-                <Text style={styles.attendanceStatLabel}>Present</Text>
-              </View>
-              <View style={styles.attendanceStat}>
-                <View style={[styles.attendanceStatDot, { backgroundColor: '#dc3545' }]} />
-                <Text style={styles.attendanceStatNumber}>{attendance.absent}</Text>
-                <Text style={styles.attendanceStatLabel}>Absent</Text>
-              </View>
-              <View style={styles.attendanceStat}>
-                <View style={[styles.attendanceStatDot, { backgroundColor: '#ffc107' }]} />
-                <Text style={styles.attendanceStatNumber}>{attendance.notMarked}</Text>
-                <Text style={styles.attendanceStatLabel}>Pending</Text>
-              </View>
-            </View>
-            {attendance.notMarked > 0 && (
-              <View style={styles.attendanceAlert}>
-                <Ionicons name="warning-outline" size={16} color="#856404" />
-                <Text style={styles.attendanceAlertText}>
-                  {attendance.notMarked} worker{attendance.notMarked > 1 ? 's' : ''} attendance not marked
-                </Text>
+            {/* Site Switcher Bubbles if multiple sites */}
+            {sites.length > 1 && (
+              <View style={styles.siteSelector}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {sites.map(s => (
+                    <TouchableOpacity
+                      key={s._id}
+                      style={[styles.siteBubble, selectedSiteId === s._id && styles.siteBubbleActive]}
+                      onPress={() => setSelectedSiteId(s._id)}
+                    >
+                      <Text style={[styles.siteBubbleText, selectedSiteId === s._id && styles.siteBubbleTextActive]}>
+                        {s.siteName}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
+
+            {/* Attendance Section - Full Width Row */}
+            <Text style={styles.sectionTitle}>My Attendance</Text>
+            <View style={styles.row}>
+              <AttendanceButton
+                type="login"
+                isActive={hasCheckedIn}
+                disabled={hasCheckedIn}
+                onPress={() => startAttendance('login')}
+              />
+              <AttendanceButton
+                type="logout"
+                isActive={hasCheckedOut}
+                disabled={hasCheckedOut}
+                onPress={() => startAttendance('logout')}
+              />
+            </View>
+
+            {/* Combined Overview and Actions for better layout */}
+            <View style={styles.row}>
+              {/* Site Overview: Supplies */}
+              <View style={styles.halfColumn}>
+                <Text style={styles.sectionTitle}>Overview</Text>
+                <DashboardCard
+                  title="Supplies"
+                  count={suppliesStats.items}
+                  route="Supplies"
+                  onPress={() => Alert.alert('Coming Soon', 'Supplies Hub is under development')}
+                  iconName="cube"
+                  iconColor="#007ADC"
+                  iconBgColor="#E6F2FF"
+                />
+              </View>
+
+              {/* Actions: Message Admin */}
+              <View style={styles.halfColumn}>
+                <Text style={styles.sectionTitle}>Actions</Text>
+                <DashboardCard
+                  title="Message Admin"
+                  subtitle="Send"
+                  route="SupervisorMessage"
+                  iconName="chatbubble-ellipses"
+                  iconColor="#FF9500"
+                  iconBgColor="#FFF5E6"
+                />
+              </View>
+            </View>
+
           </View>
-        )} */}
+        </ScrollView>
+      </View>
 
-        {/* --- SITE MANAGEMENT ACTIONS --- */}
-        {/* <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Site Management</Text>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('ManageWorkers', { site, canEdit: true })}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#e8f5e9' }]}>
-              <Ionicons name="people-outline" size={22} color="#28a745" />
-            </View>
-            <View style={styles.actionContent}>
-              <Text style={[styles.actionTitle, !site && { color: '#999' }]}>Manage Workers</Text>
-              <Text style={styles.actionSubtitle}>Track attendance and details</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('AttendanceReport', { site: { ...site, _supervisorId: user.id } })}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#fff8e1' }]}>
-              <Ionicons name="calendar-outline" size={22} color="#ffc107" />
-            </View>
-            <View style={styles.actionContent}>
-              <Text style={[styles.actionTitle, !site && { color: '#999' }]}>Attendance Reports</Text>
-              <Text style={styles.actionSubtitle}>View historical records</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('Announcements', { site, canEdit: true })}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#fff3e0' }]}>
-              <Ionicons name="megaphone-outline" size={22} color="#ff6b35" />
-              {getUnreadAnnouncementsCount() > 0 && (
-                <View style={styles.badge}><Text style={styles.badgeText}>{getUnreadAnnouncementsCount()}</Text></View>
-              )}
-            </View>
-            <View style={styles.actionContent}>
-              <Text style={[styles.actionTitle, !site && { color: '#999' }]}>Announcements</Text>
-              <Text style={styles.actionSubtitle}>Manage site announcements</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </TouchableOpacity>
-        </View> */}
-      </ScrollView>
-
-      {/* --- CAMERA MODAL (Unchanged) --- */}
+      {/* --- CAMERA MODAL (Unchanged Logic, just styling tweaks if needed) --- */}
       <Modal visible={cameraVisible} animationType="slide" presentationStyle="fullScreen">
         <View style={styles.cameraContainer}>
           {!capturedImage ? (
@@ -571,172 +489,200 @@ const SupervisorDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-    </SafeAreaView >
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5' }, // Slightly darker bg for contrast
-  header: {
-    backgroundColor: '#2094f3',
-    paddingTop: Platform.OS === 'ios' ? 0 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  container: {
+    flex: 1,
+    backgroundColor: '#34C759', // Primary Green
+  },
+  headerWrapper: {
+    height: height * 0.25, // Slightly taller to accommodate site info
+    width: '100%',
+  },
+  headerBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  headerGradient: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  safeArea: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4
+    marginTop: 10,
   },
-  headerContent: { flex: 1 },
-  title: { fontSize: isIpad ? 28 : 24, fontWeight: '800', color: '#FFFFFF' },
+  headerTextContainer: {
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  siteText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+  },
   logoutButton: {
+    padding: 10,
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
-    padding: 8,
+    marginLeft: 10,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
-  loadingText: { marginTop: 10, color: '#666', fontSize: 16 },
-  scrollView: { flex: 1, backgroundColor: '#f0f2f5' },
-
-  // Sections
-  topAttendanceSection: {
-    padding: 20,
-    backgroundColor: '#fff',
-    marginBottom: 0, // seamless flow
-    paddingBottom: 25
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#F2F4F8',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    overflow: 'hidden',
   },
-  sectionContainer: {
+  scrollView: {
+    flex: 1,
+  },
+  gridContainer: {
+    flex: 1,
     paddingHorizontal: 20,
-    marginBottom: 15
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 15
+    color: '#000',
+    marginBottom: 12,
+    marginTop: 12,
   },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 10,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-
-  // Attendance Buttons
-  attendanceActionsContainer: {
-    flexDirection: 'row', justifyContent: 'space-between'
-  },
-  attBtn: {
-    flex: 0.48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    paddingVertical: 16, borderRadius: 16, elevation: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3
-  },
-  checkInBtn: { backgroundColor: '#28a745' },
-  checkOutBtn: { backgroundColor: '#dc3545' },
-  disabledAttBtn: { backgroundColor: '#ccc', elevation: 0 },
-  attBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
-
-  // Feature Cards (Shared Style for Message & Supplies)
-  featureCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
-    borderWidth: 1, borderColor: 'rgba(0,0,0,0.03)'
-  },
-  featureIconBox: {
-    width: 48, height: 48, borderRadius: 24,
-    justifyContent: 'center', alignItems: 'center',
-    marginRight: 16
-  },
-  featureContent: { flex: 1 },
-  featureTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginBottom: 2 },
-  featureSubtitle: { fontSize: 13, color: '#666', lineHeight: 18 },
-  arrowBox: { opacity: 0.5 },
-
-  // Site Info Area
-  welcomeContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#f0f2f5'
-  },
-  siteSelector: { marginBottom: 12, flexDirection: 'row' },
-  siteBubble: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    backgroundColor: '#fff', borderRadius: 20, marginRight: 8,
-    borderWidth: 1, borderColor: '#e0e0e0'
-  },
-  siteBubbleActive: { backgroundColor: '#2094f3', borderColor: '#2094f3' },
-  siteBubbleText: { color: '#666', fontWeight: '600', fontSize: 13 },
-  siteBubbleTextActive: { color: '#fff' },
-
-  siteInfoCard: {
-    backgroundColor: '#FFFFFF', padding: 20, borderRadius: 16,
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
-    borderLeftWidth: 4, borderLeftColor: '#2094f3'
-  },
-  siteName: { fontSize: 20, fontWeight: '800', color: '#1a1a1a', marginBottom: 6 },
-  siteLocation: { fontSize: 14, color: '#555', marginBottom: 8 },
-  siteDescription: { fontSize: 13, color: '#888', fontStyle: 'italic', lineHeight: 18 },
-
-  // Stats Grid
-  statsContainer: {
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 20
+    marginBottom: 8,
   },
-  statCard: {
-    backgroundColor: '#FFFFFF', padding: 15, borderRadius: 16, alignItems: 'center', width: '48%',
-    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    width: '100%', // Card should fill its container
+    // Soft Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 10,
   },
-  statNumber: { fontSize: 22, fontWeight: 'bold', color: '#333', marginTop: 8 },
-  statLabel: { fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
-
-  // Attendance Summary
-  attendanceSummaryCard: {
-    backgroundColor: '#FFFFFF', marginHorizontal: 20, marginBottom: 20,
-    padding: 20, borderRadius: 16, elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2
+  cardContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  attendanceSummaryTitle: { fontSize: 15, fontWeight: '700', marginBottom: 15, color: '#333' },
-  attendanceProgressContainer: { marginBottom: 20 },
-  attendanceProgressBar: { height: 6, backgroundColor: '#f1f1f1', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
-  attendanceProgress: { height: '100%', backgroundColor: '#2094f3' },
-  attendancePercentageText: { textAlign: 'right', fontSize: 12, color: '#888', fontWeight: '600' },
-  attendanceSummaryStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 5 },
-  attendanceStat: { alignItems: 'center' },
-  attendanceStatDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 8 },
-  attendanceStatNumber: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  attendanceStatLabel: { fontSize: 11, color: '#888' },
-  attendanceAlert: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff8e1', padding: 12, borderRadius: 10, marginTop: 15 },
-  attendanceAlertText: { marginLeft: 10, color: '#856404', fontSize: 13, flex: 1, fontWeight: '500' },
-
-  // Secondary Actions (List Style)
-  actionCard: {
-    backgroundColor: '#FFFFFF', padding: 16, marginBottom: 10, borderRadius: 16,
-    flexDirection: 'row', alignItems: 'center', elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 1
+  halfColumn: {
+    width: '48%', // Each column takes half width
+    flexDirection: 'column',
   },
-  actionIconBox: {
-    width: 40, height: 40, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center', marginRight: 15
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionContent: { flex: 1 },
-  actionTitle: { fontSize: 15, fontWeight: '600', color: '#333', marginBottom: 2 },
-  actionSubtitle: { fontSize: 12, color: '#888' },
-  badge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#ff3b30', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#fff' },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  textContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    marginTop: 4,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  cardSubtitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
+  },
+  // Attendance Buttons
+  attendanceBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    width: '48%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 10,
+  },
+  attIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  attBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  disabledBtnOpacity: {
+    opacity: 0.7,
+  },
+  // Site Selector
+  siteSelector: {
+    marginBottom: 16,
+    flexDirection: 'row',
+  },
+  siteBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  siteBubbleActive: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759',
+  },
+  siteBubbleText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  siteBubbleTextActive: {
+    color: '#fff',
+  },
 
   // Camera Modal
   cameraContainer: { flex: 1, backgroundColor: 'black' },
@@ -757,9 +703,9 @@ const styles = StyleSheet.create({
   previewActions: { flexDirection: 'row', justifyContent: 'space-between' },
   retakeBtn: { flex: 0.45, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#ccc', alignItems: 'center' },
   retakeBtnText: { color: '#333', fontWeight: 'bold' },
-  submitBtn: { flex: 0.45, padding: 15, borderRadius: 10, backgroundColor: '#2094f3', alignItems: 'center' },
+  submitBtn: { flex: 0.45, padding: 15, borderRadius: 10, backgroundColor: '#34C759', alignItems: 'center' },
   disabledBtn: { backgroundColor: '#a0c4ff' },
-  submitBtnText: { color: '#fff', fontWeight: 'bold' }
+  submitBtnText: { color: '#fff', fontWeight: 'bold' },
 });
 
 export default SupervisorDashboard;
