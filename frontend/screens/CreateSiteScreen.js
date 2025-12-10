@@ -14,11 +14,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
-  FlatList
+  FlatList,
+  ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Get screen dimensions for responsive design
 const { width: screenWidth } = Dimensions.get("window");
@@ -153,206 +155,224 @@ const CreateSiteScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create New Site</Text>
-        <View style={{ width: 24 }} />
+      {/* Header Section */}
+      <View style={styles.headerWrapper}>
+        <ImageBackground
+          // source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+          style={styles.headerBackground}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['#007ADC99', '#007ADC99']}
+            style={styles.headerGradient}
+          >
+            <SafeAreaView style={styles.safeArea}>
+              <View style={styles.headerContent}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Create New Site</Text>
+                <View style={{ width: 40 }} />
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </ImageBackground>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
+      {/* Content Area */}
+      <View style={styles.contentContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <View style={styles.formCard}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Site Name <Text style={styles.requiredStar}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="business-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={siteName}
-                  onChangeText={setSiteName}
-                  placeholder="Enter site name"
-                  placeholderTextColor="#999"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Location <Text style={styles.requiredStar}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="location-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="Enter location"
-                  placeholderTextColor="#999"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description</Text>
-              <View style={[styles.inputContainer, styles.textAreaContainer]}>
-                <Ionicons
-                  name="document-text-outline"
-                  size={isIpad ? 24 : 20}
-                  color="#666"
-                  style={[styles.inputIcon, styles.textAreaIcon]}
-                />
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Enter site description"
-                  placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-            </View>
-
-            {/* Supervisor Section Divider */}
-            <View style={styles.divider} />
-            <Text style={styles.sectionTitle}>Supervisor Assignment</Text>
-
-            {/* Supervisor Mode Selection */}
-            <View style={styles.modeContainer}>
-              <TouchableOpacity
-                style={[styles.modeButton, supervisorMode === 'none' && styles.modeButtonActive]}
-                onPress={() => setSupervisorMode('none')}
-              >
-                <Ionicons name="ban-outline" size={20} color={supervisorMode === 'none' ? '#fff' : '#666'} />
-                <Text style={[styles.modeText, supervisorMode === 'none' && styles.modeTextActive]}>None</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modeButton, supervisorMode === 'new' && styles.modeButtonActive]}
-                onPress={() => setSupervisorMode('new')}
-              >
-                <Ionicons name="person-add-outline" size={20} color={supervisorMode === 'new' ? '#fff' : '#666'} />
-                <Text style={[styles.modeText, supervisorMode === 'new' && styles.modeTextActive]}>New</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modeButton, supervisorMode === 'existing' && styles.modeButtonActive]}
-                onPress={() => setSupervisorMode('existing')}
-              >
-                <Ionicons name="people-outline" size={20} color={supervisorMode === 'existing' ? '#fff' : '#666'} />
-                <Text style={[styles.modeText, supervisorMode === 'existing' && styles.modeTextActive]}>Existing</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* New Supervisor Fields */}
-            {supervisorMode === 'new' && (
-              <View style={styles.supervisorSection}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Supervisor Username <Text style={styles.requiredStar}>*</Text></Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={supervisorUsername}
-                      onChangeText={setSupervisorUsername}
-                      placeholder="Choose username"
-                      placeholderTextColor="#999"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Supervisor Password <Text style={styles.requiredStar}>*</Text></Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="lock-closed-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={supervisorPassword}
-                      onChangeText={setSupervisorPassword}
-                      placeholder="Set password"
-                      placeholderTextColor="#999"
-                      secureTextEntry={!showSupervisorPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                    <TouchableOpacity
-                      onPress={() => setShowSupervisorPassword(!showSupervisorPassword)}
-                      style={{ paddingHorizontal: 10 }}
-                    >
-                      <Ionicons
-                        name={showSupervisorPassword ? 'eye' : 'eye-off'}
-                        size={20}
-                        color="#666"
-                      />
-                    </TouchableOpacity>
-                  </View>
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formCard}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Site Name <Text style={styles.requiredStar}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="business-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={siteName}
+                    onChangeText={setSiteName}
+                    placeholder="Enter site name"
+                    placeholderTextColor="#999"
+                  />
                 </View>
               </View>
-            )}
 
-            {/* Existing Supervisor Selection */}
-            {supervisorMode === 'existing' && (
-              <View style={styles.supervisorSection}>
-                <Text style={styles.label}>Select Supervisor <Text style={styles.requiredStar}>*</Text></Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Location <Text style={styles.requiredStar}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="location-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Enter location"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description</Text>
+                <View style={[styles.inputContainer, styles.textAreaContainer]}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={isIpad ? 24 : 20}
+                    color="#666"
+                    style={[styles.inputIcon, styles.textAreaIcon]}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Enter site description"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
+              </View>
+
+              {/* Supervisor Section Divider */}
+              <View style={styles.divider} />
+              <Text style={styles.sectionTitle}>Supervisor Assignment</Text>
+
+              {/* Supervisor Mode Selection */}
+              <View style={styles.modeContainer}>
                 <TouchableOpacity
-                  style={styles.selectorButton}
-                  onPress={() => setIsSupervisorModalVisible(true)}
+                  style={[styles.modeButton, supervisorMode === 'none' && styles.modeButtonActive]}
+                  onPress={() => setSupervisorMode('none')}
                 >
-                  <Ionicons name="person-outline" size={20} color="#666" style={{ marginRight: 10 }} />
-                  <Text style={[styles.selectorText, !selectedSupervisor && { color: '#999' }]}>
-                    {selectedSupervisor ? selectedSupervisor.username : 'Select a Supervisor'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#666" style={{ marginLeft: 'auto' }} />
+                  <Ionicons name="ban-outline" size={20} color={supervisorMode === 'none' ? '#fff' : '#666'} />
+                  <Text style={[styles.modeText, supervisorMode === 'none' && styles.modeTextActive]}>None</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modeButton, supervisorMode === 'new' && styles.modeButtonActive]}
+                  onPress={() => setSupervisorMode('new')}
+                >
+                  <Ionicons name="person-add-outline" size={20} color={supervisorMode === 'new' ? '#fff' : '#666'} />
+                  <Text style={[styles.modeText, supervisorMode === 'new' && styles.modeTextActive]}>New</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modeButton, supervisorMode === 'existing' && styles.modeButtonActive]}
+                  onPress={() => setSupervisorMode('existing')}
+                >
+                  <Ionicons name="people-outline" size={20} color={supervisorMode === 'existing' ? '#fff' : '#666'} />
+                  <Text style={[styles.modeText, supervisorMode === 'existing' && styles.modeTextActive]}>Existing</Text>
                 </TouchableOpacity>
               </View>
-            )}
 
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleCreateSite}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size={isIpad ? "large" : "small"} />
-                ) : (
-                  <>
-                    <Ionicons name="add-circle-outline" size={isIpad ? 24 : 20} color="#fff" style={styles.buttonIcon} />
-                    <Text style={styles.buttonText}>
-                      Create Site
+              {/* New Supervisor Fields */}
+              {supervisorMode === 'new' && (
+                <View style={styles.supervisorSection}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Supervisor Username <Text style={styles.requiredStar}>*</Text></Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        value={supervisorUsername}
+                        onChangeText={setSupervisorUsername}
+                        placeholder="Choose username"
+                        placeholderTextColor="#999"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Supervisor Password <Text style={styles.requiredStar}>*</Text></Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="lock-closed-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        value={supervisorPassword}
+                        onChangeText={setSupervisorPassword}
+                        placeholder="Set password"
+                        placeholderTextColor="#999"
+                        secureTextEntry={!showSupervisorPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowSupervisorPassword(!showSupervisorPassword)}
+                        style={{ paddingHorizontal: 10 }}
+                      >
+                        <Ionicons
+                          name={showSupervisorPassword ? 'eye' : 'eye-off'}
+                          size={20}
+                          color="#666"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Existing Supervisor Selection */}
+              {supervisorMode === 'existing' && (
+                <View style={styles.supervisorSection}>
+                  <Text style={styles.label}>Select Supervisor <Text style={styles.requiredStar}>*</Text></Text>
+                  <TouchableOpacity
+                    style={styles.selectorButton}
+                    onPress={() => setIsSupervisorModalVisible(true)}
+                  >
+                    <Ionicons name="person-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                    <Text style={[styles.selectorText, !selectedSupervisor && { color: '#999' }]}>
+                      {selectedSupervisor ? selectedSupervisor.username : 'Select a Supervisor'}
                     </Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                    <Ionicons name="chevron-down" size={20} color="#666" style={{ marginLeft: 'auto' }} />
+                  </TouchableOpacity>
+                </View>
+              )}
 
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => navigation.goBack()}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close-circle-outline" size={isIpad ? 24 : 20} color="#333" style={styles.buttonIcon} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleCreateSite}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" size={isIpad ? "large" : "small"} />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={isIpad ? 24 : 20} color="#fff" style={styles.buttonIcon} />
+                      <Text style={styles.buttonText}>
+                        Create Site
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => navigation.goBack()}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle-outline" size={isIpad ? 24 : 20} color="#333" style={styles.buttonIcon} />
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
 
       {/* Supervisor Selection Modal */}
       <Modal
@@ -379,49 +399,74 @@ const CreateSiteScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#2094f3',
-  },
-  header: {
-    backgroundColor: '#2094f3',
-    paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 10) : 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 5
-  },
-  headerTitle: {
-    fontSize: isIpad ? 24 : 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center'
-  },
   container: {
     flex: 1,
-    backgroundColor: '#2094f3',
+    backgroundColor: '#007ADC',
   },
+  headerWrapper: {
+    height: screenWidth * 0.55, // Adjust height
+    maxHeight: 220,
+    width: '100%',
+  },
+  headerBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  headerGradient: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // Content
   contentContainer: {
-    padding: isIpad ? 40 : 20,
-    paddingTop: isIpad ? 20 : 10,
+    flex: 1,
+    backgroundColor: '#F2F4F8',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    overflow: 'hidden',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: isIpad ? 30 : 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 4,
   },
   inputGroup: {
@@ -526,18 +571,18 @@ const styles = StyleSheet.create({
     marginTop: isIpad ? 30 : 20,
   },
   button: {
-    backgroundColor: '#2094f3',
-    padding: isIpad ? 18 : 15,
-    borderRadius: 12,
+    backgroundColor: '#007ADC',
+    padding: 18,
+    borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: isIpad ? 16 : 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    shadowColor: '#007ADC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonDisabled: {
     backgroundColor: '#82b8ed',

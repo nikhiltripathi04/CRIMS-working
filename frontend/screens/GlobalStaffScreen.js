@@ -10,7 +10,8 @@ import {
     Platform,
     Dimensions,
     StatusBar,
-    SafeAreaView
+    SafeAreaView,
+    ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -18,7 +19,7 @@ import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from "expo-linear-gradient";
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 const isIpad = isIOS && Platform.isPad;
 
@@ -91,12 +92,26 @@ const GlobalStaffScreen = () => {
                     <View style={styles.staffInfo}>
                         <Text style={styles.staffName}>{item.fullName}</Text>
                         <Text style={styles.staffUsername}>@{item.username}</Text>
-                    </View>
-                    <View style={styles.roleBadge}>
-                        <Text style={styles.roleText}>{item.role || 'Staff'}</Text>
+                        <View style={styles.roleBadge}>
+                            <Text style={styles.roleText}>{item.role || 'Staff'}</Text>
+                        </View>
                     </View>
                 </View>
+
+                <View style={styles.staffDetails}>
+                    <View style={styles.detailItem}>
+                        <Ionicons name="call-outline" size={14} color="#666" style={{ marginRight: 4 }} />
+                        <Text style={styles.detailText}>{item.phone || 'No Phone'}</Text>
+                    </View>
+                    {item.siteName && (
+                        <View style={styles.detailItem}>
+                            <Ionicons name="business-outline" size={14} color="#666" style={{ marginRight: 4 }} />
+                            <Text style={styles.detailText}>{item.siteName}</Text>
+                        </View>
+                    )}
+                </View>
             </TouchableOpacity>
+
             <TouchableOpacity style={styles.staffDeleteButton} onPress={() => deleteStaff(item._id)}>
                 <Ionicons name="trash-outline" size={20} color="#ff4444" />
             </TouchableOpacity>
@@ -110,87 +125,262 @@ const GlobalStaffScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.mainContainer}>
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                                <Ionicons name="arrow-back" size={24} color="#fff" />
-                            </TouchableOpacity>
-                            <Text style={styles.title}>All Staff</Text>
-                            <View style={{ width: 24 }} />
-                        </View>
+            <StatusBar barStyle="light-content" backgroundColor="#AF52DE" />
 
-                        <View style={styles.contentArea}>
-                            <View style={styles.searchContainer}>
-                                <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="Search staff..."
-                                    value={searchQuery}
-                                    onChangeText={setSearchQuery}
-                                    placeholderTextColor="#9CA3AF"
-                                    clearButtonMode="while-editing"
-                                />
+            {/* Header Section */}
+            <View style={styles.headerWrapper}>
+                <ImageBackground
+                    // source={{ uri: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=2084&auto=format&fit=crop' }}
+                    style={styles.headerBackground}
+                    resizeMode="cover"
+                >
+                    <LinearGradient
+                        colors={['#AF52DE99', '#AF52DE99']}
+                        style={styles.headerGradient}
+                    >
+                        <SafeAreaView style={styles.safeArea}>
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <Text style={styles.headerTitle}>All Staff</Text>
+                                <View style={{ width: 40 }} />
                             </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                </ImageBackground>
+            </View>
 
-                            <FlatList
-                                data={filteredStaff}
-                                keyExtractor={(item) => item._id}
-                                renderItem={renderStaffCard}
-                                refreshing={refreshing}
-                                onRefresh={onRefresh}
-                                contentContainerStyle={styles.listContainer}
-                                ListEmptyComponent={() => (
-                                    <View style={styles.emptyState}>
-                                        <Ionicons name="people-outline" size={64} color="#ccc" />
-                                        <Text style={styles.emptyText}>No staff found</Text>
-                                    </View>
-                                )}
-                            />
-
-                            <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('CreateStaff')}>
-                                <Ionicons name="add" size={isIpad ? 40 : 24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+            {/* Content Area */}
+            <View style={styles.contentContainer}>
+                <View style={styles.mainContainer}>
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search staff..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholderTextColor="#9CA3AF"
+                            clearButtonMode="while-editing"
+                        />
                     </View>
-                </SafeAreaView>
-            </LinearGradient>
+
+                    <FlatList
+                        data={filteredStaff}
+                        keyExtractor={(item) => item._id}
+                        renderItem={renderStaffCard}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        contentContainerStyle={styles.listContainer}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={() => (
+                            <View style={styles.emptyState}>
+                                <Ionicons name="people-outline" size={64} color="#ccc" />
+                                <Text style={styles.emptyText}>No staff found</Text>
+                            </View>
+                        )}
+                    />
+                </View>
+
+                <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('CreateStaff')}>
+                    <Ionicons name="add" size={isIpad ? 40 : 28} color="#fff" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    gradient: { flex: 1 },
-    safeArea: { flex: 1 },
-    mainContainer: { flex: 1, width: isIpad ? '85%' : '100%', alignSelf: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
-    backButton: { padding: 8 },
-    title: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
-    contentArea: { flex: 1, backgroundColor: '#E5E7EB', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 20 },
-    listContainer: { paddingBottom: 100 },
+    container: {
+        flex: 1,
+        backgroundColor: '#AF52DE',
+    },
+    headerWrapper: {
+        height: screenHeight * 0.22,
+        width: '100%',
+    },
+    headerBackground: {
+        flex: 1,
+        width: '100%',
+    },
+    headerGradient: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    safeArea: {
+        flex: 1,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+    },
+    backButton: {
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#fff',
+    },
 
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, marginBottom: 20, height: 48, elevation: 2 },
-    searchIcon: { marginRight: 8 },
-    searchInput: { flex: 1, fontSize: 16, color: '#1f2937' },
+    // Content Area
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -30,
+        overflow: 'hidden',
+    },
+    mainContainer: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        width: isIpad ? '85%' : '100%',
+        alignSelf: 'center',
+    },
+    listContainer: {
+        paddingBottom: 100
+    },
 
-    staffCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, elevation: 2, position: 'relative' },
-    staffContent: { padding: 16, flexDirection: 'row', alignItems: 'center' },
-    staffHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    staffAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    staffAvatarText: { fontSize: 20, fontWeight: 'bold', color: '#0369A1' },
-    staffInfo: { flex: 1 },
-    staffName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-    staffUsername: { fontSize: 14, color: '#6B7280' },
-    roleBadge: { backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginRight: 40 },
-    roleText: { fontSize: 10, color: '#374151', fontWeight: '600', textTransform: 'uppercase' },
-    staffDeleteButton: { position: 'absolute', right: 16, top: '50%', marginTop: -18, backgroundColor: 'rgba(255, 0, 0, 0.08)', padding: 8, borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    // Search
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        marginBottom: 20,
+        height: 50,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    searchIcon: { marginRight: 12 },
+    searchInput: { flex: 1, fontSize: 16, color: '#333' },
 
-    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
-    emptyText: { color: '#888', marginTop: 10 },
-    addButton: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2094F3', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8 },
+    // Staff Card
+    staffCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    staffContent: {
+        padding: 20,
+    },
+    staffHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    staffAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#F3E5F5', // Light Purple
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+        borderWidth: 1,
+        borderColor: '#E1BEE7'
+    },
+    staffAvatarText: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#AF52DE'
+    },
+    staffInfo: {
+        flex: 1,
+    },
+    staffName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 2
+    },
+    staffUsername: {
+        fontSize: 14,
+        color: '#888',
+        marginBottom: 6
+    },
+    roleBadge: {
+        backgroundColor: '#F3E5F5',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        alignSelf: 'flex-start'
+    },
+    roleText: {
+        fontSize: 11,
+        color: '#AF52DE',
+        fontWeight: '700',
+        textTransform: 'uppercase'
+    },
+    staffDetails: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+        flexWrap: 'wrap',
+        gap: 16
+    },
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    detailText: {
+        fontSize: 13,
+        color: '#666'
+    },
+    staffDeleteButton: {
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        backgroundColor: '#FFF0F0',
+        padding: 10,
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#FFE6E6'
+    },
+
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
+    emptyText: { color: '#888', marginTop: 16, fontSize: 16 },
+
+    addButton: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        backgroundColor: '#AF52DE', // Purple
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#AF52DE',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
 });
 
 export default GlobalStaffScreen;
