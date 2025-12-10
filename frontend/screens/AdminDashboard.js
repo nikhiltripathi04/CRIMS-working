@@ -12,8 +12,10 @@ import {
     ScrollView,
     RefreshControl,
     Alert,
-    Image
+    Image,
+    ImageBackground
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -107,18 +109,29 @@ const AdminDashboard = () => {
             <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
 
             {/* Header Section */}
-            <View style={styles.headerBackground}>
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.headerContent}>
-                        <View style={styles.headerTextContainer}>
-                            <Text style={styles.welcomeText}>Welcome back,</Text>
-                            <Text style={styles.headerTitle}>{user.username}</Text>
-                        </View>
-                        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
+            <View style={styles.headerWrapper}>
+                <ImageBackground
+                    source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+                    style={styles.headerBackground}
+                    resizeMode="cover"
+                >
+                    <LinearGradient
+                        colors={['#007ADC99', '#007ADC99']}
+                        style={styles.headerGradient}
+                    >
+                        <SafeAreaView style={styles.safeArea}>
+                            <View style={styles.headerContent}>
+                                <View style={styles.headerTextContainer}>
+                                    <Text style={styles.welcomeText}>Welcome back,</Text>
+                                    <Text style={styles.headerTitle}>{user.username}</Text>
+                                </View>
+                                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                                    <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                                </TouchableOpacity>
+                            </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                </ImageBackground>
             </View>
 
             {/* Main Content Section */}
@@ -198,10 +211,18 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#007ADC', // Primary Blue matches test.js
     },
-    headerBackground: {
+    headerWrapper: {
         height: height * 0.22, // Occupies top part of screen matches test.js
-        backgroundColor: '#007ADC',
+        width: '100%',
+    },
+    headerBackground: {
+        flex: 1,
+        width: '100%',
+    },
+    headerGradient: {
+        flex: 1,
         paddingHorizontal: 24,
+        justifyContent: 'center',
     },
     safeArea: {
         flex: 1,
