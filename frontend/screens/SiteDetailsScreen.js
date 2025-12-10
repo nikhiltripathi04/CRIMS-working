@@ -763,7 +763,7 @@ const SiteDetailsScreen = ({ route, navigation }) => {
             {/* Header Section */}
             <View style={styles.headerWrapper}>
                 <ImageBackground
-                    source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+                    // source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
                     style={styles.headerBackground}
                     imageStyle={{ transform: [{ translateY: -50 }] }}
                     resizeMode="cover"

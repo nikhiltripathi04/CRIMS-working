@@ -14,7 +14,9 @@ import {
     Keyboard,
     Dimensions,
     ActivityIndicator,
-    StatusBar
+    StatusBar,
+    ImageBackground,
+    Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +28,7 @@ const isIOS = Platform.OS === 'ios';
 const isIpad = isIOS && Platform.isPad;
 
 
-const ManageSupervisorsScreen = ({ route }) => {
+const ManageSupervisorsScreen = ({ route, navigation }) => {
     const { site } = route.params;
     const [supervisors, setSupervisors] = useState(site.supervisors || []);
     const [modalVisible, setModalVisible] = useState(false);
@@ -333,85 +335,90 @@ const ManageSupervisorsScreen = ({ route }) => {
     // Show loading indicator if user isn't available yet
     if (!user) {
         return (
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
-                <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                    <Text style={{ marginTop: 20, color: '#FFFFFF', fontSize: isIpad ? 18 : 16 }}>Loading user data...</Text>
-                </View>
-            </LinearGradient>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#007ADC' }]}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={{ marginTop: 20, color: '#FFFFFF', fontSize: isIpad ? 18 : 16 }}>Loading user data...</Text>
+            </View>
         );
     }
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient
-                colors={["#2094F3", "#0B7DDA"]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            >
-                <SafeAreaView style={styles.safeArea}>
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                        <View style={styles.mainContainer}>
-                            {/* Header */}
-                            <View style={styles.header}>
-                                <View>
-                                    <Text style={styles.title}>Site Supervisors</Text>
-                                    <Text style={styles.subtitle}>{site.siteName}</Text>
+            {/* Header Section */}
+            <View style={styles.headerWrapper}>
+                <ImageBackground
+                    // source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+                    style={styles.headerBackground}
+                    resizeMode="cover"
+                >
+                    <LinearGradient
+                        colors={['#007ADC99', '#007ADC99']}
+                        style={styles.headerGradient}
+                    >
+                        <SafeAreaView style={styles.safeArea}>
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <View style={styles.headerTitleBlock}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        <Text style={styles.headerTitle}>Site Supervisors</Text>
+                                    </View>
+                                    <Text style={styles.headerSubtitle}>
+                                        {site.siteName ? `${site.siteName} • ` : ''}{site.location || 'Site Details'}
+                                    </Text>
                                 </View>
                             </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                </ImageBackground>
+            </View>
 
-                            {/* Content Area */}
-                            <View style={styles.contentArea}>
-                                <FlatList
-                                    data={supervisors}
-                                    renderItem={renderSupervisorItem}
-                                    keyExtractor={(item) => item._id?.toString() || Math.random().toString()}
-                                    contentContainerStyle={styles.listContainer}
-                                    refreshing={loading}
-                                    onRefresh={fetchSupervisors}
-                                    ListEmptyComponent={
-                                        <View style={styles.emptyState}>
-                                            <Ionicons
-                                                name="person-outline"
-                                                size={isIpad ? 80 : 64}
-                                                color="#9CA3AF"
-                                            />
-                                            <Text style={styles.emptyText}>No supervisors assigned</Text>
-                                            <Text style={styles.emptySubtext}>
-                                                Tap the + button to add a supervisor
-                                            </Text>
-                                        </View>
-                                    }
+            {/* Content Section */}
+            <View style={styles.contentContainer}>
+                <View style={styles.contentArea}>
+                    <FlatList
+                        data={supervisors}
+                        renderItem={renderSupervisorItem}
+                        keyExtractor={(item) => item._id?.toString() || Math.random().toString()}
+                        contentContainerStyle={styles.listContainer}
+                        refreshing={loading}
+                        onRefresh={fetchSupervisors}
+                        ListEmptyComponent={
+                            <View style={styles.emptyState}>
+                                <Ionicons
+                                    name="person-outline"
+                                    size={isIpad ? 80 : 64}
+                                    color="#9CA3AF"
                                 />
-
-                                <TouchableOpacity
-                                    style={[styles.addButton, { bottom: screenHeight * (isIpad ? 0.04 : 0.03) + 70, backgroundColor: '#fff', borderWidth: 1, borderColor: '#2094F3' }]}
-                                    onPress={() => {
-                                        fetchAvailableSupervisors();
-                                        setAssignModalVisible(true);
-                                    }}
-                                >
-                                    <Ionicons name="people" size={isIpad ? 30 : 24} color="#2094F3" />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.addButton}
-                                    onPress={() => setModalVisible(true)}
-                                >
-                                    <Ionicons name="add" size={isIpad ? 30 : 24} color="#fff" />
-                                </TouchableOpacity>
+                                <Text style={styles.emptyText}>No supervisors assigned</Text>
+                                <Text style={styles.emptySubtext}>
+                                    Tap the + button to add a supervisor
+                                </Text>
                             </View>
-                        </View>
-                    </TouchableWithoutFeedback>
-                </SafeAreaView>
-            </LinearGradient>
+                        }
+                    />
+
+                    {/* Floating Buttons */}
+                    <TouchableOpacity
+                        style={[styles.addButton, { bottom: screenHeight * (isIpad ? 0.04 : 0.03) + 70, backgroundColor: '#fff', borderWidth: 1, borderColor: '#007ADC' }]}
+                        onPress={() => {
+                            fetchAvailableSupervisors();
+                            setAssignModalVisible(true);
+                        }}
+                    >
+                        <Ionicons name="people" size={isIpad ? 30 : 24} color="#007ADC" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Ionicons name="add" size={isIpad ? 30 : 24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
             {/* Assign Supervisor Modal */}
             <Modal
@@ -746,166 +753,95 @@ const ManageSupervisorsScreen = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-    credentialsModalContent: {
-        backgroundColor: '#fff',
-        borderRadius: screenWidth * 0.04,
-        padding: screenWidth * (isIpad ? 0.06 : 0.05),
-        width: screenWidth * (isIpad ? 0.7 : 0.9),
-        maxWidth: isIpad ? 600 : 400,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 15,
-        elevation: 10,
-    },
-    credentialsHeader: {
-        alignItems: 'center',
-        marginBottom: screenHeight * 0.03,
-    },
-    credentialsTitle: {
-        fontSize: screenWidth * (isIpad ? 0.035 : 0.05),
-        fontWeight: 'bold',
-        color: '#333',
-        marginTop: screenHeight * 0.015,
-        textAlign: 'center',
-    },
-    credentialsSubtitle: {
-        fontSize: screenWidth * (isIpad ? 0.024 : 0.04),
-        color: '#666',
-        marginBottom: screenHeight * 0.03,
-        textAlign: 'center',
-        paddingHorizontal: screenWidth * 0.02,
-    },
-    credentialBox: {
-        width: '100%',
-        backgroundColor: '#F9FAFB',
-        borderRadius: screenWidth * 0.03,
-        padding: screenWidth * (isIpad ? 0.05 : 0.045),
-        marginBottom: screenHeight * 0.03,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-    },
-    credentialItem: {
-        flexDirection: 'row',
-        marginBottom: screenHeight * 0.015,
-        alignItems: 'center',
-    },
-    credentialLabel: {
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.035),
-        color: '#6B7280',
-        width: '35%',
-        fontWeight: '500',
-    },
-    credentialValue: {
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.04),
-        color: '#333',
-        fontWeight: 'bold',
-        flex: 1,
-    },
-    credentialsWarning: {
-        fontSize: screenWidth * (isIpad ? 0.02 : 0.032),
-        color: '#ff4444',
-        textAlign: 'center',
-        marginBottom: screenHeight * 0.03,
-        fontStyle: 'italic',
-    },
-    resetPasswordButton: {
-        backgroundColor: '#F9FAFB',
-        paddingVertical: screenHeight * 0.015,
-        paddingHorizontal: screenWidth * 0.06,
-        borderRadius: screenWidth * 0.03,
-        marginBottom: screenHeight * 0.03,
-        borderWidth: 1,
-        borderColor: '#2094F3',
-    },
-    resetPasswordText: {
-        color: '#2094F3',
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.035),
-        fontWeight: 'bold',
-    },
-    closeButton: {
-        backgroundColor: '#2094F3',
-        paddingVertical: screenHeight * 0.018,
-        paddingHorizontal: screenWidth * 0.08,
-        borderRadius: screenWidth * 0.03,
-        width: '70%',
-        alignItems: 'center',
-    },
-    closeButtonText: {
-        color: '#fff',
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.035),
-        fontWeight: 'bold',
-    },
-
     container: {
         flex: 1,
+        backgroundColor: '#007ADC',
     },
-    gradient: {
+    headerWrapper: {
+        height: screenHeight * 0.22,
+        width: '100%',
+    },
+    headerBackground: {
         flex: 1,
+        width: '100%',
+    },
+    headerGradient: {
+        flex: 1,
+        justifyContent: 'center',
     },
     safeArea: {
         flex: 1,
     },
-    mainContainer: {
+    headerContent: {
+        paddingHorizontal: screenWidth * 0.05,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: '100%',
+        paddingBottom: 20, // Adjust for spacing
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginRight: 15,
+    },
+    headerTitleBlock: {
         flex: 1,
-        maxWidth: '100%',
-        alignSelf: 'center',
-        width: '100%',
+        justifyContent: 'center',
     },
-    header: {
-        paddingHorizontal: screenWidth * (isIpad ? 0.04 : 0.05),
-        paddingTop: screenHeight * (isIpad ? 0.07 : 0.06),
-        paddingBottom: screenHeight * (isIpad ? 0.04 : 0.03),
-    },
-    title: {
-        color: '#FFFFFF',
-        fontSize: screenWidth * (isIpad ? 0.04 : 0.06),
+    headerTitle: {
+        fontSize: isIpad ? 28 : 22,
         fontWeight: 'bold',
-        marginBottom: screenHeight * (isIpad ? 0.01 : 0.005),
+        color: '#FFFFFF',
     },
-    subtitle: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: screenWidth * (isIpad ? 0.022 : 0.035),
-        fontWeight: '400',
+    headerSubtitle: {
+        fontSize: isIpad ? 16 : 14,
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginTop: 4,
+    },
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -30,
+        overflow: 'hidden',
     },
     contentArea: {
         flex: 1,
-        backgroundColor: '#E5E7EB',
-        borderTopLeftRadius: screenWidth * 0.06,
-        borderTopRightRadius: screenWidth * 0.06,
-        paddingHorizontal: screenWidth * (isIpad ? 0.04 : 0.045),
-        paddingTop: screenHeight * (isIpad ? 0.04 : 0.03),
-        paddingBottom: screenHeight * (isIpad ? 0.06 : 0.045),
-        minHeight: screenHeight * 0.75,
+        paddingHorizontal: screenWidth * (isIpad ? 0.04 : 0.05),
+        paddingTop: 24,
     },
     listContainer: {
-        paddingBottom: screenHeight * 0.12,
+        paddingBottom: 100,
     },
     supervisorCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: screenWidth * 0.035,
-        marginBottom: screenHeight * (isIpad ? 0.03 : 0.02),
-        padding: screenWidth * (isIpad ? 0.06 : 0.045),
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        marginBottom: 16,
+        padding: 16,
         flexDirection: 'row',
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
     },
     supervisorInfo: {
         flex: 1,
     },
     supervisorName: {
-        fontSize: screenWidth * (isIpad ? 0.03 : 0.045),
+        fontSize: 16,
         fontWeight: 'bold',
         color: '#333',
-        marginBottom: screenHeight * 0.005,
+        marginBottom: 4,
     },
     supervisorRole: {
-        fontSize: screenWidth * (isIpad ? 0.02 : 0.035),
+        fontSize: 14,
         color: '#666',
     },
     actionButtons: {
@@ -913,64 +849,64 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     viewButton: {
-        padding: screenWidth * (isIpad ? 0.03 : 0.02),
-        marginRight: screenWidth * (isIpad ? 0.04 : 0.03),
-        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+        padding: 8,
+        marginRight: 8,
+        backgroundColor: '#E6F2FF',
         borderRadius: 8,
     },
     deleteButton: {
-        padding: screenWidth * (isIpad ? 0.03 : 0.02),
-        backgroundColor: 'rgba(255, 68, 68, 0.1)',
+        padding: 8,
+        backgroundColor: '#FFE6EA',
         borderRadius: 8,
     },
     emptyState: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: screenHeight * (isIpad ? 0.08 : 0.06),
-        marginTop: screenHeight * (isIpad ? 0.2 : 0.15),
+        padding: 40,
+        marginTop: 60,
     },
     emptyText: {
-        fontSize: isIpad ? screenWidth * 0.028 : screenWidth * 0.045,
+        fontSize: 18,
         color: '#666',
-        marginTop: screenHeight * 0.025,
-        textAlign: 'center',
+        marginTop: 20,
+        fontWeight: '500',
     },
     emptySubtext: {
-        fontSize: isIpad ? screenWidth * 0.02 : screenWidth * 0.035,
-        color: '#888',
-        marginTop: screenHeight * 0.012,
-        textAlign: 'center',
+        fontSize: 14,
+        color: '#999',
+        marginTop: 8,
     },
     addButton: {
         position: 'absolute',
         bottom: screenHeight * (isIpad ? 0.04 : 0.03),
         right: screenWidth * (isIpad ? 0.04 : 0.05),
-        backgroundColor: '#2094F3',
-        width: screenWidth * (isIpad ? 0.08 : 0.13),
-        height: screenWidth * (isIpad ? 0.08 : 0.13),
-        borderRadius: screenWidth * (isIpad ? 0.04 : 0.065),
+        backgroundColor: '#007ADC',
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
+        shadowColor: '#007ADC',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 8,
+        shadowRadius: 8,
+        elevation: 5,
     },
+    // Modals
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: screenWidth * (isIpad ? 0.04 : 0.05),
+        paddingHorizontal: 20,
     },
     modalContent: {
         backgroundColor: '#fff',
-        borderRadius: screenWidth * 0.04,
-        padding: screenWidth * (isIpad ? 0.06 : 0.05),
-        width: screenWidth * (isIpad ? 0.7 : 0.9),
-        maxWidth: isIpad ? 600 : 400,
+        borderRadius: 20,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.2,
@@ -978,45 +914,44 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     modalTitle: {
-        fontSize: screenWidth * (isIpad ? 0.035 : 0.05),
+        fontSize: 20,
         fontWeight: 'bold',
         color: '#333',
-        marginBottom: screenHeight * 0.03,
+        marginBottom: 20,
         textAlign: 'center',
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: screenHeight * 0.025,
+        marginBottom: 16,
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        borderRadius: screenWidth * 0.03,
+        borderRadius: 12,
         backgroundColor: '#F9FAFB',
-        overflow: 'hidden',
     },
     inputIcon: {
-        padding: screenWidth * (isIpad ? 0.04 : 0.035),
+        padding: 12,
     },
     input: {
         flex: 1,
-        paddingVertical: screenHeight * (isIpad ? 0.02 : 0.015),
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.04),
+        paddingVertical: 12,
+        fontSize: 16,
         color: '#333',
     },
     visibilityButton: {
-        padding: screenWidth * (isIpad ? 0.04 : 0.035),
+        padding: 12,
     },
     modalButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: screenHeight * 0.02,
+        marginTop: 8,
+        gap: 12
     },
     button: {
         flex: 1,
-        paddingVertical: screenHeight * (isIpad ? 0.025 : 0.02),
-        borderRadius: screenWidth * 0.03,
+        paddingVertical: 12,
+        borderRadius: 12,
         alignItems: 'center',
-        marginHorizontal: screenWidth * 0.015,
     },
     cancelButton: {
         backgroundColor: '#F9FAFB',
@@ -1026,17 +961,112 @@ const styles = StyleSheet.create({
     cancelButtonText: {
         color: '#6B7280',
         fontWeight: 'bold',
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.04),
+        fontSize: 16,
     },
     createButton: {
-        backgroundColor: '#2094F3',
+        backgroundColor: '#007ADC',
     },
     createButtonText: {
         color: '#fff',
         fontWeight: 'bold',
-        fontSize: screenWidth * (isIpad ? 0.025 : 0.04),
+        fontSize: 16,
     },
-
+    resetButton: {
+        backgroundColor: '#007ADC',
+    },
+    resetButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    // Credentials Modal
+    credentialsModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '90%',
+        maxWidth: 400,
+        alignItems: 'center',
+        elevation: 10,
+    },
+    credentialsHeader: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    credentialsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginTop: 10,
+        textAlign: 'center',
+    },
+    credentialsSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    credentialBox: {
+        width: '100%',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    credentialItem: {
+        flexDirection: 'row',
+        marginBottom: 10,
+        alignItems: 'center',
+    },
+    credentialLabel: {
+        fontSize: 14,
+        color: '#6B7280',
+        width: '35%',
+        fontWeight: '500',
+    },
+    credentialValue: {
+        fontSize: 16,
+        color: '#333',
+        fontWeight: 'bold',
+        flex: 1,
+    },
+    credentialsWarning: {
+        fontSize: 12,
+        color: '#ff4444',
+        textAlign: 'center',
+        marginBottom: 20,
+        fontStyle: 'italic',
+    },
+    resetPasswordButton: {
+        backgroundColor: '#F9FAFB',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#007ADC',
+        width: '100%',
+        alignItems: 'center'
+    },
+    resetPasswordText: {
+        color: '#007ADC',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    closeButton: {
+        backgroundColor: '#007ADC',
+        paddingVertical: 12,
+        borderRadius: 12,
+        width: '100%',
+        alignItems: 'center',
+    },
+    closeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 });
 
 export default ManageSupervisorsScreen;
