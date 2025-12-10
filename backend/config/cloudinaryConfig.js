@@ -3,20 +3,25 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 require('dotenv').config();
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// DEBUG: Check if env vars are loaded
+console.log("--- Cloudinary Config Debug ---");
+console.log("Cloud Name:", process.env.CLOUDINARY_CLOUD_NAME || "MISSING");
+console.log("API Key:", process.env.CLOUDINARY_API_KEY || "MISSING");
+console.log("API Secret Length:", process.env.CLOUDINARY_API_SECRET ? process.env.CLOUDINARY_API_SECRET.length : "MISSING");
+console.log("-------------------------------");
 
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'crims_videos',
-        resource_type: 'video', // Explicitly set for video uploads
-        allowed_formats: ['mp4', 'mov', 'avi', 'mkv'],
-    },
-});
+// Only use manual config if individual variables are set
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+} else {
+    console.log("Using CLOUDINARY_URL from environment (if present).");
+}
+
+const storage = multer.memoryStorage(); // Use memory storage to get the buffer
 
 const upload = multer({ storage: storage });
 

@@ -1,10 +1,24 @@
-const express = require('express');
+const express = require('express'); // Trigger restart
 const router = express.Router();
 const Message = require('../models/Message');
 const Site = require('../models/Site');
 const User = require('../models/User'); // Admin
 const { auth } = require('../middleware/auth');
-const { upload } = require('../config/cloudinaryConfig');
+const { upload, cloudinary } = require('../config/cloudinaryConfig');
+// Helper to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer, folder = 'crims_videos') => {
+    return new Promise((resolve, reject) => {
+        // resource_type: "auto" handles both images and videos
+        const stream = cloudinary.uploader.upload_stream(
+            { folder: folder, resource_type: "auto" },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+            }
+        );
+        stream.end(buffer);
+    });
+};
 
 // Send a message (Supervisor -> Admin)
 router.post('/send', auth, upload.single('video'), async (req, res) => {
@@ -14,10 +28,21 @@ router.post('/send', auth, upload.single('video'), async (req, res) => {
         }
 
         const { siteId, content } = req.body;
-        let videoUrl = req.body.videoUrl; // In case it's sent as a string (backward compatibility)
+        let videoUrl = req.body.videoUrl;
 
+        // Manual upload if file is present
         if (req.file) {
-            videoUrl = req.file.path; // Cloudinary URL
+            console.log('File detected. Starting manual upload to Cloudinary...');
+            try {
+                const result = await uploadToCloudinary(req.file.buffer);
+                console.log('Upload successful:', result.secure_url);
+                videoUrl = result.secure_url;
+            } catch (uploadError) {
+                console.error('Cloudinary upload error details:', uploadError);
+                return res.status(500).json({ message: 'Video upload failed', error: uploadError.message });
+            }
+        } else {
+            console.log('No file received in request.');
         }
 
         if (!siteId) {
