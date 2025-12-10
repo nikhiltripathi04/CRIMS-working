@@ -11,7 +11,8 @@ import {
     Dimensions,
     StatusBar,
     SafeAreaView,
-    TextInput
+    TextInput,
+    ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -178,102 +179,269 @@ const GlobalSitesScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.mainContainer}>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                                <Ionicons name="arrow-back" size={24} color="#fff" />
-                            </TouchableOpacity>
-                            <Text style={styles.title}>All Sites</Text>
-                            <View style={{ width: 24 }} />
-                        </View>
+            <StatusBar barStyle="light-content" backgroundColor="#007ADC" />
 
-                        {/* Content Area */}
-                        <View style={styles.contentArea}>
-                            <View style={styles.searchContainer}>
-                                <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="Search sites..."
-                                    value={searchQuery}
-                                    onChangeText={setSearchQuery}
-                                    placeholderTextColor="#9CA3AF"
-                                    clearButtonMode="while-editing"
-                                />
+            {/* Header Section */}
+            <View style={styles.headerWrapper}>
+                <ImageBackground
+                    // source={{ uri: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2070&auto=format&fit=crop' }}
+                    style={styles.headerBackground}
+                    resizeMode="cover"
+                >
+                    <LinearGradient
+                        colors={['#007ADC99', '#007ADC99']}
+                        style={styles.headerGradient}
+                    >
+                        <SafeAreaView style={styles.safeArea}>
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <Text style={styles.headerTitle}>All Sites</Text>
+                                <View style={{ width: 40 }} />
                             </View>
+                        </SafeAreaView>
+                    </LinearGradient>
+                </ImageBackground>
+            </View>
 
-                            <FlatList
-                                data={filteredSites}
-                                keyExtractor={(item) => item._id}
-                                renderItem={renderSiteCard}
-                                refreshing={refreshing}
-                                onRefresh={onRefresh}
-                                contentContainerStyle={styles.listContainer}
-                                ListEmptyComponent={() => (
-                                    <View style={styles.emptyState}>
-                                        <Ionicons name="business-outline" size={64} color="#ccc" />
-                                        <Text style={styles.emptyText}>No sites found</Text>
-                                    </View>
-                                )}
-                            />
-
-                            {/* FAB to create new site */}
-                            <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('CreateSite')}>
-                                <Ionicons name="add" size={isIpad ? 40 : 24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+            {/* Content Area */}
+            <View style={styles.contentContainer}>
+                <View style={styles.mainContainer}>
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search sites..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholderTextColor="#9CA3AF"
+                            clearButtonMode="while-editing"
+                        />
                     </View>
-                </SafeAreaView>
-            </LinearGradient>
+
+                    <FlatList
+                        data={filteredSites}
+                        keyExtractor={(item) => item._id}
+                        renderItem={renderSiteCard}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        contentContainerStyle={styles.listContainer}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={() => (
+                            <View style={styles.emptyState}>
+                                <Ionicons name="business-outline" size={64} color="#ccc" />
+                                <Text style={styles.emptyText}>No sites found</Text>
+                            </View>
+                        )}
+                    />
+                </View>
+
+                {/* FAB to create new site */}
+                <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('CreateSite')}>
+                    <Ionicons name="add" size={isIpad ? 40 : 28} color="#fff" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    gradient: { flex: 1 },
-    safeArea: { flex: 1 },
-    mainContainer: { flex: 1, width: isIpad ? '85%' : '100%', alignSelf: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
-    backButton: { padding: 8 },
-    title: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
-    contentArea: { flex: 1, backgroundColor: '#E5E7EB', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 20 },
-    listContainer: { paddingBottom: 100 },
+    container: {
+        flex: 1,
+        backgroundColor: '#007ADC',
+    },
+    headerWrapper: {
+        height: screenHeight * 0.22,
+        width: '100%',
+    },
+    headerBackground: {
+        flex: 1,
+        width: '100%',
+    },
+    headerGradient: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    safeArea: {
+        flex: 1,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+    },
+    backButton: {
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    // Main Content
+    contentContainer: {
+        flex: 1,
+        backgroundColor: '#F2F4F8',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -30,
+        overflow: 'hidden',
+    },
+    mainContainer: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+    },
+    listContainer: {
+        paddingBottom: 100
+    },
 
     // Search
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, marginBottom: 20, height: 48, elevation: 2 },
-    searchIcon: { marginRight: 8 },
-    searchInput: { flex: 1, fontSize: 16, color: '#1f2937' },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        marginBottom: 20,
+        height: 50,
+        // Soft Shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    searchIcon: { marginRight: 12 },
+    searchInput: { flex: 1, fontSize: 16, color: '#333' },
 
     // Card Styles
-    siteCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, elevation: 3, position: 'relative' },
-    siteContent: { padding: 16 },
-    siteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    siteCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        marginBottom: 20,
+        // Soft Shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+        position: 'relative',
+        overflow: 'hidden'
+    },
+    siteContent: { padding: 20 },
+    siteHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 16
+    },
     siteMainInfo: { flex: 1 },
-    siteName: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-    siteLocation: { fontSize: 14, color: '#666' },
-    attendanceBadge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: 'center', minWidth: 60 },
-    attendancePercentage: { fontSize: 16, fontWeight: 'bold', color: '#1976d2' },
-    attendanceLabel: { fontSize: 10, color: '#1976d2', marginTop: 2 },
-    siteStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16, paddingVertical: 10, backgroundColor: '#f8f9fa', borderRadius: 8 },
+    siteName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 6
+    },
+    siteLocation: {
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '500'
+    },
+    attendanceBadge: {
+        backgroundColor: '#E6F2FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        alignItems: 'center',
+        minWidth: 64
+    },
+    attendancePercentage: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#007ADC'
+    },
+    attendanceLabel: {
+        fontSize: 10,
+        color: '#007ADC',
+        fontWeight: '600',
+        marginTop: 2
+    },
+    siteStats: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginBottom: 16,
+        paddingVertical: 12,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12
+    },
     statItem: { alignItems: 'center', flex: 1 },
-    statText: { fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 4, marginBottom: 2 },
-    statLabel: { fontSize: 12, color: '#666' },
-    attendanceDetails: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+    statText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#333',
+        marginTop: 4,
+        marginBottom: 2
+    },
+    statLabel: {
+        fontSize: 12,
+        color: '#888',
+        fontWeight: '500'
+    },
+    attendanceDetails: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
     attendanceItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4 },
-    attendanceDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-    attendanceText: { fontSize: 12, color: '#666' },
-    lastActivity: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: '#007bff', marginTop: 8 },
-    lastActivityText: { fontSize: 12, color: '#333', marginBottom: 2 },
-    lastActivityTime: { fontSize: 11, color: '#888' },
-    deleteButton: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(255, 0, 0, 0.08)', padding: 8, borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    attendanceDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    attendanceText: { fontSize: 13, color: '#555', fontWeight: '500' },
 
-    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
-    emptyText: { color: '#888', marginTop: 10 },
-    addButton: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#2094F3', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8 },
+    lastActivity: {
+        backgroundColor: '#F0F8FF',
+        padding: 12,
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: '#007ADC',
+        marginTop: 8
+    },
+    lastActivityText: { fontSize: 13, color: '#333', marginBottom: 4, fontWeight: '500' },
+    lastActivityTime: { fontSize: 11, color: '#888' },
+
+    deleteButton: {
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        backgroundColor: '#FFF0F0',
+        padding: 10,
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#FFE6E6'
+    },
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
+    emptyText: { color: '#888', marginTop: 16, fontSize: 16 },
+    addButton: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        backgroundColor: '#007ADC',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#007ADC',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
 });
 
 export default GlobalSitesScreen;
