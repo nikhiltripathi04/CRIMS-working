@@ -25,7 +25,6 @@ import * as Haptics from 'expo-haptics';
 import { Calendar } from 'react-native-calendars';
 
 const { width: screenWidth } = Dimensions.get("window");
-const isIpad = screenWidth >= 768; // Simple check for larger screens
 
 const StaffDashboardScreen = () => {
     const { user, token, logout, API_BASE_URL } = useAuth();
@@ -227,7 +226,7 @@ const StaffDashboardScreen = () => {
                 marked[dateStr] = {
                     dots: [],
                     selected: true,
-                    selectedColor: 'transparent', // Custom background handling if needed
+                    selectedColor: 'transparent',
                     textStyle: { fontWeight: 'bold' }
                 };
             }
@@ -318,17 +317,16 @@ const StaffDashboardScreen = () => {
 
     // --- Render Helpers ---
 
-    if (!user) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#2094f3" /></View>;
+    if (!user) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#AF52DE" /></View>;
 
     // 1. Camera View
     if (cameraActive && !capturedImage) {
         return (
             <View style={styles.fullScreenCamera}>
                 <StatusBar hidden />
-                {/* FIX: Using CameraView instead of Camera */}
                 <CameraView
                     style={styles.camera}
-                    facing={facing} // Use state for facing
+                    facing={facing}
                     ref={cameraRef}
                 >
                     <SafeAreaView style={styles.cameraOverlay}>
@@ -397,11 +395,11 @@ const StaffDashboardScreen = () => {
 
                         <View style={styles.detailsBox}>
                             <View style={styles.detailRow}>
-                                <Ionicons name="time-outline" size={20} color="#666" />
+                                <Ionicons name="time-outline" size={24} color="#666" />
                                 <Text style={styles.detailText}>{new Date().toLocaleString()}</Text>
                             </View>
                             <View style={styles.detailRow}>
-                                <Ionicons name="location-outline" size={20} color="#666" />
+                                <Ionicons name="location-outline" size={24} color="#666" />
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.detailText}>
                                         {locationData?.address || "Fetching address..."}
@@ -413,7 +411,7 @@ const StaffDashboardScreen = () => {
                                     )}
                                 </View>
                                 <TouchableOpacity onPress={fetchLocation} style={styles.refreshBtn}>
-                                    <Ionicons name={fetchingLocation ? "sync" : "refresh"} size={20} color="#2094f3" />
+                                    <Ionicons name={fetchingLocation ? "sync" : "refresh"} size={24} color="#AF52DE" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -447,26 +445,35 @@ const StaffDashboardScreen = () => {
 
     // 3. Dashboard View (Default)
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#AF52DE" />
 
-            {/* Header - Personalized & Simple */}
-            <View style={styles.headerContainer}>
-                <View>
-                    <Text style={styles.greetingText}>Hello,</Text>
-                    <Text style={styles.userNameText}>{user?.fullName || user?.username || 'Staff'}</Text>
-                </View>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <Ionicons name="power" size={24} color="#EF4444" />
-                </TouchableOpacity>
-            </View>
+            {/* Header - Purple Gradient */}
+            <LinearGradient
+                colors={['#AF52DE', '#9C27B0']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerContainer}
+            >
+                <SafeAreaView>
+                    <View style={styles.headerContent}>
+                        <View>
+                            <Text style={styles.greetingText}>Hello,</Text>
+                            <Text style={styles.userNameText}>{user?.fullName || user?.username || 'Staff'}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                             <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
 
             <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.contentContainer}
+                style={styles.mainScroll}
+                contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* 1. Status Banner - Immediate Feedback */}
+                {/* 1. Status Banner - Huge Visibility */}
                 <View style={[
                     styles.statusCard,
                     hasCheckedIn && !hasCheckedOut ? styles.statusCardActive : styles.statusCardInactive
@@ -479,7 +486,7 @@ const StaffDashboardScreen = () => {
                         ]} />
                         <Text style={styles.statusMainText}>
                             {hasCheckedIn
-                                ? (hasCheckedOut ? "FINISHED FOR TODAY" : "ON DUTY")
+                                ? (hasCheckedOut ? "FINISHED" : "ON DUTY")
                                 : "NOT STARTED"}
                         </Text>
                     </View>
@@ -490,7 +497,7 @@ const StaffDashboardScreen = () => {
                     )}
                 </View>
 
-                {/* 2. Live Clock - Large & Readable */}
+                {/* 2. Live Clock - Clear & Big */}
                 <View style={styles.timeContainer}>
                     <Text style={styles.bigTimeText}>
                         {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -500,7 +507,7 @@ const StaffDashboardScreen = () => {
                     </Text>
                 </View>
 
-                {/* 3. Primary Actions - HUGE Buttons */}
+                {/* 3. Primary Actions - GIANT Buttons for Accessibility */}
                 <View style={styles.actionGrid}>
                     {/* Start Work Button */}
                     <TouchableOpacity
@@ -520,15 +527,15 @@ const StaffDashboardScreen = () => {
                         disabled={hasCheckedIn}
                     >
                         <View style={styles.iconCircleGreen}>
-                            <Ionicons name="enter" size={42} color="#10B981" />
+                            <Ionicons name="enter" size={56} color="#10B981" />
                         </View>
-                        <View>
+                        <View style={styles.actionTextContainer}>
                             <Text style={styles.actionCardTitle}>START WORK</Text>
-                            <Text style={styles.actionCardSubtitle}>Check In</Text>
+                            <Text style={styles.actionCardSubtitle}>Tap here to Check In</Text>
                         </View>
                         {hasCheckedIn && (
                             <View style={styles.completedOverlay}>
-                                <Ionicons name="checkmark-circle" size={48} color="#fff" />
+                                <Ionicons name="checkmark-circle" size={60} color="#fff" />
                                 <Text style={styles.completedText}>DONE</Text>
                             </View>
                         )}
@@ -553,24 +560,24 @@ const StaffDashboardScreen = () => {
                         disabled={!hasCheckedIn || hasCheckedOut}
                     >
                         <View style={styles.iconCircleRed}>
-                            <Ionicons name="exit" size={42} color="#EF4444" />
+                            <Ionicons name="exit" size={56} color="#EF4444" />
                         </View>
-                        <View>
+                        <View style={styles.actionTextContainer}>
                             <Text style={styles.actionCardTitle}>END WORK</Text>
-                            <Text style={styles.actionCardSubtitle}>Check Out</Text>
+                            <Text style={styles.actionCardSubtitle}>Tap here to Check Out</Text>
                         </View>
                         {hasCheckedOut && (
                             <View style={styles.completedOverlay}>
-                                <Ionicons name="checkmark-circle" size={48} color="#fff" />
+                                <Ionicons name="checkmark-circle" size={60} color="#fff" />
                                 <Text style={styles.completedText}>DONE</Text>
                             </View>
                         )}
                     </TouchableOpacity>
                 </View>
 
-                {/* 4. Recent Activity - Simplified List */}
+                {/* 4. Recent Activity */}
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>Today's Activity</Text>
+                    <Text style={styles.sectionTitle}>Recent Activity</Text>
                     {attendanceHistory.length === 0 ? (
                         <View style={styles.emptyStateSimple}>
                             <Text style={styles.emptyTextSimple}>No activity recorded yet.</Text>
@@ -593,8 +600,8 @@ const StaffDashboardScreen = () => {
                     )}
                 </View>
 
-                {/* 5. Calendar - Just for reference */}
-                <View style={styles.sectionContainer}>
+                {/* 5. Calendar */}
+                <View style={[styles.sectionContainer, { marginTop: 24 }]}>
                     <Text style={styles.sectionTitle}>Attendance Calendar</Text>
                     <View style={styles.calendarWrapper}>
                         <Calendar
@@ -610,14 +617,14 @@ const StaffDashboardScreen = () => {
                                 backgroundColor: '#ffffff',
                                 calendarBackground: '#ffffff',
                                 textSectionTitleColor: '#9CA3AF',
-                                selectedDayBackgroundColor: '#2563EB',
+                                selectedDayBackgroundColor: '#AF52DE',
                                 selectedDayTextColor: '#ffffff',
-                                todayTextColor: '#2563EB',
+                                todayTextColor: '#AF52DE',
                                 dayTextColor: '#1F2937',
                                 textDisabledColor: '#E5E7EB',
-                                dotColor: '#2563EB',
+                                dotColor: '#AF52DE',
                                 selectedDotColor: '#ffffff',
-                                arrowColor: '#2563EB',
+                                arrowColor: '#AF52DE',
                                 monthTextColor: '#1F2937',
                                 textDayFontWeight: '600',
                                 textMonthFontWeight: 'bold',
@@ -630,14 +637,20 @@ const StaffDashboardScreen = () => {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    container: {
         flex: 1,
         backgroundColor: '#F3F4F6',
+    },
+    mainScroll: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: 20,
     },
     loadingContainer: {
         flex: 1,
@@ -646,91 +659,93 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
     },
 
-    // --- New Header ---
+    // --- Header ---
     headerContainer: {
         paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'android' ? 40 : 20,
-        paddingBottom: 20,
+        paddingTop: Platform.OS === 'android' ? 50 : 20, // More top padding for status bar
+        paddingBottom: 25,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 5,
+        shadowColor: '#AF52DE',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    headerContent: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
     },
     greetingText: {
-        fontSize: 16,
-        color: '#6B7280',
+        fontSize: 18,
+        color: 'rgba(255,255,255,0.9)',
         fontWeight: '500',
+        marginBottom: 4,
     },
     userNameText: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
-        color: '#1F2937',
-        marginTop: 2,
+        color: '#FFFFFF',
     },
     logoutButton: {
         padding: 12,
-        backgroundColor: '#FEF2F2',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#FECACA',
-    },
-
-    // --- Main Container ---
-    container: {
-        flex: 1,
-    },
-    contentContainer: {
-        padding: 24,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
 
     // --- Status Card ---
     statusCard: {
-        padding: 20,
-        borderRadius: 20,
+        padding: 24,
+        borderRadius: 24,
         marginBottom: 24,
+        marginTop: 20,
         borderWidth: 1,
-        elevation: 2,
+        elevation: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
     },
     statusCardActive: {
-        backgroundColor: '#ECFDF5',
+        backgroundColor: '#FFFFFF',
         borderColor: '#10B981',
+        borderLeftWidth: 8, // Prominent indicator
     },
     statusCardInactive: {
-        backgroundColor: '#fff',
+        backgroundColor: '#FFFFFF',
         borderColor: '#E5E7EB',
+        borderLeftWidth: 8,
+        borderLeftColor: '#9CA3AF',
     },
     statusLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        letterSpacing: 1,
+        fontSize: 14,
+        fontWeight: 'bold',
+        letterSpacing: 1.2,
         color: '#6B7280',
-        marginBottom: 8,
+        marginBottom: 12,
         textTransform: 'uppercase',
     },
     statusRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 16,
     },
     statusDot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
     },
     statusMainText: {
-        fontSize: 22,
+        fontSize: 28, // Bigger
         fontWeight: '800',
         color: '#1F2937',
     },
     statusSubText: {
-        marginTop: 8,
-        fontSize: 15,
+        marginTop: 12,
+        fontSize: 16,
         color: '#059669',
         fontWeight: '600',
     },
@@ -741,31 +756,30 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     bigTimeText: {
-        fontSize: 56,
+        fontSize: 60, // Bigger
         fontWeight: '900',
         color: '#111827',
         fontVariant: ['tabular-nums'],
-        letterSpacing: -2,
+        letterSpacing: -1,
     },
     dateText: {
-        fontSize: 18,
+        fontSize: 20,
         color: '#6B7280',
         fontWeight: '500',
-        marginTop: -4,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 1,
     },
 
     // --- Action Grid (Buttons) ---
     actionGrid: {
-        gap: 20,
+        gap: 24,
         marginBottom: 32,
     },
     actionCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 24,
-        borderRadius: 24,
+        padding: 28, // Bigger padding
+        borderRadius: 28,
         backgroundColor: '#fff',
         borderWidth: 2,
         elevation: 4,
@@ -773,7 +787,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
-        minHeight: 110,
+        minHeight: 140, // Taller
         position: 'relative',
         overflow: 'hidden',
     },
@@ -784,32 +798,36 @@ const styles = StyleSheet.create({
         borderColor: '#EF4444',
     },
     actionCardDisabled: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: '#F9FAFB',
         borderColor: '#E5E7EB',
         opacity: 0.6,
         elevation: 0,
     },
     iconCircleGreen: {
-        width: 64, height: 64,
-        borderRadius: 32,
+        width: 80, height: 80, // Bigger circle
+        borderRadius: 40,
         backgroundColor: '#ECFDF5',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 20,
+        marginRight: 24,
     },
     iconCircleRed: {
-        width: 64, height: 64,
-        borderRadius: 32,
+        width: 80, height: 80,
+        borderRadius: 40,
         backgroundColor: '#FEF2F2',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 20,
+        marginRight: 24,
+    },
+    actionTextContainer: {
+        flex: 1,
     },
     actionCardTitle: {
-        fontSize: 22,
+        fontSize: 24, // Bigger text
         fontWeight: '900',
         color: '#1F2937',
         marginBottom: 4,
+        letterSpacing: 0.5,
     },
     actionCardSubtitle: {
         fontSize: 16,
@@ -817,128 +835,286 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     completedOverlay: {
-        position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(16, 185, 129, 0.9)', // Green overlay
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(16, 185, 129, 0.95)', // Stronger overlay
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 10,
         flexDirection: 'row',
-        gap: 10,
+        gap: 12,
     },
     completedText: {
-        color: '#fff',
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: '900',
+        color: '#fff',
         letterSpacing: 2,
     },
 
-    // --- Sections --
+    // --- History Section ---
     sectionContainer: {
-        marginBottom: 24,
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 24,
+        elevation: 2,
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
-        color: '#374151',
+        color: '#111827',
         marginBottom: 16,
-        marginLeft: 4,
-    },
-    emptyStateSimple: {
-        padding: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-    },
-    emptyTextSimple: {
-        color: '#9CA3AF',
-        fontSize: 15,
     },
     historyList: {
-        gap: 12,
+        gap: 16,
     },
     historyRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
     },
     historyDot: {
-        width: 12, height: 12,
-        borderRadius: 6,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
         marginRight: 16,
     },
     historyType: {
-        fontSize: 16,
+        fontSize: 18, // Bigger
         fontWeight: '600',
-        color: '#1F2937',
+        color: '#374151',
     },
     historyLocation: {
-        fontSize: 13,
+        fontSize: 14,
         color: '#6B7280',
         marginTop: 2,
     },
     historyTime: {
-        fontSize: 14,
+        fontSize: 16,
+        fontWeight: '600',
         color: '#9CA3AF',
+    },
+    emptyStateSimple: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    emptyTextSimple: {
+        color: '#9CA3AF',
+        fontStyle: 'italic',
+        fontSize: 16,
+    },
+
+    // --- Camera Styles ---
+    fullScreenCamera: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    camera: {
+        flex: 1,
+    },
+    cameraOverlay: {
+        flex: 1,
+        justifyContent: 'space-between',
+        padding: 20,
+    },
+    cameraHeader: {
+        alignItems: 'center',
+        marginTop: 40,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        padding: 16,
+        borderRadius: 16,
+    },
+    cameraTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: 'bold',
+    },
+    cameraSubtitle: {
+        color: '#E5E7EB',
+        fontSize: 16,
+        marginTop: 4,
+    },
+    locationOverlay: {
+        alignItems: 'center',
+    },
+    locBadgeFetching: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 8,
+    },
+    locTextFetching: { color: '#E69138', fontWeight: 'bold' },
+    locBadgeFound: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 8,
+    },
+    locTextFound: { color: '#10B981', fontWeight: 'bold' },
+    locBadgeError: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 8,
+    },
+    locTextError: { color: '#EF4444', fontWeight: 'bold' },
+
+    cameraControls: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        marginBottom: 30,
+    },
+    btnCancelCam: {
+        padding: 12,
+    },
+    txtCancelCam: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    btnCaptureOuter: {
+        width: 80, height: 80,
+        borderRadius: 40,
+        borderWidth: 4,
+        borderColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    btnCaptureInner: {
+        width: 64, height: 64,
+        borderRadius: 32,
+        backgroundColor: '#fff',
+    },
+    btnFlipCam: {
+        padding: 12,
+    },
+
+    // --- Preview Styles ---
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#F9FAFB',
+    },
+    centerContent: {
+        flexGrow: 1,
+        padding: 20,
+        justifyContent: 'center',
+    },
+    previewCard: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 20,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+    },
+    previewHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    previewTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1F2937',
+    },
+    badge: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+    },
+    badgeText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 12,
+        letterSpacing: 1,
+    },
+    previewImage: {
+        width: '100%',
+        height: 300,
+        borderRadius: 16,
+        backgroundColor: '#E5E7EB',
+        marginBottom: 20,
+    },
+    detailsBox: {
+        backgroundColor: '#F9FAFB',
+        padding: 16,
+        borderRadius: 16,
+        gap: 16,
+        marginBottom: 24,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'flex-start',
+    },
+    detailText: {
+        fontSize: 16,
+        color: '#374151',
         fontWeight: '500',
     },
+    detailSubText: {
+        fontSize: 13,
+        color: '#6B7280',
+        marginTop: 2,
+    },
+    refreshBtn: {
+        padding: 4,
+    },
+    previewActions: {
+        flexDirection: 'row',
+        gap: 16,
+    },
+    btnRetake: {
+        flex: 1,
+        paddingVertical: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        alignItems: 'center',
+    },
+    btnRetakeText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#6B7280',
+    },
+    btnSubmit: {
+        flex: 2,
+        paddingVertical: 16,
+        borderRadius: 16,
+        backgroundColor: '#10B981',
+        alignItems: 'center',
+        elevation: 2,
+    },
+    btnSubmitText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    btnDisabled: {
+        backgroundColor: '#9CA3AF',
+        opacity: 0.7,
+    },
+
+    // --- Calendar Styles ---
     calendarWrapper: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
+        borderRadius: 16,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        padding: 10,
     },
-
-    // --- Camera & Modal Styles (Keep existing ones but ensuring keys match) ---
-    fullScreenCamera: { flex: 1, backgroundColor: '#000' },
-    camera: { flex: 1 },
-    cameraOverlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'space-between' },
-    cameraHeader: { padding: 40, paddingTop: 60, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    cameraTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
-    cameraSubtitle: { color: '#E5E7EB', fontSize: 18, marginTop: 8, textAlign: 'center' },
-    locationOverlay: { alignItems: 'center', padding: 10 },
-    locBadgeFound: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, gap: 8 },
-    locTextFound: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    locBadgeFetching: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 20 },
-    locTextFetching: { color: '#E69138', fontSize: 14 },
-    locBadgeError: { backgroundColor: 'rgba(239, 68, 68, 0.9)', padding: 10, borderRadius: 20 },
-    locTextError: { color: '#fff', fontSize: 14 },
-    cameraControls: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', padding: 40, paddingBottom: 60, backgroundColor: 'rgba(0,0,0,0.5)' },
-    btnCancelCam: { padding: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 50 },
-    txtCancelCam: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    btnCaptureOuter: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center' },
-    btnCaptureInner: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff', borderWidth: 4, borderColor: 'rgba(0,0,0,0.1)' },
-    btnFlipCam: { padding: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 50 },
-
-    // Preview
-    centerContent: { flexGrow: 1, justifyContent: 'center', padding: 20, backgroundColor: '#F3F4F6' },
-    previewCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, elevation: 4 },
-    previewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    previewTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937' },
-    badge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-    badgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' },
-    previewImage: { width: '100%', height: 350, borderRadius: 16, backgroundColor: '#E5E7EB', marginBottom: 20 },
-    detailsBox: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 24, gap: 16 },
-    detailRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
-    detailText: { fontSize: 16, color: '#1F2937', fontWeight: '500', lineHeight: 24 },
-    detailSubText: { fontSize: 14, color: '#666' },
-    previewActions: { flexDirection: 'column', gap: 16 },
-    btnRetake: { padding: 16, borderRadius: 16, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', backgroundColor: '#fff' },
-    btnRetakeText: { fontSize: 18, color: '#4B5563', fontWeight: '700' },
-    btnSubmit: { padding: 20, borderRadius: 16, backgroundColor: '#10B981', alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 4 },
-    btnSubmitText: { fontSize: 20, color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
-    btnDisabled: { opacity: 0.5, backgroundColor: '#9CA3AF' },
-    refreshBtn: { padding: 8 }
 });
-
 
 export default StaffDashboardScreen;
