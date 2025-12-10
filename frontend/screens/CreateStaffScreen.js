@@ -12,12 +12,14 @@ import {
   SafeAreaView,
   StatusBar,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ImageBackground
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Get screen dimensions for responsive design
 const { width: screenWidth } = Dimensions.get("window");
@@ -87,175 +89,219 @@ const CreateStaffScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#AF52DE" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Create Staff Member</Text>
-        </View>
+      {/* Header Section */}
+      <View style={styles.headerWrapper}>
+        <ImageBackground
+          // source={{ uri: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=2084&auto=format&fit=crop' }}
+          style={styles.headerBackground}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['#AF52DE99', '#AF52DE99']}
+            style={styles.headerGradient}
+          >
+            <SafeAreaView style={styles.safeArea}>
+              <View style={styles.headerContent}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Create Staff Member</Text>
+                <View style={{ width: 40 }} />
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </ImageBackground>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
+      {/* Content Area */}
+      <View style={styles.contentContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <View style={styles.formCard}>
-            
-            {/* Header Icon/Description inside Card */}
-            <View style={styles.cardHeader}>
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formCard}>
+
+              {/* Header Icon/Description inside Card */}
+              <View style={styles.cardHeader}>
                 <View style={styles.iconCircle}>
-                    <Ionicons name="person" size={24} color="#2094f3" />
+                  <Ionicons name="person" size={24} color="#AF52DE" />
                 </View>
                 <View>
-                    <Text style={styles.cardTitle}>Staff Details</Text>
-                    <Text style={styles.cardSubtitle}>Create account for general staff access</Text>
+                  <Text style={styles.cardTitle}>Staff Details</Text>
+                  <Text style={styles.cardSubtitle}>Create account for general staff access</Text>
                 </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Full Name Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name <Text style={styles.requiredStar}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder="e.g. John Doe"
-                  placeholderTextColor="#999"
-                />
               </View>
-            </View>
 
-            {/* Username Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username <Text style={styles.requiredStar}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="id-card-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={username}
-                  onChangeText={setUsername}
-                  placeholder="e.g. johndoe"
-                  placeholderTextColor="#999"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-            </View>
+              <View style={styles.divider} />
 
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password <Text style={styles.requiredStar}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter password"
-                  placeholderTextColor="#999"
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={{ paddingHorizontal: 10 }}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye' : 'eye-off'}
-                    size={20}
-                    color="#666"
+              {/* Full Name Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Full Name <Text style={styles.requiredStar}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="e.g. John Doe"
+                    placeholderTextColor="#999"
                   />
+                </View>
+              </View>
+
+              {/* Username Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Username <Text style={styles.requiredStar}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="id-card-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="e.g. johndoe"
+                    placeholderTextColor="#999"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password <Text style={styles.requiredStar}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="lock-closed-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter password"
+                    placeholderTextColor="#999"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={{ paddingHorizontal: 10 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye' : 'eye-off'}
+                      size={20}
+                      color="#666"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleCreateStaff}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" size={isIpad ? "large" : "small"} />
+                  ) : (
+                    <>
+                      <Ionicons name="person-add-outline" size={isIpad ? 24 : 20} color="#fff" style={styles.buttonIcon} />
+                      <Text style={styles.buttonText}>
+                        Create Staff Member
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => navigation.goBack()}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle-outline" size={isIpad ? 24 : 20} color="#333" style={styles.buttonIcon} />
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleCreateStaff}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" size={isIpad ? "large" : "small"} />
-                ) : (
-                  <>
-                    <Ionicons name="person-add-outline" size={isIpad ? 24 : 20} color="#fff" style={styles.buttonIcon} />
-                    <Text style={styles.buttonText}>
-                      Create Staff Member
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => navigation.goBack()}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close-circle-outline" size={isIpad ? 24 : 20} color="#333" style={styles.buttonIcon} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#AF52DE',
+  },
+  headerWrapper: {
+    height: screenWidth * 0.55,
+    maxHeight: 220,
+    width: '100%',
+  },
+  headerBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  headerGradient: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#2094f3',
   },
-  header: {
-    backgroundColor: '#2094f3',
-    paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 40) : 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-    marginTop: 10 // Adjusted slightly as we don't have the huge top spacing from the previous example
+  backButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
   },
   headerTitle: {
-    fontSize: isIpad ? 28 : 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#2094f3',
-  },
+
+  // Content
   contentContainer: {
-    padding: isIpad ? 40 : 20,
-    paddingTop: isIpad ? 20 : 10,
+    flex: 1,
+    backgroundColor: '#F2F4F8',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    overflow: 'hidden',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: isIpad ? 30 : 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 4,
   },
   cardHeader: {
@@ -267,7 +313,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: '#F3E5F5',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -323,18 +369,18 @@ const styles = StyleSheet.create({
     marginTop: isIpad ? 30 : 20,
   },
   button: {
-    backgroundColor: '#2094f3',
-    padding: isIpad ? 18 : 15,
-    borderRadius: 12,
+    backgroundColor: '#AF52DE',
+    padding: 18,
+    borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: isIpad ? 16 : 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    shadowColor: '#AF52DE',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonDisabled: {
     backgroundColor: '#82b8ed',
