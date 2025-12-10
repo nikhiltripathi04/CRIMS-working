@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   safeArea: {
-    paddingTop: Platform.OS === 'android' ? 10 : 0,
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   headerContent: {
     flexDirection: 'row',
