@@ -243,8 +243,8 @@ const AdminMessagesScreen = () => {
     // List View
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2094F3" />
-            <LinearGradient colors={["#2094F3", "#0B7DDA"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
+            <StatusBar barStyle="light-content" backgroundColor="#FF2D55" />
+            <LinearGradient colors={["#FF2D55", "#FF0040"]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
                 <SafeAreaView style={styles.safeArea}>
                     <View style={styles.mainContainer}>
                         <View style={styles.header}>
@@ -252,7 +252,7 @@ const AdminMessagesScreen = () => {
                                 <Ionicons name="arrow-back" size={24} color="#fff" />
                             </TouchableOpacity>
                             <Text style={styles.title}>Messages</Text>
-                            <View style={{ width: 24 }} />
+                            <View style={{ width: 40 }} />
                         </View>
 
                         <View style={styles.contentArea}>
@@ -260,7 +260,7 @@ const AdminMessagesScreen = () => {
                                 <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
                                 <TextInput
                                     style={styles.searchInput}
-                                    placeholder="Search supervisors..."
+                                    placeholder="Search Supervisors..."
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                     placeholderTextColor="#9CA3AF"
@@ -268,7 +268,7 @@ const AdminMessagesScreen = () => {
                             </View>
 
                             {loading ? (
-                                <ActivityIndicator size="large" color="#2094F3" style={{ marginTop: 20 }} />
+                                <ActivityIndicator size="large" color="#FF2D55" style={{ marginTop: 20 }} />
                             ) : (
                                 <FlatList
                                     data={filteredConversations}
@@ -292,35 +292,108 @@ const AdminMessagesScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f0f2f5' },
+    container: { flex: 1, backgroundColor: '#FF2D55' },
     chatSafeArea: { flex: 1, backgroundColor: '#fff' },
     gradient: { flex: 1 },
     safeArea: { flex: 1 },
     mainContainer: { flex: 1, width: '100%', alignSelf: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15 },
-    backButton: { padding: 8 },
-    title: { color: '#FFFFFF', fontSize: 22, fontWeight: '700', letterSpacing: 0.5 },
-    contentArea: { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
-    listContainer: { paddingVertical: 10 },
 
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 12, marginBottom: 10, height: 48 },
+    // Header
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 15,
+        paddingBottom: 15
+    },
+    backButton: {
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+    },
+    title: {
+        color: '#FFFFFF',
+        fontSize: 22,
+        fontWeight: '700',
+        letterSpacing: 0.5
+    },
+
+    // Content Area
+    contentArea: {
+        flex: 1,
+        backgroundColor: '#F2F4F8', // Light lavender/grey
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        paddingTop: 20,
+        overflow: 'hidden'
+    },
+
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginHorizontal: 20,
+        paddingHorizontal: 12,
+        marginBottom: 10,
+        height: 48,
+        // Soft Shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, fontSize: 16, color: '#333' },
 
-    conversationItem: { flexDirection: 'row', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f1f1', alignItems: 'center' },
-    avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#007bff', alignItems: 'center', justifyContent: 'center', marginRight: 15 },
-    avatarText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+    listContainer: { paddingBottom: 20 },
+
+    conversationItem: {
+        flexDirection: 'row',
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        alignItems: 'center',
+        backgroundColor: '#fff' // White items
+    },
+    avatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#FFF0F3', // Light Pink bg
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 15,
+        borderWidth: 1.5,
+        borderColor: '#FF2D55' // Pink outline
+    },
+    avatarText: {
+        color: '#FF2D55',
+        fontSize: 20,
+        fontWeight: 'bold'
+    },
     convInfo: { flex: 1 },
     convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     convName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
     convTime: { fontSize: 12, color: '#999' },
-    convSite: { fontSize: 12, color: '#666', backgroundColor: '#eee', alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginBottom: 4 },
+    convSite: {
+        fontSize: 12,
+        color: '#666',
+        backgroundColor: '#f0f0f0',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginBottom: 4
+    },
     convPreview: { fontSize: 14, color: '#666' },
 
     // Chat View Styles
     chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd', elevation: 2 },
     backBtn: { marginRight: 10, padding: 4 },
-    headerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6610f2', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    headerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF2D55', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     headerAvatarText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
     chatTitle: { fontSize: 16, fontWeight: 'bold', color: '#111' },
     chatSubtitle: { fontSize: 12, color: '#666' },
