@@ -14,10 +14,12 @@ import {
   Platform,
   Modal,
   TextInput,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  RefreshControl
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -37,11 +39,12 @@ const StaffDetailsScreen = () => {
   const [staff, setStaff] = useState(initialStaff);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Modal States
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
-  const [selectedAttendance, setSelectedAttendance] = useState(null); // For photo modal
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
 
   // Form States
@@ -56,7 +59,6 @@ const StaffDetailsScreen = () => {
     if (!staff._id || !token) return;
 
     try {
-      // Don't set full page loading for refreshes, just background update
       const response = await axios.get(`${API_BASE_URL}/api/staff`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -86,10 +88,35 @@ const StaffDetailsScreen = () => {
     }
   }, [API_BASE_URL, staff._id, token]);
 
-  useEffect(() => {
+  const loadData = async () => {
     setLoading(true);
-    Promise.all([fetchStaffDetails(), fetchAttendance()]).finally(() => setLoading(false));
+    await Promise.all([fetchStaffDetails(), fetchAttendance()]);
+    setLoading(false);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchStaffDetails(), fetchAttendance()]);
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  // --- Computed Stats ---
+
+  const getStats = () => {
+    const totalLogs = attendanceLogs.length;
+    const lastSeen = totalLogs > 0 ? new Date(attendanceLogs[0].timestamp).toLocaleDateString() : 'N/A';
+    // Simplified status: Active if marked present today
+    const today = new Date().toDateString();
+    const isPresentToday = attendanceLogs.some(log => new Date(log.timestamp).toDateString() === today && log.type === 'login');
+
+    return { totalLogs, lastSeen, isPresentToday };
+  };
+
+  const stats = getStats();
 
   // --- Handlers ---
 
@@ -171,42 +198,136 @@ const StaffDetailsScreen = () => {
 
   // --- Render Sections ---
 
-  const renderProfileCard = () => (
-    <View style={styles.card}>
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarLarge}>
-          <Text style={styles.avatarText}>
-            {staff.fullName ? staff.fullName.charAt(0).toUpperCase() : 'U'}
-          </Text>
-        </View>
-        <Text style={styles.profileName}>{staff.fullName}</Text>
-        <Text style={styles.profileUsername}>@{staff.username}</Text>
-        <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>{staff.role || 'STAFF'}</Text>
-        </View>
+  const renderStatsRow = () => (
+    <View style={styles.statsContainer}>
+      <View style={styles.statCard}>
+        <Ionicons name="list-outline" size={24} color="#AF52DE" />
+        <Text style={styles.statNumber}>{stats.totalLogs}</Text>
+        <Text style={styles.statLabel}>Total Logs</Text>
       </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Created At</Text>
-        <Text style={styles.infoValue}>
-          {new Date(staff.createdAt).toLocaleDateString()}
+      <View style={styles.statCard}>
+        <Ionicons name="calendar-outline" size={24} color="#28a745" />
+        <Text style={styles.statNumber}>{stats.lastSeen}</Text>
+        <Text style={styles.statLabel}>Last Seen</Text>
+      </View>
+      <View style={styles.statCard}>
+        <Ionicons name="pulse-outline" size={24} color={stats.isPresentToday ? "#28a745" : "#6c757d"} />
+        <Text style={[styles.statStatus, { color: stats.isPresentToday ? "#28a745" : "#6c757d" }]}>
+          {stats.isPresentToday ? 'Active' : 'Inactive'}
         </Text>
-      </View>
-
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Staff ID</Text>
-        <Text style={styles.infoValue}>...{staff._id?.slice(-6)}</Text>
+        <Text style={styles.statLabel}>Status</Text>
       </View>
     </View>
   );
+
+  const renderAttendanceCard = () => {
+    // Prepare marked dates for calendar
+    const markedDates = {};
+    attendanceLogs.forEach(log => {
+      const dateStr = new Date(log.timestamp).toISOString().split('T')[0];
+      markedDates[dateStr] = { marked: true, dotColor: '#AF52DE' };
+    });
+
+    if (selectedDate) {
+      markedDates[selectedDate] = {
+        ...(markedDates[selectedDate] || {}),
+        selected: true,
+        selectedColor: '#AF52DE'
+      };
+    }
+
+    const filteredLogs = selectedDate
+      ? attendanceLogs.filter(log => new Date(log.timestamp).toISOString().split('T')[0] === selectedDate)
+      : attendanceLogs;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>Attendance History</Text>
+          {selectedDate && (
+            <TouchableOpacity onPress={() => setSelectedDate(null)}>
+              <Text style={styles.clearFilterText}>Clear Filter</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Calendar
+          markedDates={markedDates}
+          onDayPress={day => {
+            setSelectedDate(current => current === day.dateString ? null : day.dateString);
+          }}
+          theme={{
+            selectedDayBackgroundColor: '#AF52DE',
+            todayTextColor: '#AF52DE',
+            arrowColor: '#AF52DE',
+            dotColor: '#AF52DE',
+            textDayFontWeight: '500',
+            textMonthFontWeight: 'bold',
+            textDayHeaderFontWeight: '500',
+          }}
+          style={styles.calendar}
+        />
+
+        <View style={styles.logsContainer}>
+          {filteredLogs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="time-outline" size={40} color="#ccc" />
+              <Text style={styles.emptyText}>
+                {selectedDate ? `No records for ${selectedDate}` : 'No attendance records found.'}
+              </Text>
+            </View>
+          ) : (
+            filteredLogs.map((log) => (
+              <View key={log._id} style={styles.attendanceItem}>
+                <View style={[
+                  styles.logIconContainer,
+                  { backgroundColor: log.type === 'login' ? '#F3E5F5' : '#FFEBEE' }
+                ]}>
+                  <Ionicons
+                    name={log.type === 'login' ? "log-in-outline" : "log-out-outline"}
+                    size={18}
+                    color={log.type === 'login' ? '#7B1FA2' : '#D32F2F'}
+                  />
+                </View>
+
+                <View style={styles.attendanceContent}>
+                  <Text style={styles.attendanceTitle}>
+                    {log.type === 'login' ? 'Check In' : 'Check Out'}
+                  </Text>
+                  <Text style={styles.attendanceTime}>
+                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(log.timestamp).toLocaleDateString()}
+                  </Text>
+                  <View style={styles.locationRow}>
+                    <Ionicons name="location-sharp" size={12} color="#666" />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      {log.location ?
+                        (log.location.displayText || `${log.location.latitude?.toFixed(4)}, ${log.location.longitude?.toFixed(4)}`)
+                        : 'Location not available'}
+                    </Text>
+                  </View>
+                </View>
+
+                {log.photo && (
+                  <TouchableOpacity
+                    style={styles.photoButton}
+                    onPress={() => setSelectedAttendance(log)}
+                  >
+                    <Ionicons name="image-outline" size={20} color="#AF52DE" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+      </View>
+    );
+  };
 
   const renderActionsCard = () => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Account Actions</Text>
 
-      <View style={styles.actionList}>
+      <View style={styles.actionGrid}>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
@@ -214,14 +335,14 @@ const StaffDetailsScreen = () => {
             setIsEditNameModalVisible(true);
           }}
         >
-          <View style={[styles.actionIcon, { backgroundColor: '#e0f2fe' }]}>
-            <Ionicons name="create-outline" size={20} color="#007bff" />
+          <View style={[styles.actionIconCtx, { backgroundColor: '#F3E5F5' }]}>
+            <Ionicons name="create-outline" size={20} color="#8E24AA" />
           </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Edit Details</Text>
-            <Text style={styles.actionDesc}>Change display name</Text>
+          <View style={styles.actionTextCtx}>
+            <Text style={styles.actionButtonTitle}>Edit Name</Text>
+            <Text style={styles.actionButtonDesc}>Update display name</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          <Ionicons name="chevron-forward" size={18} color="#ccc" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -231,164 +352,75 @@ const StaffDetailsScreen = () => {
             setIsPasswordModalVisible(true);
           }}
         >
-          <View style={[styles.actionIcon, { backgroundColor: '#fff3cd' }]}>
-            <Ionicons name="key-outline" size={20} color="#856404" />
+          <View style={[styles.actionIconCtx, { backgroundColor: '#FFF3E0' }]}>
+            <Ionicons name="key-outline" size={20} color="#F57C00" />
           </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Change Credentials</Text>
-            <Text style={styles.actionDesc}>Update password</Text>
+          <View style={styles.actionTextCtx}>
+            <Text style={styles.actionButtonTitle}>Change Password</Text>
+            <Text style={styles.actionButtonDesc}>Update login credentials</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          <Ionicons name="chevron-forward" size={18} color="#ccc" />
         </TouchableOpacity>
 
-        <View style={styles.divider} />
-
         <TouchableOpacity
-          style={styles.deleteButton}
+          style={[styles.actionButton, styles.deleteAction]}
           onPress={handleDeleteStaff}
         >
-          <Ionicons name="trash-outline" size={20} color="#dc3545" style={{ marginRight: 8 }} />
-          <Text style={styles.deleteButtonText}>Delete Staff Member</Text>
+          <View style={[styles.actionIconCtx, { backgroundColor: '#FFEBEE' }]}>
+            <Ionicons name="trash-outline" size={20} color="#D32F2F" />
+          </View>
+          <View style={styles.actionTextCtx}>
+            <Text style={[styles.actionButtonTitle, { color: '#D32F2F' }]}>Delete Account</Text>
+            <Text style={styles.actionButtonDesc}>Permanently remove</Text>
+          </View>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderAttendanceCard = () => {
-    // Prepare marked dates for calendar
-    const markedDates = {};
-    attendanceLogs.forEach(log => {
-      // safely extract date part (YYYY-MM-DD)
-      const dateStr = new Date(log.timestamp).toISOString().split('T')[0];
-      markedDates[dateStr] = { marked: true, dotColor: '#10B981' };
-    });
-
-    if (selectedDate) {
-      markedDates[selectedDate] = {
-        ...(markedDates[selectedDate] || {}),
-        selected: true,
-        selectedColor: '#2094f3'
-      };
-    }
-
-    // Filter logs based on selection
-    const filteredLogs = selectedDate
-      ? attendanceLogs.filter(log => new Date(log.timestamp).toISOString().split('T')[0] === selectedDate)
-      : attendanceLogs;
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Attendance History</Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {selectedDate && (
-              <TouchableOpacity onPress={() => setSelectedDate(null)} style={{ marginRight: 8 }}>
-                <Text style={{ color: '#2094f3', fontWeight: '600' }}>Show All</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => { setSelectedDate(null); fetchAttendance(); }} style={styles.refreshBtn}>
-              <Ionicons name="refresh" size={20} color="#666" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <Calendar
-          markedDates={markedDates}
-          onDayPress={day => {
-            setSelectedDate(current => current === day.dateString ? null : day.dateString);
-          }}
-          theme={{
-            selectedDayBackgroundColor: '#2094f3',
-            todayTextColor: '#2094f3',
-            arrowColor: '#2094f3',
-            dotColor: '#10B981',
-          }}
-          style={{ marginBottom: 16, borderRadius: 12, borderColor: '#eee', borderWidth: 1 }}
-        />
-
-        {filteredLogs.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={40} color="#ccc" />
-            <Text style={styles.emptyText}>
-              {selectedDate ? `No records for ${selectedDate}` : 'No attendance records found.'}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.attendanceList}>
-            {filteredLogs.map((log) => (
-              <View key={log._id} style={styles.attendanceItem}>
-                <View style={[
-                  styles.attendanceIcon,
-                  { backgroundColor: log.type === 'login' ? '#D1FAE5' : '#FEE2E2' }
-                ]}>
-                  <Ionicons
-                    name={log.type === 'login' ? "enter" : "exit"}
-                    size={20}
-                    color={log.type === 'login' ? '#10B981' : '#EF4444'}
-                  />
-                </View>
-
-                <View style={styles.attendanceContent}>
-                  <Text style={styles.attendanceTitle}>
-                    {log.type === 'login' ? 'Checked In' : 'Checked Out'}
-                  </Text>
-                  <Text style={styles.attendanceTime}>
-                    {new Date(log.timestamp).toLocaleDateString()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                  <View style={styles.attendanceLocation}>
-                    <Ionicons name="location-sharp" size={12} color="#6B7280" />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      {log.location ?
-                        (log.location.displayText || `${log.location.latitude?.toFixed(4)}, ${log.location.longitude?.toFixed(4)}`)
-                        : 'Location unknown'}
-                    </Text>
-                  </View>
-                </View>
-
-                {log.photo && (
-                  <TouchableOpacity
-                    style={styles.viewPhotoButton}
-                    onPress={() => setSelectedAttendance(log)}
-                  >
-                    <Ionicons name="image-outline" size={20} color="#007bff" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  // --- Modal Content Renderers ---
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#2094f3" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#AF52DE" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>{staff.fullName}</Text>
-          <Text style={styles.headerSubtitle}>Staff Details</Text>
-        </View>
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#AF52DE', '#9C27B0']}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView style={styles.safeArea}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>{staff.fullName}</Text>
+                <Text style={styles.headerSubtitle}>@{staff.username} • {staff.role || 'STAFF'}</Text>
+              </View>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>
+                  {staff.fullName ? staff.fullName.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2094f3" />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.contentContainer}>
-          {renderProfileCard()}
-          {renderActionsCard()}
-          {renderAttendanceCard()}
-        </ScrollView>
-      )}
+      <ScrollView
+        contentContainerStyle={styles.contentScroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="#AF52DE" style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {renderStatsRow()}
+            {renderAttendanceCard()}
+            {renderActionsCard()}
+          </>
+        )}
+      </ScrollView>
 
       {/* --- Modals --- */}
 
@@ -452,13 +484,13 @@ const StaffDetailsScreen = () => {
             </View>
             <View style={styles.modalBody}>
               <View style={styles.warningBox}>
-                <Ionicons name="warning" size={16} color="#856404" />
+                <Ionicons name="alert-circle-outline" size={18} color="#856404" />
                 <Text style={styles.warningText}>This will immediately update login credentials.</Text>
               </View>
               <Text style={styles.label}>New Password</Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Enter new password"
@@ -485,12 +517,12 @@ const StaffDetailsScreen = () => {
       <Modal
         visible={!!selectedAttendance}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setSelectedAttendance(null)}
       >
         <View style={styles.modalOverlay}>
           {selectedAttendance && (
-            <View style={[styles.modalContainer, { maxWidth: 500 }]}>
+            <View style={[styles.modalContainer, { width: '90%', maxWidth: 400 }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Attendance Photo</Text>
                 <TouchableOpacity onPress={() => setSelectedAttendance(null)}>
@@ -498,35 +530,18 @@ const StaffDetailsScreen = () => {
                 </TouchableOpacity>
               </View>
               <View style={styles.modalBody}>
-                <View style={styles.photoWrapper}>
-                  <Image
-                    source={{ uri: selectedAttendance.photo }}
-                    style={styles.attendancePhoto}
-                    resizeMode="contain"
-                  />
-                </View>
+                <Image
+                  source={{ uri: selectedAttendance.photo }}
+                  style={styles.attendancePhoto}
+                  resizeMode="contain"
+                />
                 <View style={styles.photoMeta}>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Type:</Text>
-                    <Text style={[
-                      styles.metaValue,
-                      { color: selectedAttendance.type === 'login' ? '#10B981' : '#EF4444' }
-                    ]}>
-                      {selectedAttendance.type === 'login' ? 'Check In' : 'Check Out'}
-                    </Text>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Time:</Text>
-                    <Text style={styles.metaValue}>{new Date(selectedAttendance.timestamp).toLocaleString()}</Text>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Location:</Text>
-                    <Text style={[styles.metaValue, { maxWidth: '70%' }]} numberOfLines={2}>
-                      {selectedAttendance.location ?
-                        (selectedAttendance.location.displayText || `${selectedAttendance.location.latitude?.toFixed(5)}, ${selectedAttendance.location.longitude?.toFixed(5)}`)
-                        : 'N/A'}
-                    </Text>
-                  </View>
+                  <Text style={styles.photoTime}>
+                    {new Date(selectedAttendance.timestamp).toLocaleString()}
+                  </Text>
+                  <Text style={styles.photoLocation}>
+                    {selectedAttendance.location?.displayText || 'Location Unknown'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -534,223 +549,153 @@ const StaffDetailsScreen = () => {
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#2094f3',
+    backgroundColor: '#F5F7FA',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f4f6f9',
+  headerContainer: {
+    width: '100%',
   },
-
-  // Header
-  header: {
-    backgroundColor: '#2094f3',
-    paddingTop: Platform.OS === 'ios' ? (isIpad ? 20 : 10) : 10,
+  headerGradient: {
     paddingBottom: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     paddingHorizontal: 20,
+  },
+  safeArea: {
+    paddingTop: Platform.OS === 'android' ? 10 : 0,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16
+    marginTop: 10,
   },
   backButton: {
     padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)'
+    marginRight: 15,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: isIpad ? 24 : 20,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#fff',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 2
+    marginTop: 2,
+  },
+  avatarContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#AF52DE',
+  },
+  contentScroll: {
+    padding: 20,
+    gap: 20,
   },
 
-  contentContainer: {
-    padding: isIpad ? 30 : 16,
-    gap: 20,
-    backgroundColor: '#f4f6f9',
-    flexGrow: 1,
+  // Stats
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
   },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3,
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginVertical: 4,
+  },
+  statStatus: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#888',
+  },
+
+  // Card Common
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4,
     elevation: 2,
   },
-
-  // Profile Card
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatarLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#e0f2fe',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    borderWidth: 4,
-    borderColor: '#f0f9ff',
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#0369a1',
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  profileUsername: {
-    color: '#6b7280',
-    fontSize: 15,
-    marginTop: 4,
-  },
-  roleBadge: {
-    marginTop: 12,
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  roleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-    textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  infoLabel: {
-    color: '#6b7280',
-    fontSize: 14,
-  },
-  infoValue: {
-    fontWeight: '600',
-    color: '#374151',
-    fontSize: 14,
-  },
-
-  // Action Buttons
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 16,
-  },
-  actionList: {
-    gap: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  actionDesc: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-    backgroundColor: '#fff5f5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#feb2b2',
-    marginTop: 8,
-  },
-  deleteButtonText: {
-    color: '#dc2626',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-
-  // Attendance
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 15,
   },
-  refreshBtn: {
-    padding: 4,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 15,
   },
-  emptyState: {
-    alignItems: 'center',
-    padding: 30,
+  clearFilterText: {
+    color: '#AF52DE',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  emptyText: {
-    color: '#9ca3af',
-    marginTop: 8,
-    fontStyle: 'italic'
+
+  // Attendance Section
+  calendar: {
+    borderRadius: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
-  attendanceList: {
+  logsContainer: {
     gap: 12,
   },
   attendanceItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#eee',
   },
-  attendanceIcon: {
+  logIconContainer: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   attendanceContent: {
@@ -759,28 +704,78 @@ const styles = StyleSheet.create({
   attendanceTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#333',
   },
   attendanceTime: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#666',
     marginTop: 2,
   },
-  attendanceLocation: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
   locationText: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: 11,
+    color: '#888',
     marginLeft: 4,
   },
-  viewPhotoButton: {
+  photoButton: {
     padding: 8,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#fff',
     borderRadius: 8,
-    marginLeft: 8
+    borderWidth: 1,
+    borderColor: '#eee',
+    marginLeft: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    color: '#999',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+
+  // Actions Section
+  actionGrid: {
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eff0f1',
+  },
+  actionIconCtx: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  actionTextCtx: {
+    flex: 1,
+  },
+  actionButtonTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  actionButtonDesc: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 2,
+  },
+  deleteAction: {
+    borderColor: '#ffebee',
+    backgroundColor: '#fffafa',
   },
 
   // Modals
@@ -793,11 +788,11 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    width: '90%',
+    width: '85%',
     maxWidth: 400,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 10,
   },
@@ -807,120 +802,105 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: 'bold',
+    color: '#333',
   },
   modalBody: {
     padding: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    color: '#555',
     marginBottom: 8,
+    fontWeight: '500',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#111827',
+    marginBottom: 15,
+    backgroundColor: '#fafafa',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    backgroundColor: '#fff3cd',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#856404',
+    marginLeft: 8,
+    flex: 1,
   },
   passwordWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#ddd',
     borderRadius: 8,
-    overflow: 'hidden'
+    backgroundColor: '#fafafa',
   },
   eyeButton: {
     padding: 12,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    backgroundColor: '#fff3cd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    alignItems: 'center',
-    gap: 8
-  },
-  warningText: {
-    color: '#856404',
-    fontSize: 12,
-    flex: 1
   },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: '#f0f0f0',
     gap: 12,
   },
   btnSecondary: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: '#f5f5f5',
   },
   btnSecondaryText: {
-    color: '#374151',
-    fontWeight: '500',
+    color: '#333',
+    fontWeight: '600',
   },
   btnPrimary: {
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#007bff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80
+    backgroundColor: '#AF52DE',
   },
   btnPrimaryText: {
     color: '#fff',
-    fontWeight: '500',
-  },
-
-  // Photo Modal Specific
-  photoWrapper: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    marginBottom: 20,
-    overflow: 'hidden',
+    fontWeight: '600',
   },
   attendancePhoto: {
     width: '100%',
-    height: '100%',
+    height: 300,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
   },
   photoMeta: {
-    gap: 12,
+    marginTop: 15,
   },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+  photoTime: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
   },
-  metaLabel: {
-    color: '#6b7280',
-    fontWeight: '500',
+  photoLocation: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  metaValue: {
-    color: '#1f2937',
-    fontWeight: '600',
-    textAlign: 'right',
-  }
 });
 
 export default StaffDetailsScreen;
