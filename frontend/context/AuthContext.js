@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const API_BASE_URL = 'https://crims-working.onrender.com'; // Replace with your backend URL
+const API_BASE_URL = 'http://192.168.29.167:3000'; // Replace with your backend URL
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

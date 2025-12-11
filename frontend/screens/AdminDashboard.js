@@ -37,13 +37,56 @@ const AdminDashboard = () => {
     const { user, API_BASE_URL, logout, token } = useAuth();
 
     const fetchCounts = useCallback(async () => {
-        if (!user || !user.id) return;
+        if (!user || !user.id) {
+            console.log('fetchCounts: No user or user.id', user);
+            return;
+        }
+
+        if (!token) {
+            console.log('fetchCounts: No token available');
+            return;
+        }
+
         try {
+            console.log('Fetching dashboard counts... Token available:', !!token);
+            // Optional: Log part of the token for debugging (don't log full token in production)
+            // console.log('Token start:', token.substring(0, 10));
+
+            // Fetch sites
+            const sitesPromise = axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).catch(e => {
+                console.error('Error fetching sites:', e.message, e.response?.status);
+                return { data: { success: false, data: [] } }; // Fallback
+            });
+
+            // Fetch warehouses
+            const warehousesPromise = axios.get(`${API_BASE_URL}/api/warehouses?adminId=${user.id}`)
+                .catch(e => {
+                    console.error('Error fetching warehouses:', e.message, e.response?.status);
+                    return { data: { success: false, data: [] } };
+                });
+
+            // Fetch staff
+            const staffPromise = axios.get(`${API_BASE_URL}/api/staff`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).catch(e => {
+                console.error('Error fetching staff:', e.message, e.response?.status);
+                return { data: { success: false, data: [] } };
+            });
+
+            // Fetch supervisors
+            const supervisorsPromise = axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`)
+                .catch(e => {
+                    console.error('Error fetching supervisors:', e.message, e.response?.status);
+                    return { data: { success: false, data: [] } };
+                });
+
             const [sitesRes, warehousesRes, staffRes, supervisorsRes] = await Promise.all([
-                axios.get(`${API_BASE_URL}/api/sites?adminId=${user.id}`),
-                axios.get(`${API_BASE_URL}/api/warehouses?adminId=${user.id}`),
-                axios.get(`${API_BASE_URL}/api/staff`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`${API_BASE_URL}/api/auth/supervisors?adminId=${user.id}`)
+                sitesPromise,
+                warehousesPromise,
+                staffPromise,
+                supervisorsPromise
             ]);
 
             setCounts({
@@ -54,7 +97,7 @@ const AdminDashboard = () => {
             });
 
         } catch (error) {
-            console.error('Error fetching dashboard counts:', error);
+            console.error('Error in fetchCounts main block:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);

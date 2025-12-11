@@ -200,7 +200,7 @@ const AdminMessagesScreen = () => {
 
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#e5ddd5' }}>
                         <FlatList
-                            data={[...activeConversation.messages].reverse()} // Reverse for FlatList inverted-like behavior if we used inverted, but here we just map normal
+                            data={[...activeConversation.messages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))}
                             renderItem={renderMessageItem}
                             keyExtractor={item => item._id}
                             contentContainerStyle={styles.messagesList}
