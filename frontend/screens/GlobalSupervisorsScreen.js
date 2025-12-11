@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from "expo-linear-gradient";
+import { useSocket } from '../context/SocketContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -30,6 +31,7 @@ const GlobalSupervisorsScreen = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const navigation = useNavigation();
     const { user, API_BASE_URL, token } = useAuth();
+    const socket = useSocket();
 
     const fetchSupervisors = useCallback(async () => {
         if (!user || !user.id) return;
@@ -51,6 +53,19 @@ const GlobalSupervisorsScreen = () => {
         fetchSupervisors();
     }, [fetchSupervisors]);
 
+    useEffect(() => {
+        if (socket) {
+            socket.on('supervisors:updated', (data) => {
+                console.log('Received supervisor update:', data);
+                fetchSupervisors();
+            });
+
+            return () => {
+                socket.off('supervisors:updated');
+            };
+        }
+    }, [socket, fetchSupervisors]);
+
     const onRefresh = () => {
         setRefreshing(true);
         fetchSupervisors();
@@ -63,10 +78,14 @@ const GlobalSupervisorsScreen = () => {
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    // Placeholder for delete logic. 
-                    // If backend supports DELETE /api/auth/supervisors/:id, implement here.
-                    // For now, we will just show an alert as this feature might be sensitive.
-                    Alert.alert('Info', 'To delete a supervisor, please contact system administrator or use the web dashboard.');
+                    try {
+                        await axios.delete(`${API_BASE_URL}/api/auth/supervisors/${supervisorId}?adminId=${user.id}`);
+                        // The socket event will auto-refresh the list
+                        Alert.alert('Success', 'Supervisor deleted successfully');
+                    } catch (error) {
+                        console.error('Delete supervisor error:', error);
+                        Alert.alert('Error', error.response?.data?.message || 'Failed to delete supervisor');
+                    }
                 }
             }
         ]);

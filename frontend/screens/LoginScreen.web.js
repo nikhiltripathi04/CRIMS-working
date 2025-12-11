@@ -36,8 +36,11 @@ const LoginScreen = () => {
         <View style={styles.container}>
             <View style={styles.loginBox}>
                 <View style={styles.logoContainer}>
-                    {/* Placeholder for Logo */}
-                    <Text style={styles.logoText}>CRIMS</Text>
+                    <Image
+                        source={require('../assets/images/ConErp logo1.png')}
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
                 </View>
 
                 <Text style={styles.title}>Welcome Back</Text>
@@ -112,11 +115,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
     },
-    logoText: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: '#007bff',
+    logo: {
+        width: 150,
+        height: 150,
     },
+
     title: {
         fontSize: 24,
         fontWeight: 'bold',

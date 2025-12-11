@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import AppNavigator from './navigation/AppNavigator';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -38,8 +39,10 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <StatusBar style="light" backgroundColor="#007bff" />
-      <AppNavigator />
+      <SocketProvider>
+        <StatusBar style="light" backgroundColor="#007bff" />
+        <AppNavigator />
+      </SocketProvider>
     </AuthProvider>
   );
 }

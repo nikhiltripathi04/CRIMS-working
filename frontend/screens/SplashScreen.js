@@ -134,7 +134,7 @@ export default function SplashScreen({ navigation }) {
                             marginBottom: responsiveSize(20)
                         }}
                     >
-                        <Image source={require('../assets/images/3.png')} style={styles.image} />
+                        <Image source={require('../assets/images/black.png')} style={styles.image} />
                     </Animated.View>
 
                     <Animated.View
@@ -143,7 +143,7 @@ export default function SplashScreen({ navigation }) {
                             transform: [{ scale: titleScale }]
                         }}
                     >
-                        <Text style={styles.titleText}>CRIMS</Text>
+                        <Text style={styles.titleText}>ConERP</Text>
                     </Animated.View>
 
                     <Animated.View

@@ -13,6 +13,29 @@ const attendanceRoutes = require('./routes/attendance');
 const messageRoutes = require('./routes/messages');
 
 const app = express();
+const http = require('http');
+const socketIo = require('socket.io');
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = socketIo(server, {
+    cors: {
+        origin: "*", // In production, replace with your frontend URL
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    }
+});
+
+// Make io accessible to our router
+app.set('io', io);
+
+// Socket.io connection handler
+io.on('connection', (socket) => {
+    console.log('New client connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
+});
 
 // Middleware
 app.use(cors());
@@ -123,7 +146,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/construct
 
         // Start server only after DB connection
         const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
             console.log(`📍 API URL: http://localhost:${PORT}`);
             console.log('📋 Available endpoints:');

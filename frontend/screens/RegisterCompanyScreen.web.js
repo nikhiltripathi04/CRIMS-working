@@ -89,7 +89,7 @@ const RegisterCompanyScreen = () => {
         <View style={styles.container}>
             <View style={styles.formContainer}>
                 <Text style={styles.title}>Register Company</Text>
-                <Text style={styles.subtitle}>Join CRIMS to manage your construction sites</Text>
+                <Text style={styles.subtitle}>Join ConERP to manage your construction sites</Text>
 
                 <ScrollView style={styles.scrollForm} showsVerticalScrollIndicator={false}>
                     <View style={styles.row}>

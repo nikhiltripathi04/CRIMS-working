@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from "expo-linear-gradient";
+import { useSocket } from '../context/SocketContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -30,7 +31,9 @@ const GlobalSitesScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const navigation = useNavigation();
+
     const { user, API_BASE_URL } = useAuth();
+    const socket = useSocket();
 
     const fetchSites = useCallback(async () => {
         if (!user || !user.id) {
@@ -45,7 +48,7 @@ const GlobalSitesScreen = () => {
             }
         } catch (error) {
             console.error('Error fetching sites:', error);
-            Alert.alert('Error', 'Failed to fetch sites');
+            // Alert.alert('Error', 'Failed to fetch sites'); // Silent error or toast preferred for auto-updates
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -55,6 +58,19 @@ const GlobalSitesScreen = () => {
     useEffect(() => {
         fetchSites();
     }, [fetchSites]);
+
+    useEffect(() => {
+        if (socket) {
+            socket.on('sites:updated', (data) => {
+                console.log('Received real-time update:', data);
+                fetchSites();
+            });
+
+            return () => {
+                socket.off('sites:updated');
+            };
+        }
+    }, [socket, fetchSites]);
 
     const onRefresh = () => {
         setRefreshing(true);

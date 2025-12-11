@@ -28,11 +28,11 @@ const SupervisorMessageScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { site } = route.params || {};
-    const { API_BASE_URL, token } = useAuth();
+    const { API_BASE_URL, token, user } = useAuth();
 
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
-    const [video, setVideo] = useState(null);
+    const [media, setMedia] = useState(null); // Renamed from video to media
     const [sending, setSending] = useState(false);
     const [loadingMessages, setLoadingMessages] = useState(true);
 
@@ -40,13 +40,16 @@ const SupervisorMessageScreen = () => {
     const [permission, requestPermission] = useCameraPermissions();
     const [micPermission, requestMicPermission] = useMicrophonePermissions();
     const [cameraVisible, setCameraVisible] = useState(false);
+    const [cameraMode, setCameraMode] = useState('video'); // 'video' or 'picture'
     const [isRecording, setIsRecording] = useState(false);
     const [facing, setFacing] = useState('back');
     const [timer, setTimer] = useState(0);
 
-    // Playback State
+    // Playback/View State
     const [playbackModalVisible, setPlaybackModalVisible] = useState(false);
     const [playbackVideoUrl, setPlaybackVideoUrl] = useState(null);
+    const [fullImageModalVisible, setFullImageModalVisible] = useState(false);
+    const [fullImageUrl, setFullImageUrl] = useState(null);
 
     const timerRef = useRef(null);
     const cameraRef = useRef(null);
@@ -90,7 +93,7 @@ const SupervisorMessageScreen = () => {
 
                 if (videoRecordPromise) {
                     const data = await videoRecordPromise;
-                    setVideo(data);
+                    setMedia(data);
                     setCameraVisible(false);
                 }
             } catch (error) {
@@ -104,7 +107,24 @@ const SupervisorMessageScreen = () => {
         }
     };
 
-    const pickVideo = async () => {
+    const takePicture = async () => {
+        if (cameraRef.current) {
+            try {
+                const photo = await cameraRef.current.takePictureAsync({
+                    quality: 0.8,
+                    base64: false,
+                    exif: false
+                });
+                setMedia(photo);
+                setCameraVisible(false);
+            } catch (error) {
+                console.error("Take picture error:", error);
+                Alert.alert("Error", "Failed to take picture");
+            }
+        }
+    };
+
+    const pickMedia = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission needed', 'Please grant permission to access your media library.');
@@ -112,7 +132,7 @@ const SupervisorMessageScreen = () => {
         }
 
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
             allowsEditing: true,
             quality: 1,
         });
@@ -120,20 +140,20 @@ const SupervisorMessageScreen = () => {
         if (!result.canceled) {
             const asset = result.assets[0];
             if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024) {
-                Alert.alert('Error', 'Video size too large. Max 50MB.');
+                Alert.alert('Error', 'File size too large. Max 50MB.');
                 return;
             }
-            setVideo(asset);
+            setMedia(asset);
         }
     };
 
-    const handleRecordVideo = async () => {
+    const handleCameraLaunch = async (mode = 'video') => {
         if (!permission || !micPermission) return;
 
         if (!permission.granted) {
             const result = await requestPermission();
             if (!result.granted) {
-                Alert.alert("Permission required", "Camera permission is required to record video.");
+                Alert.alert("Permission required", "Camera permission is required.");
                 return;
             }
         }
@@ -141,11 +161,12 @@ const SupervisorMessageScreen = () => {
         if (!micPermission.granted) {
             const result = await requestMicPermission();
             if (!result.granted) {
-                Alert.alert("Permission required", "Microphone permission is required to record video.");
+                Alert.alert("Permission required", "Microphone permission is required for video.");
                 return;
             }
         }
 
+        setCameraMode(mode);
         setCameraVisible(true);
     };
 
@@ -166,8 +187,8 @@ const SupervisorMessageScreen = () => {
     };
 
     const handleSend = async () => {
-        if (!message.trim() && !video) {
-            Alert.alert('Error', 'Please enter a message or attach a video.');
+        if (!message.trim() && !media) {
+            Alert.alert('Error', 'Please enter a message or attach media.');
             return;
         }
 
@@ -183,11 +204,17 @@ const SupervisorMessageScreen = () => {
             formData.append('siteId', site._id);
             if (message.trim()) formData.append('content', message.trim());
 
-            if (video) {
-                const localUri = video.uri;
-                const filename = localUri.split('/').pop() || 'video.mp4';
+            if (media) {
+                const localUri = media.uri;
+                const filename = localUri.split('/').pop() || (media.type === 'image' ? 'image.jpg' : 'video.mp4');
                 const match = /\.(\w+)$/.exec(filename);
-                const type = match ? `video/${match[1]}` : `video/mp4`;
+                let type = match ? `${media.type === 'image' ? 'image' : 'video'}/${match[1]}` : (media.type === 'image' ? 'image/jpeg' : 'video/mp4');
+
+                // Correction for jpg
+                if (type === 'image/jpg') type = 'image/jpeg';
+
+                // NOTE: The backend expects 'video' field name for the file, even if it is an image
+                // because it uses a generic upload handler.
                 formData.append('video', { uri: localUri, name: filename, type });
             }
 
@@ -199,7 +226,7 @@ const SupervisorMessageScreen = () => {
             });
 
             setMessage('');
-            setVideo(null);
+            setMedia(null);
             fetchMessages();
 
         } catch (error) {
@@ -222,34 +249,64 @@ const SupervisorMessageScreen = () => {
         setPlaybackModalVisible(true);
     };
 
+    const showImage = (url) => {
+        setFullImageUrl(url);
+        setFullImageModalVisible(true);
+    };
+
     const renderMessageItem = ({ item }) => {
-        const isSupervisor = item.senderRole === 'supervisor';
+        const isMe = item.sender === user._id;
+
+        // Determine if media is video or image based on extension
+        const isVideo = item.videoUrl && (item.videoUrl.endsWith('.mp4') || item.videoUrl.endsWith('.mov') || item.videoUrl.includes('/video/'));
+        const isImage = item.videoUrl && !isVideo; // Fallback assumption or check extensions
 
         return (
-            <View style={[
-                styles.messageBubble,
-                isSupervisor ? styles.myMessage : styles.theirMessage
-            ]}>
-                {item.videoUrl && (
-                    <TouchableOpacity
-                        style={styles.videoThumbnail}
-                        onPress={() => playVideo(item.videoUrl)}
-                    >
-                        <View style={styles.playIconContainer}>
-                            <Ionicons name="play" size={24} color="#fff" />
-                        </View>
-                        <Text style={styles.videoLabel}>Video Message</Text>
-                    </TouchableOpacity>
-                )}
-                {item.content ? (
-                    <Text style={[styles.messageText, isSupervisor ? styles.myMessageText : styles.theirMessageText]}>
-                        {item.content}
+            <View style={{ marginBottom: 10 }}>
+                {/* Show sender name if it's not me */}
+                {!isMe && (
+                    <Text style={{ fontSize: 12, color: '#666', marginLeft: 4, marginBottom: 2 }}>
+                        {item.senderName} ({item.senderRole})
                     </Text>
-                ) : null}
-                <Text style={styles.messageTime}>
-                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {' · '}{new Date(item.createdAt).toLocaleDateString()}
-                </Text>
+                )}
+
+                <View style={[
+                    styles.messageBubble,
+                    isMe ? styles.myMessage : styles.theirMessage
+                ]}>
+                    {item.videoUrl && isVideo && (
+                        <TouchableOpacity
+                            style={styles.videoThumbnail}
+                            onPress={() => playVideo(item.videoUrl)}
+                        >
+                            <View style={styles.playIconContainer}>
+                                <Ionicons name="play" size={24} color="#fff" />
+                            </View>
+                            <Text style={styles.videoLabel}>Video Message</Text>
+                        </TouchableOpacity>
+                    )}
+                    {item.videoUrl && isImage && (
+                        <TouchableOpacity
+                            style={styles.imageThumbnailContainer}
+                            onPress={() => showImage(item.videoUrl)}
+                        >
+                            <Image
+                                source={{ uri: item.videoUrl }}
+                                style={styles.imageThumbnail}
+                                resizeMode="cover"
+                            />
+                        </TouchableOpacity>
+                    )}
+                    {item.content ? (
+                        <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
+                            {item.content}
+                        </Text>
+                    ) : null}
+                    <Text style={styles.messageTime}>
+                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {' · '}{new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+                </View>
             </View>
         );
     };
@@ -301,14 +358,18 @@ const SupervisorMessageScreen = () => {
                                 />
 
                                 <View style={styles.inputContainer}>
-                                    {video && (
+                                    {media && (
                                         <View style={styles.previewContainer}>
                                             <View style={styles.previewFile}>
-                                                <Ionicons name="videocam" size={20} color="#34C759" />
+                                                <Ionicons
+                                                    name={media.type === 'image' || !media.duration ? "image" : "videocam"}
+                                                    size={20}
+                                                    color="#34C759"
+                                                />
                                                 <Text style={styles.previewName} numberOfLines={1}>
-                                                    {video.fileName || 'Recorded Video'}
+                                                    {media.fileName || (media.type === 'image' ? 'Image Selected' : 'Video Selected')}
                                                 </Text>
-                                                <TouchableOpacity onPress={() => setVideo(null)}>
+                                                <TouchableOpacity onPress={() => setMedia(null)}>
                                                     <Ionicons name="close-circle" size={22} color="#dc3545" />
                                                 </TouchableOpacity>
                                             </View>
@@ -316,10 +377,13 @@ const SupervisorMessageScreen = () => {
                                     )}
 
                                     <View style={styles.inputRow}>
-                                        <TouchableOpacity onPress={pickVideo} style={styles.attachButton}>
+                                        <TouchableOpacity onPress={pickMedia} style={styles.attachButton}>
                                             <Ionicons name="images-outline" size={24} color="#34C759" />
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={handleRecordVideo} style={styles.attachButton}>
+                                        <TouchableOpacity onPress={() => handleCameraLaunch('picture')} style={styles.attachButton}>
+                                            <Ionicons name="camera-outline" size={24} color="#34C759" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleCameraLaunch('video')} style={styles.attachButton}>
                                             <Ionicons name="videocam-outline" size={24} color="#34C759" />
                                         </TouchableOpacity>
                                         <TextInput
@@ -332,9 +396,9 @@ const SupervisorMessageScreen = () => {
                                             onChangeText={setMessage}
                                         />
                                         <TouchableOpacity
-                                            style={[styles.chatSendButton, (!message.trim() && !video) && styles.chatSendButtonDisabled]}
+                                            style={[styles.chatSendButton, (!message.trim() && !media) && styles.chatSendButtonDisabled]}
                                             onPress={handleSend}
-                                            disabled={!message.trim() && !video || sending}
+                                            disabled={!message.trim() && !media || sending}
                                         >
                                             {sending ? (
                                                 <ActivityIndicator size="small" color="#fff" />
@@ -350,13 +414,13 @@ const SupervisorMessageScreen = () => {
                 </SafeAreaView>
             </LinearGradient>
 
-            {/* RECORDING MODAL */}
+            {/* RECORDING/CAMERA MODAL */}
             <Modal visible={cameraVisible} animationType="slide" presentationStyle="fullScreen">
                 <View style={styles.cameraContainer}>
                     <CameraView
                         style={styles.camera}
                         ref={cameraRef}
-                        mode="video"
+                        mode={cameraMode}
                         facing={facing}
                         videoQuality="720p"
                     >
@@ -365,7 +429,7 @@ const SupervisorMessageScreen = () => {
                                 <TouchableOpacity onPress={closeCamera} style={styles.iconButton}>
                                     <Ionicons name="close" size={28} color="#fff" />
                                 </TouchableOpacity>
-                                {isRecording && (
+                                {cameraMode === 'video' && isRecording && (
                                     <View style={styles.timerBadge}>
                                         <View style={styles.recordingDot} />
                                         <Text style={styles.timerText}>{formatTime(timer)}</Text>
@@ -377,17 +441,26 @@ const SupervisorMessageScreen = () => {
                             </View>
                             <View style={styles.cameraBottomBar}>
                                 <View style={styles.cameraControls}>
-                                    {!isRecording ? (
-                                        <TouchableOpacity onPress={startRecording} style={styles.recordBtn}>
-                                            <View style={styles.recordBtnInner} />
-                                        </TouchableOpacity>
+                                    {cameraMode === 'video' ? (
+                                        !isRecording ? (
+                                            <TouchableOpacity onPress={() => handleCameraLaunch('video') && startRecording()} style={styles.recordBtn}>
+                                                <View style={styles.recordBtnInner} />
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
+                                                <View style={styles.stopBtnInner} />
+                                            </TouchableOpacity>
+                                        )
                                     ) : (
-                                        <TouchableOpacity onPress={stopRecording} style={styles.stopBtn}>
-                                            <View style={styles.stopBtnInner} />
+                                        <TouchableOpacity onPress={takePicture} style={styles.shutterBtn}>
+                                            <View style={styles.shutterBtnInner} />
                                         </TouchableOpacity>
                                     )}
                                     <Text style={styles.instructionText}>
-                                        {isRecording ? "Tap square to stop" : "Tap circle to record"}
+                                        {cameraMode === 'video'
+                                            ? (isRecording ? "Tap square to stop" : "Tap circle to record")
+                                            : "Tap to take photo"
+                                        }
                                     </Text>
                                 </View>
                             </View>
@@ -421,6 +494,28 @@ const SupervisorMessageScreen = () => {
                             />
                         )}
                     </View>
+                </View>
+            </Modal>
+
+            {/* FULL IMAGE MODAL */}
+            <Modal visible={fullImageModalVisible} animationType="fade" transparent={true}>
+                <View style={styles.playbackModalContainer}>
+                    <TouchableOpacity
+                        style={styles.closePlaybackButton}
+                        onPress={() => {
+                            setFullImageModalVisible(false);
+                            setFullImageUrl(null);
+                        }}
+                    >
+                        <Ionicons name="close" size={30} color="#fff" />
+                    </TouchableOpacity>
+                    {fullImageUrl && (
+                        <Image
+                            source={{ uri: fullImageUrl }}
+                            style={styles.fullImage}
+                            resizeMode="contain"
+                        />
+                    )}
                 </View>
             </Modal>
 
@@ -616,7 +711,14 @@ const styles = StyleSheet.create({
     playbackModalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
     playbackModalContent: { width: '100%', height: '100%', justifyContent: 'center' },
     playbackVideo: { alignSelf: 'center', width: '100%', height: '80%' },
-    closePlaybackButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }
+    closePlaybackButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
+
+    // Image items
+    imageThumbnailContainer: { marginVertical: 5 },
+    imageThumbnail: { width: 200, height: 200, borderRadius: 12, backgroundColor: '#eee' },
+    fullImage: { width: '100%', height: '80%' },
+    shutterBtn: { width: 80, height: 80, borderRadius: 40, borderWidth: 6, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+    shutterBtnInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#fff' }
 });
 
 export default SupervisorMessageScreen;

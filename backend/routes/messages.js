@@ -130,8 +130,8 @@ router.get('/site/:siteId', auth, async (req, res) => {
 // Get ALL messages for an Admin (from all their sites)
 router.get('/admin/all', auth, async (req, res) => {
     try {
-        // 1. Find all sites managed by this admin
-        const sites = await Site.find({ adminId: req.user._id });
+        // 1. Find all sites belonging to this admin's company
+        const sites = await Site.find({ companyId: req.user.companyId });
         const siteIds = sites.map(site => site._id);
 
         // 2. Find all messages linked to these sites

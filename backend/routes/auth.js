@@ -138,6 +138,12 @@ router.post('/create-supervisor', async (req, res) => {
       console.error('Failed to log supervisor creation:', logErr);
     }
 
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('supervisors:updated', { action: 'create', supervisorId: supervisor._id });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Supervisor account created successfully',
@@ -411,6 +417,12 @@ router.delete('/supervisors/:id', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Supervisor deleted successfully' });
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('supervisors:updated', { action: 'delete', supervisorId: id });
+    }
 
   } catch (error) {
     console.error('Error deleting supervisor:', error);

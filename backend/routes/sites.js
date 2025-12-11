@@ -393,6 +393,12 @@ router.post('/', async (req, res) => {
         // Populate supervisors before sending response
         await site.populate('supervisors', 'username');
 
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('sites:updated', { action: 'create', siteId: site._id });
+        }
+
         res.status(201).json({
             success: true,
             message: supervisor ?
@@ -441,6 +447,12 @@ router.put('/:id', checkSiteOwnership, async (req, res) => {
             message: 'Site updated successfully',
             data: site
         });
+
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('sites:updated', { action: 'update', siteId: site._id });
+        }
     } catch (error) {
         console.error('Update site error:', error);
         res.status(500).json({ message: error.message });
@@ -673,6 +685,12 @@ router.delete('/:id', checkSiteOwnership, async (req, res) => {
             success: true,
             message: 'Site deleted successfully'
         });
+
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('sites:updated', { action: 'delete', siteId: req.params.id });
+        }
     } catch (error) {
         console.error('Delete site error:', error);
         res.status(500).json({ message: error.message });

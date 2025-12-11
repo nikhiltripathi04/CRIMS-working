@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from "expo-linear-gradient";
+import { useSocket } from '../context/SocketContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -30,6 +31,7 @@ const GlobalStaffScreen = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const navigation = useNavigation();
     const { user, API_BASE_URL, token } = useAuth();
+    const socket = useSocket();
 
     const fetchStaff = useCallback(async () => {
         if (!user || !user.id) return;
@@ -51,6 +53,19 @@ const GlobalStaffScreen = () => {
     useEffect(() => {
         fetchStaff();
     }, [fetchStaff]);
+
+    useEffect(() => {
+        if (socket) {
+            socket.on('staff:updated', (data) => {
+                console.log('Received staff update:', data);
+                fetchStaff();
+            });
+
+            return () => {
+                socket.off('staff:updated');
+            };
+        }
+    }, [socket, fetchStaff]);
 
     const onRefresh = () => {
         setRefreshing(true);

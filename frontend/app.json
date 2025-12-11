@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "CRIMS",
+    "name": "ConERP",
     "slug": "frontend",
     "version": "2.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/ConErp logo1.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.feathrtech.frontend",
+      "bundleIdentifier": "com.feathrtech.ConERP",
       "buildNumber": "2.0.1",
       "infoPlist": {
         "NSCameraUsageDescription": "This app requires camera access to allow you to take and upload photos.",
@@ -20,24 +20,24 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/ConErp logo1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.feathrtech.CRIMS",
+      "package": "com.feathrtech.ConERP",
       "versionCode": 3
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/ConErp logo1.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
+          "image": "./assets/images/ConErp logo1.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

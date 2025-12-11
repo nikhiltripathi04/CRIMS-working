@@ -58,6 +58,12 @@ router.post('/', auth, adminOnly, async (req, res) => {
             console.error('Failed to log staff creation:', logErr);
         }
 
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('staff:updated', { action: 'create', staffId: staff._id });
+        }
+
         res.status(201).json({
             success: true,
             message: 'Staff member created successfully',
@@ -152,6 +158,12 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
             console.error('Failed to log staff update:', logErr);
         }
 
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('staff:updated', { action: 'update', staffId: staff._id });
+        }
+
         res.json({
             success: true,
             message: 'Staff member updated successfully',
@@ -206,6 +218,12 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
             );
         } catch (logErr) {
             console.error('Failed to log staff deletion:', logErr);
+        }
+
+        // Emit socket event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('staff:updated', { action: 'delete', staffId: staffId });
         }
 
         res.json({
