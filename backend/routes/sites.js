@@ -295,7 +295,7 @@ router.post('/', async (req, res) => {
         }
 
         // Extract supervisor data if provided
-        const { supervisorUsername, supervisorPassword, ...siteDataWithoutSupervisor } = req.body;
+        const { supervisorUsername, supervisorPassword, supervisorFullName, ...siteDataWithoutSupervisor } = req.body;
 
         // Create site with adminId and companyId
         const siteData = {
@@ -334,6 +334,7 @@ router.post('/', async (req, res) => {
             supervisor = new User({
                 username: supervisorUsername.toLowerCase().trim(),
                 password: supervisorPassword,
+                fullName: supervisorFullName ? supervisorFullName.trim() : `Supervisor for ${siteData.siteName}`, // Fallback if missing
                 role: 'supervisor',
                 createdBy: adminId,
                 companyId: admin.companyId, // Add companyId for the supervisor

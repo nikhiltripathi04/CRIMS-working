@@ -145,30 +145,49 @@ const SupervisorDashboard = ({ navigation }) => {
       }
 
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const { latitude, longitude, accuracy } = location.coords;
 
-      // Reverse Geocode
-      let address = "Unknown Location";
+      // 1. Set initial location with coords
+      const currentLoc = {
+        latitude,
+        longitude,
+        accuracy,
+        displayText: "Fetching address details...",
+        address: "Fetching address details...",
+        timestamp: new Date().toISOString()
+      };
+      setLocationData(currentLoc);
+
+      // 2. Fetch from OpenStreetMap
       try {
-        let reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
+        const timestamp = new Date().getTime();
+        // Using the same URL structure as StaffDashboard
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&t=${timestamp}`, {
+          headers: { 'User-Agent': 'ConstructionApp/1.0' }
         });
-        if (reverseGeocode.length > 0) {
-          const place = reverseGeocode[0];
-          address = `${place.name || ''} ${place.street || ''}, ${place.city || ''}, ${place.region || ''}`;
-        }
-      } catch (e) {
-        console.log("Geocode error", e);
-        address = `Lat: ${location.coords.latitude.toFixed(5)}, Long: ${location.coords.longitude.toFixed(5)}`;
-      }
+        const data = await response.json();
 
-      setLocationData({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy,
-        displayText: address,
-        address: address
-      });
+        if (data && data.display_name) {
+          setLocationData(prev => ({
+            ...prev,
+            displayText: data.display_name,
+            address: data.display_name
+          }));
+        } else {
+          setLocationData(prev => ({
+            ...prev,
+            displayText: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)}`,
+            address: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)}`
+          }));
+        }
+      } catch (apiError) {
+        console.warn("Address fetch error:", apiError);
+        setLocationData(prev => ({
+          ...prev,
+          displayText: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)} (Network Error)`,
+          address: `Lat: ${latitude.toFixed(5)}, Long: ${longitude.toFixed(5)} (Network Error)`
+        }));
+      }
 
     } catch (error) {
       Alert.alert('Error', 'Could not fetch location');

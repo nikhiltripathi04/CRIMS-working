@@ -33,6 +33,7 @@ const CreateSiteScreen = ({ navigation }) => {
 
   // Supervisor Logic (Updated to match web)
   const [supervisorMode, setSupervisorMode] = useState('none'); // 'none', 'new', 'existing'
+  const [supervisorName, setSupervisorName] = useState('');
   const [supervisorUsername, setSupervisorUsername] = useState('');
   const [supervisorPassword, setSupervisorPassword] = useState('');
   const [showSupervisorPassword, setShowSupervisorPassword] = useState(false);
@@ -69,8 +70,8 @@ const CreateSiteScreen = ({ navigation }) => {
       return;
     }
 
-    if (supervisorMode === 'new' && (!supervisorUsername.trim() || !supervisorPassword.trim())) {
-      Alert.alert('Error', 'Please enter supervisor username and password');
+    if (supervisorMode === 'new' && (!supervisorName.trim() || !supervisorUsername.trim() || !supervisorPassword.trim())) {
+      Alert.alert('Error', 'Please enter supervisor name, username and password');
       return;
     }
 
@@ -96,6 +97,7 @@ const CreateSiteScreen = ({ navigation }) => {
 
       // Add supervisor data based on mode
       if (supervisorMode === 'new') {
+        siteData.supervisorFullName = supervisorName;
         siteData.supervisorUsername = supervisorUsername;
         siteData.supervisorPassword = supervisorPassword;
       } else if (supervisorMode === 'existing') {
@@ -278,6 +280,22 @@ const CreateSiteScreen = ({ navigation }) => {
               {/* New Supervisor Fields */}
               {supervisorMode === 'new' && (
                 <View style={styles.supervisorSection}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Supervisor Name <Text style={styles.requiredStar}>*</Text></Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="person-outline" size={isIpad ? 24 : 20} color="#666" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        value={supervisorName}
+                        onChangeText={setSupervisorName}
+                        placeholder="Enter full name"
+                        placeholderTextColor="#999"
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Supervisor Username <Text style={styles.requiredStar}>*</Text></Text>
                     <View style={styles.inputContainer}>
