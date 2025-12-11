@@ -1,0 +1,41 @@
+Running 17 checks on your project...
+12/17 checks passed. 5 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check for common project setup issues
+The .expo directory is not ignored by Git. It contains machine-specific device history and development server settings and should not be committed.
+Advice:
+Add ".expo/" to your .gitignore to avoid committing local Expo state.
+
+✖ Check dependencies for packages that should not be installed directly
+The package "expo-modules-core" should not be installed directly in your project. You should instead use the exported API from the expo package.
+Advice:
+Remove these packages from your package.json.
+
+✖ Check that no duplicate dependencies are installed
+Your project contains duplicate native module dependencies, which should be de-duplicated.
+Native builds may only contain one version of any given native module, and having multiple versions of a single Native module installed may lead to unexpected build errors.
+Found duplicates for react-native:
+  ├─ react-native@0.81.5 (at: node_modules\react-native)
+  └─ react-native@0.79.7 (at: node_modules\expo-mlkit-ocr\node_modules\react-native)
+Found duplicates for react-native-safe-area-context:
+  ├─ react-native-safe-area-context@5.6.2 (at: node_modules\react-native-safe-area-context)
+  └─ react-native-safe-area-context@4.5.0 (at: node_modules\react-native-calendars\node_modules\react-native-safe-area-context)
+Advice:
+Resolve your dependency issues and deduplicate your dependencies. Learn more: https://expo.fyi/resolving-dependency-issues
+
+✖ Check for app config fields that may not be synced in a non-CNG project
+This project contains native project folders but also has native configuration properties in app.json, indicating it is configured to use Prebuild. When the android/ios folders are present, EAS Build will not sync the following properties: orientation, icon, scheme, userInterfaceStyle, ios, android, plugins, androidStatusBar. 
+
+
+✖ Validate packages against React Native Directory package metadata
+The following issues were found when validating your dependencies against React Native Directory:
+  Untested on New Architecture: react-native-fs
+  Unmaintained: react-native-fs, react-native-mlkit-ocr
+  No metadata available: expo-mlkit-ocr, react-native-vector-icons
+Advice:
+Use libraries that are actively maintained and support the New Architecture. Find alternative libraries with https://reactnative.directory.
+Add packages to expo.doctor.reactNativeDirectoryCheck.exclude in package.json to selectively skip validations, if the warning is not relevant.
+Update React Native Directory to include metadata for unknown packages. Alternatively, set expo.doctor.reactNativeDirectoryCheck.listUnknownPackages in package.json to false to skip warnings about packages with no metadata, if the warning is not relevant.
+
+5 checks failed, indicating possible issues with the project.

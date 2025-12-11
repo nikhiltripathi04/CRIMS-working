@@ -10,7 +10,7 @@ import {
     Platform,
     StatusBar
 } from 'react-native';
-import { AntDesign } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -57,7 +57,7 @@ export default function NextScreen({ navigation, onComplete }) {
                         style={styles.nextButton}
                         onPress={handleComplete}
                     >
-                        <AntDesign name="arrowright" size={24} color="white" />
+                        <Ionicons name="arrow-forward" size={24} color="white" />
                     </TouchableOpacity>
                 </View>
             </View>

@@ -1,0 +1,102 @@
+Running 17 checks on your project...
+11/17 checks passed. 6 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check for common project setup issues
+The .expo directory is not ignored by Git. It contains machine-specific device history and development server settings and should not be committed.
+Advice:
+Add ".expo/" to your .gitignore to avoid committing local Expo state.
+
+✖ Check dependencies for packages that should not be installed directly
+The package "expo-modules-core" should not be installed directly in your project. You should instead use the exported API from the expo package.
+Advice:
+Remove these packages from your package.json.
+
+✖ Check that no duplicate dependencies are installed
+Your project contains duplicate native module dependencies, which should be de-duplicated.
+Native builds may only contain one version of any given native module, and having multiple versions of a single Native module installed may lead to unexpected build errors.
+Found duplicates for react-native:
+  ├─ react-native@0.81.5 (at: node_modules\react-native)
+  └─ react-native@0.79.7 (at: node_modules\expo-mlkit-ocr\node_modules\react-native)
+Found duplicates for react-native-safe-area-context:
+  ├─ react-native-safe-area-context@5.6.0 (at: node_modules\react-native-safe-area-context)
+  └─ react-native-safe-area-context@4.5.0 (at: node_modules\react-native-calendars\node_modules\react-native-safe-area-context)
+Advice:
+Resolve your dependency issues and deduplicate your dependencies. Learn more: https://expo.fyi/resolving-dependency-issues
+
+✖ Check for app config fields that may not be synced in a non-CNG project
+This project contains native project folders but also has native configuration properties in app.json, indicating it is configured to use Prebuild. When the android/ios folders are present, EAS Build will not sync the following properties: orientation, icon, scheme, userInterfaceStyle, ios, android, plugins, androidStatusBar. 
+
+
+✖ Validate packages against React Native Directory package metadata
+The following issues were found when validating your dependencies against React Native Directory:
+  Untested on New Architecture: react-native-fs
+  Unmaintained: react-native-fs, react-native-mlkit-ocr
+  No metadata available: expo-mlkit-ocr, react-native-vector-icons
+Advice:
+Use libraries that are actively maintained and support the New Architecture. Find alternative libraries with https://reactnative.directory.
+Add packages to expo.doctor.reactNativeDirectoryCheck.exclude in package.json to selectively skip validations, if the warning is not relevant.
+Update React Native Directory to include metadata for unknown packages. Alternatively, set expo.doctor.reactNativeDirectoryCheck.listUnknownPackages in package.json to false to skip warnings about packages with no metadata, if the warning is not relevant.
+
+✖ Check that packages match versions required by installed Expo SDK
+
+🔧 Patch version mismatches
+package                expected  found    
+expo                   ~54.0.27  54.0.23  
+expo-av                ~16.0.8   16.0.7   
+expo-blur              ~15.0.8   15.0.7   
+expo-build-properties  ~1.0.10   1.0.9    
+expo-camera            ~17.0.10  17.0.9   
+expo-constants         ~18.0.11  18.0.10  
+expo-dev-client        ~6.0.20   6.0.17   
+expo-document-picker   ~14.0.8   14.0.7   
+expo-file-system       ~19.0.20  19.0.17  
+expo-font              ~14.0.10  14.0.9   
+expo-haptics           ~15.0.8   15.0.7   
+expo-image             ~3.0.11   3.0.10   
+expo-image-picker      ~17.0.9   17.0.8   
+expo-linear-gradient   ~15.0.8   15.0.7   
+expo-linking           ~8.0.10   8.0.8    
+expo-location          ~19.0.8   19.0.7   
+expo-media-library     ~18.2.1   18.2.0   
+expo-modules-core      ~3.0.28   3.0.25   
+expo-router            ~6.0.17   6.0.14   
+expo-splash-screen     ~31.0.12  31.0.10  
+expo-status-bar        ~3.0.9    3.0.8    
+expo-symbols           ~1.0.8    1.0.7    
+expo-system-ui         ~6.0.9    6.0.8    
+expo-video             ~3.0.15   3.0.14   
+expo-web-browser       ~15.0.10  15.0.9   
+
+Changelogs:
+- expo-av → https://github.com/expo/expo/blob/sdk-54/packages/expo-av/CHANGELOG.md
+- expo-blur → https://github.com/expo/expo/blob/sdk-54/packages/expo-blur/CHANGELOG.md
+- expo-build-properties → https://github.com/expo/expo/blob/sdk-54/packages/expo-build-properties/CHANGELOG.md
+- expo-camera → https://github.com/expo/expo/blob/sdk-54/packages/expo-camera/CHANGELOG.md
+- expo-constants → https://github.com/expo/expo/blob/sdk-54/packages/expo-constants/CHANGELOG.md
+- expo-dev-client → https://github.com/expo/expo/blob/sdk-54/packages/expo-dev-client/CHANGELOG.md
+- expo-document-picker → https://github.com/expo/expo/blob/sdk-54/packages/expo-document-picker/CHANGELOG.md
+- expo-file-system → https://github.com/expo/expo/blob/sdk-54/packages/expo-file-system/CHANGELOG.md
+- expo-font → https://github.com/expo/expo/blob/sdk-54/packages/expo-font/CHANGELOG.md
+- expo-haptics → https://github.com/expo/expo/blob/sdk-54/packages/expo-haptics/CHANGELOG.md
+- expo-image → https://github.com/expo/expo/blob/sdk-54/packages/expo-image/CHANGELOG.md
+- expo-image-picker → https://github.com/expo/expo/blob/sdk-54/packages/expo-image-picker/CHANGELOG.md
+- expo-linear-gradient → https://github.com/expo/expo/blob/sdk-54/packages/expo-linear-gradient/CHANGELOG.md
+- expo-linking → https://github.com/expo/expo/blob/sdk-54/packages/expo-linking/CHANGELOG.md
+- expo-location → https://github.com/expo/expo/blob/sdk-54/packages/expo-location/CHANGELOG.md
+- expo-media-library → https://github.com/expo/expo/blob/sdk-54/packages/expo-media-library/CHANGELOG.md
+- expo-modules-core → https://github.com/expo/expo/blob/sdk-54/packages/expo-modules-core/CHANGELOG.md
+- expo-router → https://github.com/expo/expo/blob/sdk-54/packages/expo-router/CHANGELOG.md
+- expo-splash-screen → https://github.com/expo/expo/blob/sdk-54/packages/expo-splash-screen/CHANGELOG.md
+- expo-status-bar → https://github.com/expo/expo/blob/sdk-54/packages/expo-status-bar/CHANGELOG.md
+- expo-symbols → https://github.com/expo/expo/blob/sdk-54/packages/expo-symbols/CHANGELOG.md
+- expo-system-ui → https://github.com/expo/expo/blob/sdk-54/packages/expo-system-ui/CHANGELOG.md
+- expo-video → https://github.com/expo/expo/blob/sdk-54/packages/expo-video/CHANGELOG.md
+- expo-web-browser → https://github.com/expo/expo/blob/sdk-54/packages/expo-web-browser/CHANGELOG.md
+
+25 packages out of date.
+Advice:
+Use 'npx expo install --check' to review and upgrade your dependencies.
+To ignore specific packages, add them to "expo.install.exclude" in package.json. Learn more: https://expo.fyi/dependency-validation
+
+6 checks failed, indicating possible issues with the project.
