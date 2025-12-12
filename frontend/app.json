@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.feathrtech.ConERP",
+      "bundleIdentifier": "com.feathrtech.frontend",
       "buildNumber": "2.0.1",
       "infoPlist": {
         "NSCameraUsageDescription": "This app requires camera access to allow you to take and upload photos.",
@@ -24,7 +24,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.feathrtech.ConERP",
+      "package": "com.feathrtech.CRIMS",
       "versionCode": 3
     },
     "web": {
