@@ -206,15 +206,29 @@ const SupervisorMessageScreen = () => {
 
             if (media) {
                 const localUri = media.uri;
-                const filename = localUri.split('/').pop() || (media.type === 'image' ? 'image.jpg' : 'video.mp4');
+                // Ensure filename has an extension
+                let filename = localUri.split('/').pop();
                 const match = /\.(\w+)$/.exec(filename);
-                let type = match ? `${media.type === 'image' ? 'image' : 'video'}/${match[1]}` : (media.type === 'image' ? 'image/jpeg' : 'video/mp4');
+                let ext = match ? match[1].toLowerCase() : (media.type === 'image' ? 'jpg' : 'mp4');
 
-                // Correction for jpg
-                if (type === 'image/jpg') type = 'image/jpeg';
+                // If default filename from picker doesn't have extension, append one
+                if (!match) {
+                    filename = `${filename}.${ext}`;
+                }
 
-                // NOTE: The backend expects 'video' field name for the file, even if it is an image
-                // because it uses a generic upload handler.
+                // Determine basic mime type
+                let type = media.type === 'image' ? `image/${ext}` : `video/${ext}`;
+
+                // Fix common iOS video mime type
+                if (ext === 'mov') {
+                    type = 'video/quicktime';
+                }
+                // Fix common image mime type
+                if (type === 'image/jpg') {
+                    type = 'image/jpeg';
+                }
+
+                // NOTE: The backend expects 'video' field name for the file
                 formData.append('video', { uri: localUri, name: filename, type });
             }
 

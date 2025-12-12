@@ -38,6 +38,8 @@ const AdminMessagesScreen = () => {
     // Playback State
     const [playbackModalVisible, setPlaybackModalVisible] = useState(false);
     const [playbackVideoUrl, setPlaybackVideoUrl] = useState(null);
+    const [fullImageModalVisible, setFullImageModalVisible] = useState(false);
+    const [fullImageUrl, setFullImageUrl] = useState(null);
 
     // Fetch all messages
     const fetchMessages = useCallback(async () => {
@@ -114,6 +116,11 @@ const AdminMessagesScreen = () => {
         Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
     };
 
+    const showImage = (url) => {
+        setFullImageUrl(url);
+        setFullImageModalVisible(true);
+    };
+
     const renderConversationItem = ({ item }) => (
         <TouchableOpacity style={styles.conversationItem} onPress={() => handleSelectConversation(item)}>
             <View style={styles.avatar}>
@@ -134,45 +141,78 @@ const AdminMessagesScreen = () => {
         </TouchableOpacity>
     );
 
-    const renderMessageItem = ({ item }) => (
-        <View style={styles.messageRow}>
-            <View style={styles.messageBubble}>
-                {item.videoUrl && (
-                    <View style={styles.mediaContainer}>
-                        <TouchableOpacity
-                            style={styles.videoThumbnail}
-                            onPress={() => playVideo(item.videoUrl)}
-                        >
-                            <View style={styles.videoOverlay}>
-                                <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
-                            </View>
-                        </TouchableOpacity>
+    const renderMessageItem = ({ item }) => {
+        // Determine media type
+        let isVideo = false;
+        let isImage = false;
 
-                        <View style={styles.mediaFooter}>
-                            <Text style={styles.mediaText}>Video Message</Text>
+        if (item.videoUrl) {
+            // Check extensions or assume based on usage
+            // The backend now enforces mp4 for videos, so .mp4 is definitely video
+            // But we also check for common image extensions just in case
+            const url = item.videoUrl.toLowerCase();
+            if (url.endsWith('.mp4') || url.endsWith('.mov') || url.includes('/video/')) {
+                isVideo = true;
+            } else {
+                isImage = true;
+            }
+        }
+
+        return (
+            <View style={styles.messageRow}>
+                <View style={styles.messageBubble}>
+                    {item.videoUrl && isVideo && (
+                        <View style={styles.mediaContainer}>
                             <TouchableOpacity
-                                style={styles.downloadBtn}
-                                onPress={() => downloadVideo(item.videoUrl)}
+                                style={styles.videoThumbnail}
+                                onPress={() => playVideo(item.videoUrl)}
                             >
-                                <Ionicons name="download-outline" size={20} color="#007bff" />
+                                <View style={styles.videoOverlay}>
+                                    <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={styles.mediaFooter}>
+                                <Text style={styles.mediaText}>Video Message</Text>
+                                <TouchableOpacity
+                                    style={styles.downloadBtn}
+                                    onPress={() => downloadVideo(item.videoUrl)}
+                                >
+                                    <Ionicons name="download-outline" size={20} color="#007bff" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+
+                    {item.videoUrl && isImage && (
+                        <View style={styles.mediaContainer}>
+                            <TouchableOpacity
+                                style={styles.imageThumbnailContainer}
+                                onPress={() => showImage(item.videoUrl)}
+                            >
+                                <Image
+                                    source={{ uri: item.videoUrl }}
+                                    style={styles.imageThumbnail}
+                                    resizeMode="cover"
+                                />
                             </TouchableOpacity>
                         </View>
+                    )}
+
+                    {item.content ? (
+                        <Text style={styles.messageText}>{item.content}</Text>
+                    ) : null}
+
+                    <View style={styles.metaContainer}>
+                        <Text style={styles.messageTime}>
+                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        {item.videoUrl && <Ionicons name="videocam" size={12} color="#999" style={{ marginLeft: 4 }} />}
                     </View>
-                )}
-
-                {item.content ? (
-                    <Text style={styles.messageText}>{item.content}</Text>
-                ) : null}
-
-                <View style={styles.metaContainer}>
-                    <Text style={styles.messageTime}>
-                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    {item.videoUrl && <Ionicons name="videocam" size={12} color="#999" style={{ marginLeft: 4 }} />}
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     const filteredConversations = conversations.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -234,6 +274,28 @@ const AdminMessagesScreen = () => {
                                 />
                             )}
                         </View>
+                    </View>
+                </Modal>
+
+                {/* FULL IMAGE MODAL */}
+                <Modal visible={fullImageModalVisible} animationType="fade" transparent={true}>
+                    <View style={styles.playbackModalContainer}>
+                        <TouchableOpacity
+                            style={styles.closePlaybackButton}
+                            onPress={() => {
+                                setFullImageModalVisible(false);
+                                setFullImageUrl(null);
+                            }}
+                        >
+                            <Ionicons name="close" size={30} color="#fff" />
+                        </TouchableOpacity>
+                        {fullImageUrl && (
+                            <Image
+                                source={{ uri: fullImageUrl }}
+                                style={styles.fullImage}
+                                resizeMode="contain"
+                            />
+                        )}
                     </View>
                 </Modal>
             </View>
@@ -440,7 +502,12 @@ const styles = StyleSheet.create({
         right: 20,
         zIndex: 10,
         padding: 10
-    }
+    },
+
+    // Image items
+    imageThumbnailContainer: { width: '100%', height: 200, backgroundColor: '#eee' },
+    imageThumbnail: { width: '100%', height: '100%' },
+    fullImage: { width: '100%', height: '80%' }
 });
 
 export default AdminMessagesScreen;

@@ -9,8 +9,9 @@ const { upload, cloudinary } = require('../config/cloudinaryConfig');
 const uploadToCloudinary = (buffer, folder = 'crims_videos') => {
     return new Promise((resolve, reject) => {
         // resource_type: "auto" handles both images and videos
+        // format: "mp4" forces transcoding to standard MP4 container
         const stream = cloudinary.uploader.upload_stream(
-            { folder: folder, resource_type: "auto" },
+            { folder: folder, resource_type: "auto", format: "mp4" },
             (error, result) => {
                 if (error) return reject(error);
                 resolve(result);
