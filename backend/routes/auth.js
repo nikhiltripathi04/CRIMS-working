@@ -606,6 +606,60 @@ router.get('/company-admins', async (req, res) => {
   }
 });
 
+// ✅ DELETE Company Admin (Company Owner only)
+router.delete('/company-admins/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ownerId } = req.query;
+
+    if (!ownerId) {
+      return res.status(400).json({ success: false, message: 'Owner ID is required' });
+    }
+
+    // Verify owner
+    const owner = await User.findById(ownerId);
+    if (!owner || owner.role !== 'company_owner') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Find admin to delete
+    const adminToDelete = await User.findOne({ _id: id, role: 'admin' });
+    if (!adminToDelete) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    // Verify admin belongs to same company
+    if (adminToDelete.companyId.toString() !== owner.companyId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Cannot delete admin from another company' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    // Log activity
+    try {
+      await ActivityLogger.logActivity(
+        id,
+        'admin_deleted',
+        req.user,
+        {
+          deletedAdminUsername: adminToDelete.username,
+          deletedBy: ownerId
+        },
+        `Admin "${adminToDelete.username}" deleted by company owner`,
+        'User'
+      );
+    } catch (logErr) {
+      console.error('Failed to log admin deletion:', logErr);
+    }
+
+    res.json({ success: true, message: 'Admin deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting admin:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete admin' });
+  }
+});
+
 // ✅ CHANGE Password (Authenticated User)
 router.post('/change-password', async (req, res) => {
   try {
